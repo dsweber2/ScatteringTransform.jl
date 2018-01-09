@@ -1,4 +1,13 @@
 # tests for the various forms of layeredTransform for the ShatteringTransform
+using ScatteringTransform
+using Shearlab, Interpolations, Wavelets, JLD, MAT, Plots, LaTeXStrings
+# scattered2D tests
+X=randn(1024)
+lT = layeredTransform(2,randn(1024,1024))
+Shearlab.SLsheardec2D(X,lT.shears[1])
+scattered2D(2,[1024,512,128],[1024,512,128], [2,17,17],Complex128)
+
+scattered2D(lT)
 layeredTransform(3,1000,1000,[3 for i=1:4],[1.0, 1.0, 1.0, 1.0])
 X = randn(1000,1000)
 layeredTransform(2,X,[2 for i=1:3], [2 for i=1:3])
@@ -11,12 +20,21 @@ layeredTransform(X,2)
 layeredTransform(2,X)
 
 # tests for the various forms of layeredTransform for the 1D ContinuousWaveletClass transforms
-f = randn(1000)
+f = randn(10214)
+m=3
+layeredTransform(m, f, subsampling=[8,4,2,1], nScales=[16,8,8,8], CWTType=WT.dog2, averagingLength=[16,4,4,2],averagingType=[:Mother for i=1:(m+1)],boundary=[WT.DEFAULT_BOUNDARY for i=1:(m+1)])
 layeredTransform(3, length(f), [2, 2, 2, 2], [2, 2, 2, 2], WT.dog2)
 layeredTransform(3, length(f), 8, [2, 2, 2, 2], WT.dog2)
 layeredTransform(3, length(f), [2, 2, 2, 2], 2, WT.dog2)
 layeredTransform(3, length(f), 8, 2, WT.dog2)
 
+layers = layeredTransform(3, length(f), 8, 4)
+# plot(abs.(ψ'))
+cwt(f,layers.shears[1])
+
+results = scattered1D(layers,f)
+[(1:3)';(4:6)';(7:9)']
+reshape([(1:3)';(4:6)';(7:9)'],(9))
 layeredTransform(3, f, [2, 2, 2, 2], [2, 2, 2, 2], WT.dog2)
 layeredTransform(3, f, 8, [2, 2, 2, 2], WT.dog2)
 layeredTransform(3, f, [2, 2, 2, 2], 2, WT.dog2)
@@ -49,6 +67,71 @@ layeredTransform(3,f)
 
 # scratch
 
+X = testfunction(1532, "HeaviSine")
+layers = layeredTransform(3, X, 8, [8,4,2,1])
+nonlinear = abs
+subsam = bspline
+
+results = scattered1D(layers, X)
+# for (i,layer) in enumerate(layers.shears)
+  # println("layer $i $layer")
+# end
+i=1
+cur = results.data[i]
+λ=1
+output=cwt(cur[:,λ], layers.shears[i])'
+innput = output[:,1]
+using ScatteringTransform
+using Shearlab, Interpolations, Wavelets, JLD, MAT, Plots, LaTeXStrings
+bspline(innput,8)
+itp = interpolate(innput, BSpline(Quadratic(Reflect())), OnGrid())
+itp[linspace(1,length(innput),floor(length(innput)./8))]
+
+bspline(output[:,1], layers.subsampling[i])
+bspline(X, layers.subsampling[i])
+j=1
+results.data[i+1][:,(λ-1)*(size(output,2)-1)+j] = nonlinear.(subsam(output[:,j], layers.subsampling[i]))
+for (i,layer) in enumerate(layers.shears)
+  cur = results.data[i] #data from the previous layer
+  if i<=layers.m
+    # println("i=$i")
+    for λ = 1:size(cur,2)
+      # first perform the continuous wavelet transform on the data from the previous layer
+      output = cwt(cur[:,λ], layers.shears[i])'
+      # subsample each example, then apply the non-linearity
+      for j = 1:size(output,2)-1
+        if subsam== bspline
+          # println("accessing results.data at i+1=$(i+1), [:,$((λ-1)*(size(output,2)-1)+j)], j=$j")
+          results.data[i+1][:,(λ-1)*(size(output,2)-1)+j] = nonlinear.(subsam(output[:,j], layers.subsampling[i]))
+        else
+          error("the function $subsam isn't defined as a subsampling method at the moment")
+        end
+      end
+      # println("accessing results.output at $i, [:,$λ]")
+      results.output[i][:,λ] = Array{Float64,1}(real(subsam(output[:,end], layers.subsampling[i])))
+    end
+  else
+    # TODO: This is not an efficient implementation to get the last layer of output. There are several places where m+1 is substituted for m in the definition of shears to accomodate it. Data is shrunk by a layer in the sheared array
+    println("i too big i=$(i)")
+    for λ = 1:size(cur,3)
+      output = cwt(cur[:,λ], layers.shears[i])'
+      results.output[i][:,λ] = Array{Float64,1}(real(subsam(output[:,end], layers.subsampling[i])))
+    end
+  end
+end
+
+
+
+results
+@time output = st(X, layers)
+output2 = st(randn(1532), layers)
+heatmap(max.(-10,log.( abs.(output.data[2]))))
+plot(abs.(output.output[1]))
+heatmap(max.(-100,log.(abs.(output.output[2]))))
+heatmap(max.(-100,log.(abs.(output.output[3]))))
+heatmap(max.(-100,log.(abs.(output.output[4]))))
+heatmap(max.(-100,log.(abs.(output2.output[4]))))
+heatmap(abs.(output.data[2]))
 
 x0 = testfunction(1532, "HeaviSine")
 t= -10:.01:10

@@ -1,8 +1,7 @@
 # This file contains mostly random utilities
+# TODO: make a way of accessing based on a path, especially in the 1D case
+# TODO: make the matrix aggrigator only take the output array
 
-logabs(x)=log.(abs.(x))
-ReLU(x::Array{Float64}) = max(0,x)
-ReLU(x::Float64) = max(0,x)
 """
     numberSkipped(m::Int64, n::Int64, layers::layeredTransform)
 
@@ -93,6 +92,71 @@ function reshapeFlattened(mat::Array{Float64,1},layers::layeredTransform)
   return reshape(mat,outputSize[end])
 end
 
-function reshapeFlattened(mat::Array{Float64},sheared::shearedArray)
-  return reshape(mat, size(output.output[end]))
+function reshapeFlattened(mat::Array{Float64}, sheared::S) where S<:scattered
+  return reshape(mat, size(sheared.output[end]))
 end
+
+"""
+
+given the (relative) name of a folder and a layered transform, it will load (using a user defined function, which should output data so each column is an example) and transform the entire folder, and save the output into a similarly structured set of folders in destFolder. If separate is true, it will also save a file containing just the scattered coefficients from all inputs.
+"""
+function transformFolder(sourceFolder::String, destFolder::String, layers::layeredTransform, separate::Bool; loadThis::Function=loadSyntheticMatFile, nonlinear::Function=abs, subsam::Function=bspline, stType::String="full")
+  addprocs(14)
+  for (root, dirs, files) in walkdir(sourceFolder)
+    for dir in dirs
+      mkpath(joinpath(destFolder,dir))
+    end
+    println(root)
+    for file in files
+      # data is expected as *column* vectors
+      (fullMatrix,hasContents) = loadThis(joinpath(root,file))
+      if hasContents
+        # result = Vector{scattered1D{Complex128}}(size(fullMatrix,2))
+        result = Vector{scattered1D{Complex128}}(size(fullMatrix,2))
+        @parallel for i = 1:size(fullMatrix,1)
+        # for i = 1:size(fullMatrix,1)
+          result[i] = st(fullMatrix[i,:],layers, nonlinear=nonlinear, subsam=subsam, stType=stType)
+        end
+        root[end-+1:end]
+        println("saving to $(joinpath(destFolder, relpath(root,sourceFolder),"$(file).jld"))")
+        save(joinpath(destFolder, relpath(root,sourceFolder),"$(file).jld"), "result", result)
+      end
+    end
+  end
+  println("saving settings to $(joinpath(destFolder,"settings.jld"))")
+  save(joinpath(destFolder,"settings.jld"),"layers", layers)
+  return
+end
+
+function loadSyntheticMatFile(datafile::String)
+  hasContents = (datafile[end-3:end]==".mat")
+  if hasContents
+    wef = matread(datafile)
+    return (wef["resp"]', hasContents)
+  else
+    return ([0.0 0.0;0.0 0.0], hasContents)
+  end
+end
+
+"""
+
+  given a scattered1D, it produces a single vector containing the entire transform in order, i.e. the same format as output by thinSt
+"""
+function flatten(results::scattered1D{T}) where T<:Number
+  concatOutput = Vector{Float64}(sum([prod(size(x)) for x in results.output]))
+  outPos = 1
+  for curLayer in results.output
+    sizeTmpOut = prod(size(curLayer))
+    concatOutput[outPos+(0:sizeTmpOut-1)] = reshape(curLayer, (sizeTmpOut))
+    outPos += sizeTmpOut
+  end
+  concatOutput
+end
+
+# 
+# """
+#
+#   given a path p and a flattened scattering transform flat, return the transform of that row.
+# """
+# function findp(flat::Vector{T}, p::Vector{S}, layers::layeredTransform) where {T <: Number, S<:Integer}
+#

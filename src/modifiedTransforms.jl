@@ -48,6 +48,26 @@ function wavelet(c::W, s::S, averagingType::Symbol, boundary::WT.WaveletBoundary
 end
 
 
+"""
+    totalN = numScales(c::CFWA,n::S) where S<:Integer
+given a CFWA structure and the size of a vector it is acting on, return the number of transformed elements, including the averaging layer
+"""
+function numScales(c::CFWA, n::S) where S<:Integer
+
+    J1=floor(Int64,(log2(n)-2)*c.scalingFactor)
+    #....construct time series to analyze, pad if necessary
+    if eltypes(c) == WT.padded
+        base2 = round(Int,log(n)/log(2));   # power of 2 nearest to N
+        n = n+2^(base2+1)-n
+    elseif eltypes(c) == WT.DEFAULT_BOUNDARY
+        n= 2*n
+    else
+        n=n
+    end
+
+    return J1+2-c.averagingLength
+end
+
 name(s::CFW) = s.name
 """
     daughter = Daughter(this::CFW, s::Real, ω::Array{Float64,1})
@@ -107,15 +127,17 @@ function findAveraging(c::CFWA{W}, ω::Vector{Float64}) where W<:WT.WaveletBound
     return averaging
 end
 """
-wave = cwt(Y::AbstractArray{T}, c::CFWA{W}, averagingLength::Int64; J1::S=NaN, averagingType::Symbol=:Mother) where {T<:Real, S<:Real, W<:WT.WaveletBoundary}
+wave = cwt(Y::AbstractArray{T}, c::CFWA{W}, averagingLength::Int64; J1::S=NaN, averagingType::Symbol=:Mother) where {T<:Number, S<:Real, W<:WT.WaveletBoundary}
 
 return the continuous wavelet transform with averaging wave, which is (nscales+1)×(signalLength), of type T of Y. The extra parameter averagingLength defines the number of scales of the standard cwt that are replaced by an averaging function. This has form averagingType, which can be one of :Mother or :Dirac- in the :Mother case, it uses the same form as for the daughters, while the dirac uses a constant. J1 is the total number of scales; default (when J1=NaN, or is negative) is just under the maximum possible number, i.e. the log base 2 of the length of the signal, times the number of wavelets per octave. If you have sampling information, you will need to scale wave by δt^(1/2).
 """
-function cwt(Y::AbstractArray{T}, c::CFWA{W}; J1::S=NaN) where {T<:Real, S<:Real, W<:WT.WaveletBoundary}
+function cwt(Y::AbstractArray{T}, c::CFWA{W}; J1::S=NaN) where {T<:Number, S<:Real, W<:WT.WaveletBoundary}
     n1 = length(Y);
     # J1 is the total number of elements
-    if isnan(J1) || (J1<0)
-        J1=floor(Int64,(log2(n1))*c.scalingFactor);
+    if (isnan(J1) || (J1<0)) && c.name!="morl"
+        J1=floor(Int64,(log2(n1)-2)*c.scalingFactor);
+    elseif isnan(J1) || (J1<0)
+        J1=floor(Int64,(log2(n1)-2)*c.scalingFactor);
     end
     #....construct time series to analyze, pad if necessary
     if eltypes(c) == WT.padded
@@ -153,8 +175,10 @@ end
 """
 function getScales(n1::Int64, c::CFWA{W}; J1::S=NaN) where {S<:Real, W<:WT.WaveletBoundary}
     # J1 is the total number of elements
-    if isnan(J1) || (J1<0)
+    if (isnan(J1) || (J1<0)) && c.name!="morl"
         J1=floor(Int64,(log2(n1))*c.scalingFactor);
+    elseif isnan(J1) || (J1<0)
+        J1=floor(Int64,(log2(n1)-2)*c.scalingFactor);
     end
     #....construct time series to analyze, pad if necessary
     if eltypes(c) == WT.padded
@@ -179,3 +203,4 @@ function getScales(n1::Int64, c::CFWA{W}; J1::S=NaN) where {S<:Real, W<:WT.Wavel
 
     return (daughters,ω)
 end
+getScales(c::CFWA{W}, n1::Int64; J1::S=NaN) where {S<:Real, W<:WT.WaveletBoundary} = getScales(n1, c; J1=J1)

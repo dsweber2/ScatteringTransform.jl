@@ -4,20 +4,19 @@
 # biliniear: resample on a grid with the specified rate, using a linear interpolation in both x and y between the 4 points. 2D only
 # bspline: uses a quadratic bspline interpolation from the julia package Interpolations
 # linear: resample on a grid with the specified rate using linear interpolation. 1D only
-using Interpolations
 import Base.maximum
 # Define the maximum of a complex number to be the complex number with largest magnitude
 maximum(A::Matrix{Complex{Float64}}) = A[indmax(abs(A))]
 maximum(A::Array{Complex{Float64}}) = A[indmax(abs(A))]
 
-# This one naively implements the sort of max pooling used in the CNN literature, and seems to have aliasing issues
+# # This one naively implements the sort of max pooling used in the CNN literature, and seems to have aliasing issues
 """
-    output = maxPooling(input::Array{Complex128,2}, rate::Float64)
+    output = maxPooling(input::Array{T,2}, rate::Float64) where T<: Number
 """
-function maxPooling(input::Array{Complex128,2}, rate::Float64)
+function maxPooling(input::Array{T,2}, rate::Float64) where T<: Number
   rows = Int32(ceil(size(input,1)./2.0))
   cols = Int32(ceil(size(input,2)./2.0))
-  output = zeros(Complex128,rows,cols)
+  output = zeros(T,rows,cols)
   for i=1:rows-1, j=1:cols-1
     rowcoord = Int64(floor(rate*(i-1)))+1:Int64(floor(rate*i))
     colcoord = Int64(floor(rate*(j-1)))+1:Int64(floor(rate*j))
@@ -45,7 +44,7 @@ function maxPooling(input::Array{Complex128,2}, rate::Float64)
 end
 
 """
-    output = bilinear(input::Array{Complex128,2}, rate::Float64)
+    output = bilinear(input::Array{S,2}, rate::T) where {S<:Number,T<:Real}
 
   Use linear interpolation to evaluate the points off-grid for a2D scattering transform.
 """
@@ -82,12 +81,27 @@ end
 function bspline(input::Array{S,1}, rate::T) where {S<:Number, T<:Real}
   @assert rate>=1
   itp = interpolate(input,BSpline(Quadratic(Reflect())), OnGrid())
-  itp[inspace(1,length(input),floor(length(input)./64))]
+  itp[linspace(1,length(input),floor(length(input)./rate))]
 end
-using Interpolations
-t=-1:.001:1
-x=1-t.^2+t.^3
-itp = interpolate(x, BSpline(Quadratic(Reflect())), OnGrid())
-plot(linspace(1,length(x),floor(length(x)./64)),itp[linspace(1,length(x),floor(length(x)./64))])
-plot!(x)
-using Plots
+# TODO: figure out what's wrong with Quadratic(Reflect() and re-implement it
+
+"""
+  subsamp = sizes(func::Function, rate::Array{T,1}, sizeX::Tuple{Int64}) where T<:Real
+
+  given a subsampling rate, a function func, and an initial size tuple sizeX, return an array of sizes as used by the scattering(1,2)D constructors
+"""
+function sizes(func::Function, rate::Array{T}, sizeX::Int64) where T<:Real
+  if func == bspline
+    subsamp = zeros(Int,length(rate)+1); subsamp[1] = sizeX[1]
+    for (i,rat) in enumerate(rate)
+      subsamp[i+1] = floor(Int, subsamp[i]./rat)
+    end
+  elseif func == bilinear
+    subsamp = [Int64( foldl((x,y)->ceil(x/y), sizeX, rate[1:i])) for i=0:length(rate)-1]
+  else
+    error("Sorry, that hasn't been implemented yet")
+  end
+  subsamp
+end
+# TODO: make the 2D version of this
+# sizes(bspline, [2 2 2], size(x))

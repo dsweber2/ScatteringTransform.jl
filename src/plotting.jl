@@ -3,6 +3,7 @@
 # PLOTTING
 ########################################################
 ########################################################
+# TODO: make a way of plotting 1D methods
 """
 plotShattered(sheared::Array{Float64,3}, layers::layeredTransform; m=2, p=2, scale=:log, saveTo="",title="Shattering Transform Coefficients")
 
@@ -31,12 +32,12 @@ function plotShattered(output::Array{Float64,3}, layers::layeredTransform; m=2, 
 end
 
 """
-plotShattered(sheared::shearedArray, layers::layeredTransform; m=2, p=2, scale=:log, saveTo="",title="Shattering Transform Coefficients")
+plotShattered(sheared::S, layers::layeredTransform; m=2, p=2, scale=:log, saveTo="",title="Shattering Transform Coefficients") where S<: scattered
 
 Given a shattering transform and a layeredTransform of at least depth 2, it plots the magnitude in each coefficient .
 Given a classifier and a layeredTransform, it plots
 """
-function plotShattered(sheared::shearedArray, layers::layeredTransform; m=2, p=2, scale=:log, saveTo="",title="Shattering Transform Coefficients", aspect_ratio=1)
+function plotShattered(sheared::S, layers::layeredTransform; m=2, p=2, scale=:log, saveTo="",title="Shattering Transform Coefficients", aspect_ratio=1) where S<:scattered
   plotShattered(sheared.output[m+1], layers, m=m, p=p, scale=scale, saveTo=saveTo, title=title,aspect_ratio=aspect_ratio)
 end
 
@@ -44,7 +45,7 @@ end
 """
     plotCoordinate(index::Vector{Array{Int64,1}}, m::Array{Int64}, layers::layeredTransform; fun=logabs, saveTo="")
 
-given an index as listed in layers (starting with the second first), and a depth m, plot the corresponding shearlets, or if also given a shearedArray, plot the actual output for that coordinate. fun should be either abs, real, or imag
+given an index as listed in layers (starting with the second first), and a depth m, plot the corresponding shearlets, or if also given a scatteredND, plot the actual output for that coordinate. fun should be either abs, real, or imag
 """
 function plotCoordinate(index::Vector{Array{Int64,1}}, m::Array{Int64}, layers::layeredTransform; fun=logabs, saveTo="")
   i=1
@@ -66,7 +67,7 @@ function plotCoordinate(index::Vector{Array{Int64,1}}, m::Array{Int64}, layers::
   return plt
 end
 
-function plotCoordinate(index::Vector{Array{Int64,1}}, m::Int64, layers::layeredTransform, sheared::shearedArray; fun=abs, title="", scale=:none, saveTo="")
+function plotCoordinate(index::Vector{Array{Int64,1}}, m::Int64, layers::layeredTransform, sheared::S; fun=abs, title="", scale=:none, saveTo="") where S<:scattered
   # i is the index from the first to the last
   i=[1 for j=1:m]
   for j=1:m
