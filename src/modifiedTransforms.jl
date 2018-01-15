@@ -1,7 +1,8 @@
+using Wavelets
 import Wavelets.cwt
 import Wavelets.wavelet
 import Wavelets.eltypes
-
+wavelet(WT.morl,3.5)
 # define a type for averaging continuous wavelets
 struct CFWA{T} <: ContinuousWavelet{T}
     scalingFactor  ::Float64 # the number of wavelets per octave, ie the scaling is s=2^(j/scalingfactor)
@@ -138,6 +139,10 @@ function cwt(Y::AbstractArray{T}, c::CFWA{W}; J1::S=NaN) where {T<:Number, S<:Re
         J1=floor(Int64,(log2(n1)-2)*c.scalingFactor);
     elseif isnan(J1) || (J1<0)
         J1=floor(Int64,(log2(n1)-2)*c.scalingFactor);
+    end
+
+    if J1+2-c.averagingLength<=0
+        return Array{T}(0,0)
     end
     #....construct time series to analyze, pad if necessary
     if eltypes(c) == WT.padded

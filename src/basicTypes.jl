@@ -9,31 +9,6 @@ struct layeredTransform{T}
     layeredTransform{T}(m::Int64,shears::Array{T},subsampling::Array{Float64,1}) where T = new(m,shears,subsampling)
 end
 
-########################## Shearlet Transforms ##########################
-function layeredTransform(m::S, rows::S, cols::S, nScales::Array{S,1}, subsampling::Array{T,1}) where {T<:Real, S<:Integer}
-    @assert m+1==size(subsampling,1)
-    @assert m+1==size(nScales,1)
-
-    rows = sizes(bilinear,subsampling,(rows)) #TODO: if you add another subsampling method in 2D, this needs to change
-    cols = sizes(bilinear,subsampling,(cols)) #TODO: if you add another subsampling method in 2D, this needs to change
-    println("rows:$rows cols: $cols nScales: $nScales subsampling: $subsampling")
-    shears = [Shearlab.SLgetShearletSystem2D(rows[i], cols[i], nScales[i]) for (i,x) in enumerate(subsampling)]
-    layeredTransform{Shearlab.Shearletsystem2D}(m, shears, 1.0*subsampling)
-end
-
-# More convenient ways of defining the shattering
-layeredTransform(m::S, X::Array{T,2}, nScale::Array{U,1}, subsample::Array{V,1}) where {S<:Integer, T<:Real, U <: Integer, V<:Real} = layeredTransform(m, size(X)..., nScale, subsample)
-layeredTransform(m::S, X::Array{T,2}, nScale::Array{S,1}, subsample::S) where {S<:Integer, T<:Real} = layeredTransform(m, size(X)..., nScale, [subsample for i=1:(m+1)])
-layeredTransform(m::S, X::Array{T,2}, nScale::S, subsample::Array{S,1}) where {S<:Integer, T<:Real} = layeredTransform(m, size(X)..., [nScale for i=1:(m+1)], subsample)
-layeredTransform(m::S, X::Array{T,2}, nScale::S, subsample::S) where {S<:Integer, T<:Real} = layeredTransform(m, size(X)..., [nScale for i=1:(m+1)], [subsample for i=1:(m+1)])
-
-layeredTransform(m::S, X::Array{T,2}, nScale::Array{S,1}) where {S<:Integer, T<:Real} = layeredTransform(m, size(X)..., nScale, [2.0 for i=1:(m+1)])
-layeredTransform(m::S, X::Array{T,2}, nScale::S) where {S<:Integer, T <: Real} = layeredTransform(m, size(X)..., [nScale for i=1:(m+1)], [2 for i=1:(m+1)])
-
-layeredTransform(m::S, X::Array{T,2}) where {S<:Integer, T <: Real} = layeredTransform(m, size(X)..., [2 for i=1:(m+1)], [2 for i=1:(m+1)])
-layeredTransform(X::Array{T,2}, m::S) where {S<:Integer, T <: Real} = layeredTransform(m, size(X)..., [2 for i=1:(m+1)], [2 for i=1:(m+1)])
-
-
 
 
 
@@ -116,45 +91,6 @@ layeredTransform(m::S, X::Vector{U}) where {S<:Integer,U<:Real} = layeredTransfo
 abstract type scattered end
 
 
-struct scattered2D{T} <: scattered
-  m::Int64 # number of layers, counting the zeroth layer
-  data::Array{Array{T,3},1}
-  output::Array{Array{T,3},1} # The final averaged results; this is the output from the entire system
-  scattered2D{T}(m::Int64, data::Array{Array{T,3},1}, output::Array{Array{T,3},1}) where T<:Number = new{T}(m,data,output)
-end
-function scattered2D(m::Int64, n::Array{Int64,1}, p::Array{Int64,1}, q::Array{Int64,1},T::DataType)
-    @assert (m+1==length(n)) && (m+1==length(p))
-    @assert m+1==length(q)
-    scattered2D{T}(m+1, [zeros(T, n[i], p[i], prod(q[1:i]-1)) for i=1:m+1], [zeros(Complex128, n[i], p[i], prod(q[1:(i-1)]-1)) for i=1:m])
-end
-scattered2D(layers::layeredTransform) = scattered2D(layers.m, [layers.shears[i].size[1] for i=1:(layers.m+1)], [layers.shears[i].size[2] for i=1:(layers.m+1)], [size(layers.shears[i].shearlets, 3) for i=1:layers.m+1],Complex128)
-
-
-function scattered2D(layers::layeredTransform, X::Array{Complex128})
-    n = [layers.shears[1].size[1]; [layers.shears[i].size[1] for i=1:(layers.m+1)]]
-    p = [layers.shears[1].size[2]; [layers.shears[i].size[2] for i=1:(layers.m+1)]]
-    q = [size(layers.shears[i].shearlets,3) for i=1:layers.m+1]
-    zerr=[zeros(Complex128, n[i], p[i], prod(q[1:i-1]-1)) for i=1:layers.m+1]
-    zerr[1][:,:,1] = X
-    output = [zeros(Float64, n[i+1], p[i+1], prod(q[1:i]-1)) for i=1:layers.m+1]
-    new(layers.m, zerr, output,Complex128)
-end
-# TODO: these two should be the same... I believe the complex one is incorrect
-function scattered2D(layers::layeredTransform, X::Array{Float64})
-    n = [[layers.shears[i].size[1] for i=1:(layers.m+1)]; Int64(ceil.(layers.shears[end].size[1]/layers.subsampling[end]))] # layers.shears[1].size[1];
-    p = [[layers.shears[i].size[2] for i=1:(layers.m+1)]; Int64(ceil.(layers.shears[end].size[2]/layers.subsampling[end]))] # layers.shears[1].size[2];
-    q = [size(layers.shears[i].shearlets,3) for i=1:layers.m+1]
-    zerr=[zeros(Complex128, n[i], p[i], prod(q[1:i-1]-1)) for i=1:layers.m+1]
-    zerr[1][:,:,1] = X
-    output = [zeros(Float64, n[i+1], p[i+1], prod(q[1:i-1]-1)) for i=1:layers.m+1]
-    new(layers.m+1, zerr, output)
-end
-
-
-
-
-
-
 struct scattered1D{T} <: scattered
   m::Int64 # number of layers, counting the zeroth layer
   data::Array{Array{T,2},1} #first dimension is time, second is path/frequency
@@ -179,12 +115,12 @@ end
 
 function scattered1D(layers::layeredTransform, X::Array{T,1}, stType::String) where T <: Number
     n = sizes(bspline, layers.subsampling, length(X)) #TODO: if you add another subsampling method in 1D, this needs to change
-    q = [numScales(layers.shears[i],n[i]) for i=1:layers.m+1]
+    q = [numScales(layers.shears[i], n[i]) for i=1:layers.m+1]
     if stType=="full"
         zerr=[zeros(Complex{T}, n[i], prod(q[1:i-1]-1)) for i=1:layers.m+1]
         output = [zeros(Complex{T}, n[i+1], prod(q[1:i-1]-1)) for i=1:layers.m+1]
     elseif stType=="decreasing"
-        counts = zeros(Int64,m+1)
+        counts = zeros(Int64,layers.m+1)
         counts[1]=1
         for i=2:length(q)
           for a = 1:q[i-1]
@@ -196,8 +132,8 @@ function scattered1D(layers::layeredTransform, X::Array{T,1}, stType::String) wh
             end
           end
         end
-        zerr=[zeros(Complex{T}, n[i], counts) for i=1:layers.m+1]
-        output = [zeros(Complex{T}, n[i+1], prod(q[1:i-1]-1)) for i=1:layers.m+1]
+        zerr=[zeros(Complex{T}, n[i], counts[i]) for i=1:layers.m+1]
+        output = [zeros(Complex{T}, n[i+1], counts[i]) for i=1:layers.m+1]
     elseif stType=="collating"
         zerr=[zeros(Complex{T}, n[i], q[1:i-1]-1) for i=1:layers.m+1]
         output = [zeros(Complex{T}, n[i+1], q[1:i-1]-1) for i=1:layers.m+1]
