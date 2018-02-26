@@ -15,7 +15,7 @@ end
 ################################################################################
 ######################## Continuous Wavelet Transforms #########################
 ################################################################################
-function layeredTransform(m::S, Xlength::S, nScales::Array{S,1}, subsampling::Array{T,1}, CWTType::WT.ContinuousWaveletClass, averagingLength::Array{S,1}=ceil.(S,nScales*2), averagingType::Array{Symbol,1}=[:Mother for i=1:(m+1)], boundary::Array{W,1}=[WT.DEFAULT_BOUNDARY for i=1:(m+1)]) where {S<:Integer, T<:Real, W<:WT.WaveletBoundary}
+function layeredTransform(m::S, Xlength::S, nScales::Array{T,1}, subsampling::Array{T,1}, CWTType::WT.ContinuousWaveletClass, averagingLength::Array{S,1}=ceil.(S,nScales*2), averagingType::Array{Symbol,1}=[:Mother for i=1:(m+1)], boundary::Array{W,1}=[WT.DEFAULT_BOUNDARY for i=1:(m+1)]) where {S<:Integer, T<:Real, W<:WT.WaveletBoundary}
     @assert m+1==size(subsampling,1)
     @assert m+1==size(nScales,1)
 
@@ -113,6 +113,7 @@ function scattered1D(layers::layeredTransform, X::Array{T,1}) where T <: Number
     scattered1D{Complex{T}}(layers.m, zerr, output)
 end
 
+# Note: if stType is decreasing, this function relies on functions found in Utils.jl
 function scattered1D(layers::layeredTransform, X::Array{T,1}, stType::String) where T <: Number
     n = sizes(bspline, layers.subsampling, length(X)) #TODO: if you add another subsampling method in 1D, this needs to change
     q = [numScales(layers.shears[i], n[i]) for i=1:layers.m+1]
@@ -120,18 +121,8 @@ function scattered1D(layers::layeredTransform, X::Array{T,1}, stType::String) wh
         zerr=[zeros(Complex{T}, n[i], prod(q[1:i-1]-1)) for i=1:layers.m+1]
         output = [zeros(Complex{T}, n[i+1], prod(q[1:i-1]-1)) for i=1:layers.m+1]
     elseif stType=="decreasing"
-        counts = zeros(Int64,layers.m+1)
-        counts[1]=1
-        for i=2:length(q)
-          for a = 1:q[i-1]
-            for b = 1:q[i]
-              # check to see if the next layer has a larger scale/smaller frequency
-              if b./(layers.shears[i].scalingFactor) <= a./(layers.shears[i-1].scalingFactor)
-                counts[i]+=1
-              end
-            end
-          end
-        end
+        # brief reminder, smaller index==larger scale
+        counts = [numInLayer(i,layers,q-1) for i=0:layers.m]
         zerr=[zeros(Complex{T}, n[i], counts[i]) for i=1:layers.m+1]
         output = [zeros(Complex{T}, n[i+1], counts[i]) for i=1:layers.m+1]
     elseif stType=="collating"

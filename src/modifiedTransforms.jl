@@ -132,13 +132,13 @@ wave = cwt(Y::AbstractArray{T}, c::CFWA{W}, averagingLength::Int64; J1::S=NaN, a
 
 return the continuous wavelet transform with averaging wave, which is (nscales+1)×(signalLength), of type T of Y. The extra parameter averagingLength defines the number of scales of the standard cwt that are replaced by an averaging function. This has form averagingType, which can be one of :Mother or :Dirac- in the :Mother case, it uses the same form as for the daughters, while the dirac uses a constant. J1 is the total number of scales; default (when J1=NaN, or is negative) is just under the maximum possible number, i.e. the log base 2 of the length of the signal, times the number of wavelets per octave. If you have sampling information, you will need to scale wave by δt^(1/2).
 """
-function cwt(Y::AbstractArray{T}, c::CFWA{W}; J1::S=NaN) where {T<:Number, S<:Real, W<:WT.WaveletBoundary}
+function cwt(Y::AbstractArray{T}, c::CFWA{W}; J1::S=NaN, backOffset::Int64=0) where {T<:Number, S<:Real, W<:WT.WaveletBoundary}
     n1 = length(Y);
     # J1 is the total number of elements
     if (isnan(J1) || (J1<0)) && c.name!="morl"
-        J1=floor(Int64,(log2(n1)-2)*c.scalingFactor);
+        J1=floor(Int64,(log2(n1)-2)*c.scalingFactor)-backOffset
     elseif isnan(J1) || (J1<0)
-        J1=floor(Int64,(log2(n1)-2)*c.scalingFactor);
+        J1=floor(Int64,(log2(n1)-2)*c.scalingFactor)-backOffset
     end
 
     if J1+2-c.averagingLength<=0
