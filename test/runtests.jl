@@ -1,6 +1,58 @@
 # tests for the various forms of layeredTransform for the ShatteringTransform
 using ScatteringTransform
 using Shearlab, Interpolations, Wavelets, JLD, MAT, Plots, LaTeXStrings
+
+using Base.Test
+
+function testConstruction2D(lay::layeredTransform, m::Int64, shearSizes::Array{Int64,2}, nShears::Array{Int64}, subsampling::Array{Float64,1})
+  @test lay.m == m
+  @test lay.subsampling==subsampling
+  for i=1:length(lay.shears)
+    @test lay.shears[i].size == shearSizes[:,i]
+    @test lay.shears[i].nShearlets == nShears[i]
+  end
+end
+
+@testset "2D layerTransform constructors" begin
+  n = 300
+  lay = layeredTransform(3, n, n, [3 for i=1:4], [1.0, 1.0, 1.0, 1.0])
+  testConstruction2D(lay, 3, n*ones(Int64,2,4), [33,33,33,33], [1.0, 1.0, 1.0, 1.0])
+  n = 600
+  X = ones(n,n)
+  lay = layeredTransform(2, X, [2 for i=1:3], [2 for i=1:3])
+  testConstruction2D(lay, 2, [600 300 150; 600 300 150], [17, 17, 17], [2.0, 2.0, 2.0])
+
+  lay = layeredTransform(2,X,[2 for i=1:3], 2)
+  testConstruction2D(lay, 2,[600 300 150; 600 300 150], [17,17,17], [2.0, 2.0, 2.0])
+
+  lay = layeredTransform(2,X,2,[2 for i=1:3])
+  testConstruction2D(lay, 2,[600 300 150; 600 300 150], [17,17,17], [2.0, 2.0, 2.0])
+
+  lay = layeredTransform(2,X,2,3)
+  testConstruction2D(lay, 2,[600 200 67; 600 200 67], [17,17,17], [3.0, 3.0, 3.0])
+
+  lay = layeredTransform(2,X,[2, 2, 2])
+  testConstruction2D(lay, 2,[600 300 150; 600 300 150], [17,17,17], [2.0, 2.0, 2.0])
+
+  lay = layeredTransform(2,X,2)
+  testConstruction2D(lay, 2,[600 300 150; 600 300 150], [17,17,17], [2.0, 2.0, 2.0])
+
+  lay = layeredTransform(X,2)
+  testConstruction2D(lay, 2,[600 300 150; 600 300 150], [17,17,17], [2.0, 2.0, 2.0])
+
+  lay = layeredTransform(2,X)
+  testConstruction2D(lay, 2,[600 300 150; 600 300 150], [17,17,17], [2.0, 2.0, 2.0])
+end
+
+@testset "2D shearing transform" begin
+
+end
+# check that the sizes of the shearlets match the sizes caused by subsampling
+
+# scattered2D tests
+n = 256
+X=randn(n)
+lT = layeredTransform(2, randn(n, n))
 # scattered2D tests
 X=randn(1024)
 lT = layeredTransform(2,randn(1024,1024))
@@ -19,7 +71,26 @@ layeredTransform(2,X,2)
 layeredTransform(X,2)
 layeredTransform(2,X)
 
+scattered2D(2, Array{Int64}([n,n/2,n/4]), Array{Int64}([n,n/2,n/4]), [2,17,17], Complex128)
 # # tests for the various forms of layeredTransform for the 1D ContinuousWaveletClass transforms
+n = 10214
+f = randn(10214)
+function testConstruction1D(lay::layeredTransform, m::Int64, shearType, averagingLength, averagingType, nShears::Vector{Int64}, subsampling::Array{Float64,1}, n::Int64)
+  @test lay.m == m
+  @test lay.subsampling==subsampling
+  for i=1:length(lay.shears)
+    @test typeof(lay.shears[i]) == shearType[i]
+    @test lay.shears[i].averagingLength == averagingLength[i]
+    @test lay.shears[i].averagingType == averagingType[i]
+    @test lay.shears[i].size == shearSizes[:,i]
+    @test lay.shears[i].nShearlets == nShears[i]
+    @test numScales(lay.shears[i], n) == nShears
+  end
+end
+m=3
+@testset "1D layerTransform constructors"
+  lay = layeredTransform(m, f, subsampling=[8,4,2,1], nScales=[16,8,8,8], CWTType=WT.dog2, averagingLength=[16,4,4,2],averagingType=[:Mother for i=1:(m+1)],boundary=[WT.DEFAULT_BOUNDARY for i=1:(m+1)])
+  testConstruction1D(lay, 3, [ScatteringTransform.CFWA{Wavelets.WT.PerBoundary} for i=1:3], [16, 4, 4], [:Mother for i=1:3], [167,], [8,4,2,1]*1.0, n)
 # f = randn(10214)
 # m=3
 # layeredTransform(m, f, subsampling=[8,4,2,1], nScales=[16,8,8,8], CWTType=WT.dog2, averagingLength=[16,4,4,2],averagingType=[:Mother for i=1:(m+1)],boundary=[WT.DEFAULT_BOUNDARY for i=1:(m+1)])
