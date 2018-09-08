@@ -1,6 +1,5 @@
 module ScatteringTransform
-@time using Interpolations, Wavelets, JLD, MAT, Plots, LaTeXStrings
-@time using Shearlab, Interpolations, Wavelets, JLD, MAT, Plots, LaTeXStrings
+using Interpolations, Wavelets, JLD, MAT, Plots, LaTeXStrings
 
 include("src/subsampling.jl")
 export maxPooling, bilinear, bspline

@@ -1,0 +1,10 @@
+name = "ScatteringTransform"
+uuid = "eadaac29-8b6b-5395-80fd-9ce36bb46293"
+version = "0.1.0"
+author = ["David Weber <david.weber2@gmail.com>"]
+
+[deps]
+Interpolations = "a98d9a8b-a2ab-59e6-89dd-64a1c18fca59"
+JLD = "4138dd39-2aa7-5051-a626-17a0bb65d9c8"
+LaTeXStrings = "b964fa9f-0449-5b57-a5c2-d3ea65f4040f"
+Wavelets = "29a6e085-ba6d-5f35-a997-948ac2efa89a"
