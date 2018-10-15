@@ -14,27 +14,27 @@ maximum(A::Array{Complex{Float64}}) = A[indmax(abs(A))]
     output = maxPooling(input::Array{T,2}, rate::Float64) where T<: Number
 """
 function maxPooling(input::Array{T,2}, rate::Float64) where T<: Number
-  rows = Int32(ceil(size(input,1)./2.0))
-  cols = Int32(ceil(size(input,2)./2.0))
+  rows = Int32(ceil(size(input,1) ./2.0))
+  cols = Int32(ceil(size(input,2) ./2.0))
   output = zeros(T,rows,cols)
   for i=1:rows-1, j=1:cols-1
-    rowcoord = Int64(floor(rate*(i-1)))+1:Int64(floor(rate*i))
-    colcoord = Int64(floor(rate*(j-1)))+1:Int64(floor(rate*j))
+    rowcoord = Int(floor(rate*(i-1)))+1:Int(floor(rate*i))
+    colcoord = Int(floor(rate*(j-1)))+1:Int(floor(rate*j))
     # println("$rowcoord,         $colcoord")
     output[i,j] = maximum(input[rowcoord,colcoord])
   end
 
   # A little bit extra on the bottom
-  rowcoord = Int64(floor(rate*(rows-1)))+1:size(input,1)
+  rowcoord = Int(floor(rate*(rows-1)))+1:size(input,1)
   for j=1:cols-1
-    colcoord = Int64(floor(rate*(j-1)))+1:Int64(floor(rate*j))
+    colcoord = Int(floor(rate*(j-1)))+1:Int(floor(rate*j))
     output[end,j] = maximum(input[rowcoord,colcoord])
   end
 
   # A little bit extra on the right
-  colcoord = Int64(floor(rate*(cols-1)))+1:size(input,2)
+  colcoord = Int(floor(rate*(cols-1)))+1:size(input,2)
   for i=1:rows-1
-    rowcord = Int64(floor(rate*(i-1)))+1:Int64(floor(rate*i))
+    rowcord = Int(floor(rate*(i-1)))+1:Int(floor(rate*i))
     output[i,end] = maximum(input[rowcoord,colcoord])
   end
 
@@ -50,13 +50,13 @@ end
 """
 function bilinear(input::Array{S,2}, rate::T) where {S<:Number,T<:Real}
   Nin = size(input)
-  newSize = (Int64(ceil(size(input,1)/rate)),Int64(ceil(size(input,2)/rate)))
+  newSize = (Int(ceil(size(input,1)/rate)),Int(ceil(size(input,2)/rate)))
   evalPoints = Array{Tuple{Float64,Float64}}(newSize)
   output = zeros(Complex64,newSize)
   for (i,x)=enumerate(linspace(1,Nin[1],newSize[1])), (j,y)=enumerate(linspace(1,Nin[2],newSize[2]))
     evalPoints[i,j] = (x,y)
-    xi = (modf(x)[1], Int64(modf(x)[2]))
-    yi = (modf(y)[1], Int64(modf(y)[2]))
+    xi = (modf(x)[1], Int(modf(x)[2]))
+    yi = (modf(y)[1], Int(modf(y)[2]))
     if xi[2]<Nin[1] && yi[2]<Nin[2]
     output[i,j] = (1-xi[1])*(1-yi[1])*input[xi[2],yi[2]] + xi[1]*(1-yi[1])*input[xi[2]+1,yi[2]] + (1-xi[1])*yi[1]*input[xi[2],yi[2]+1] + xi[1]*yi[1]*input[xi[2]+1,yi[2]+1]
     elseif yi[2]<Nin[2]
@@ -80,24 +80,24 @@ end
 """
 function bspline(input::Array{S,1}, rate::T) where {S<:Number, T<:Real}
   @assert rate>=1
-  itp = interpolate(input,BSpline(Quadratic(Reflect())), OnGrid())
-  itp[linspace(1,length(input),floor(length(input)./rate))]
+  itp = interpolate(input,BSpline(Quadratic(Reflect(OnGrid()))))
+  itp(range(1,stop = length(input),length = floor(Int,length(input) ./rate)))
 end
 # TODO: figure out what's wrong with Quadratic(Reflect() and re-implement it
 
 """
-  subsamp = sizes(func::Function, rate::Array{T,1}, sizeX::Tuple{Int64}) where T<:Real
+  subsamp = sizes(func::Function, rate::Array{T,1}, sizeX::Tuple{Int}) where T<:Real
 
   given a subsampling rate, a function func, and an initial size tuple sizeX, return an array of sizes as used by the scattering(1,2)D constructors
 """
-function sizes(func::Function, rate::Array{T}, sizeX::Int64) where T<:Real
+function sizes(func::Function, rate::Array{T}, sizeX::Int) where T<:Real
   if func == bspline
     subsamp = zeros(Int,length(rate)+1); subsamp[1] = sizeX[1]
     for (i,rat) in enumerate(rate)
-      subsamp[i+1] = floor(Int, subsamp[i]./rat)
+      subsamp[i+1] = floor(Int, subsamp[i] ./rat)
     end
   elseif func == bilinear
-    subsamp = [Int64( foldl((x,y)->ceil(x/y), sizeX, rate[1:i])) for i=0:length(rate)-1]
+    subsamp = [Int( foldl((x,y)->ceil(x/y), sizeX, rate[1:i])) for i=0:length(rate)-1]
   else
     error("Sorry, that hasn't been implemented yet")
   end

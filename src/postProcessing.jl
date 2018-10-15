@@ -81,9 +81,8 @@ function transformFolder(sourceFolder::String, destFolder::String, layers::layer
       # data is expected as *column* vectors
       (fullMatrix,hasContents) = loadThis(joinpath(root,file))
       if hasContents
-        # result = Vector{scattered1D{Complex128}}(size(fullMatrix,2))
-        result = Vector{scattered1D{Complex128}}(size(fullMatrix,2))
-        @parallel for i = 1:size(fullMatrix,1)
+        result = Vector{scattered{Complex128,1}}(size(fullMatrix,2))
+        @distributed for i = 1:size(fullMatrix,1)
         # for i = 1:size(fullMatrix,1)
           result[i] = st(fullMatrix[i,:],layers, nonlinear=nonlinear, subsam=subsam, stType=stType)
         end
@@ -110,9 +109,9 @@ end
 
 """
 
-  given a scattered1D, it produces a single vector containing the entire transform in order, i.e. the same format as output by thinSt
+  given a scattered, it produces a single vector containing the entire transform in order, i.e. the same format as output by thinSt
 """
-function flatten(results::scattered1D{T}) where T<:Number
+function flatten(results::scattered{T,1}) where T<:Number
   concatOutput = Vector{Float64}(sum([prod(size(x)) for x in results.output]))
   outPos = 1
   for curLayer in results.output

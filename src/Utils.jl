@@ -8,11 +8,11 @@ end
 
 
 """
-  p = computePath(layers::layeredTransform, layerM::Int64, λ::Int64; stType::String="full"))
+  p = computePath(layers::layeredTransform, layerM::Int, λ::Int; stType::String="full"))
 
 compute the path p that corresponds to location λ in the stType of transform
 """
-function computePath(layers::layeredTransform, layered1D::scattered1D, layerM::Int64, λ::Int64; stType::String="full")
+function computePath(layers::layeredTransform, layered1D::scattered{T,1}, layerM::Int, λ::Int; stType::String="full") where T<:Number
   nScalesLayers = [numScales(layers.shears[i], layered1D.data[i]) for i=1:layerM]
   p = zeros(layerM)
   if stType=="full"
@@ -28,11 +28,11 @@ end
 
 
 """
-    numChildren = numChildren(keeper::Array{Int64}, layers::layeredTransform, nScalesLayers::Array{Int64})
+    numChildren = numChildren(keeper::Array{Int}, layers::layeredTransform, nScalesLayers::Array{Int})
 
 given a keeper, determine the number of children it has.
 """
-function numChildren(keeperOriginal::Array{Int64}, scalingFactors::Array{Float64}, nScalesLayers::Array{Int64})
+function numChildren(keeperOriginal::Array{Int}, scalingFactors::Array{Float64}, nScalesLayers::Array{Int})
   keeperOriginal = [keeperOriginal; 1]
   keeper = copy(keeperOriginal)
   m = length(keeper)
@@ -62,14 +62,14 @@ function numChildren(keeperOriginal::Array{Int64}, scalingFactors::Array{Float64
   end
   numThisLayer
 end
-numChildren(keeperOriginal::Array{Int64}, layers::layeredTransform, nScalesLayers::Array{Int64}) = numChildren(keeperOriginal::Array{Int64}, [shear.scalingFactor for shear in layers.shears], nScalesLayers::Array{Int64})
+numChildren(keeperOriginal::Array{Int}, layers::layeredTransform, nScalesLayers::Array{Int}) = numChildren(keeperOriginal::Array{Int}, [shear.scalingFactor for shear in layers.shears], nScalesLayers::Array{Int})
 
 """
-numInLayer(m::Int64, layers::layeredTransform, nScalesLayers::Array{Int64})
+numInLayer(m::Int, layers::layeredTransform, nScalesLayers::Array{Int})
 
 A stupidly straightforward way of counting the number of decreasing paths in a given layer.
 """
-function numInLayer(m::Int64, scalingFactors::Array{Float64}, nScalesLayers::Array{Int64})
+function numInLayer(m::Int, scalingFactors::Array{Float64}, nScalesLayers::Array{Int})
   keeper = [1 for i=1:m]
   if m==0
     return 1 # not sure why you bothered
@@ -85,25 +85,25 @@ function numInLayer(m::Int64, scalingFactors::Array{Float64}, nScalesLayers::Arr
   end
   numThisLayer
 end
-numInLayer(m::Int64, layers::layeredTransform, nScalesLayers::Array{Int64}) = numInLayer(m, [shear.scalingFactor for shear in layers.shears], nScalesLayers)
+numInLayer(m::Int, layers::layeredTransform, nScalesLayers::Array{Int}) = numInLayer(m, [shear.scalingFactor for shear in layers.shears], nScalesLayers)
 """
-    (isLast, keeper) = incrementKeeper(keeper::Array{Float64}, m::Int64, resolutions::Array{Float64})
+    (isLast, keeper) = incrementKeeper(keeper::Array{Float64}, m::Int, resolutions::Array{Float64})
 keeper is a tuple where the ith entry is the scale used at layer i. This function is designed so that it only returns decreasing entries (including effects from the scales per octave). It does so in order from smallest scale in all layers, to largest in all layers, incrementing the deepest layers first. isLast is a boolean which is true if this is the last entry.
 """
-function incrementKeeper(keeper::Array{Int64}, m::Int64, scalingFactors::Array{Float64,1}, nScalesLayers::Array{Int64})
+function incrementKeeper(keeper::Array{Int}, m::Int, scalingFactors::Array{Float64,1}, nScalesLayers::Array{Int})
   keeper[m]+=1
   if m==1
     # if we've cycled all possible values, we're done, so return an empty keeper
     if keeper[1] > nScalesLayers[1]
-      return (true, Array{Int64}(0))
+      return (true, Array{Int}(0))
     end
   else
     # if we've cycled this layer as much as possible, we move on
-    if keeper[m] > nScalesLayers[m] || floor(keeper[m-1]./scalingFactors[m-1]) < ceil(keeper[m]./scalingFactors[m])
+    if keeper[m] > nScalesLayers[m] || floor(keeper[m-1] ./scalingFactors[m-1]) < ceil(keeper[m] ./scalingFactors[m])
       keeper[m]=1
       return incrementKeeper(keeper, m-1, scalingFactors, nScalesLayers)
     end
   end
   return (false, keeper)
 end
-incrementKeeper(keeper::Array{Int64}, m::Int64, layers::layeredTransform, nScalesLayers::Array{Int64}) = incrementKeeper(keeper, m, [shear.scalingFactor for shear in layers.shears], nScalesLayers::Array{Int64})
+incrementKeeper(keeper::Array{Int}, m::Int, layers::layeredTransform, nScalesLayers::Array{Int}) = incrementKeeper(keeper, m, [shear.scalingFactor for shear in layers.shears], nScalesLayers::Array{Int})
