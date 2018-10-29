@@ -1,7 +1,7 @@
 name = "ScatteringTransform"
 uuid = "eadaac29-8b6b-5395-80fd-9ce36bb46293"
 author = ["David Weber <david.weber2@gmail.com>"]
-version = "0.1.0"
+version = "0.2.0"
 
 [deps]
 DSP = "717857b8-e6f2-59f4-9121-6e50c889abd2"

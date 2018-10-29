@@ -26,29 +26,45 @@ for i=1:size(ex1.output,1)
 end
 
 
-# TODO: build tests for cwt
-
 ################################ cwt tests ################################
 # 1D input tests
 inputs = [randn(128), randn(100,128), randn(10, 21, 128), randn(2, 3, 5, 128)]
 averagingTypes = [:Mother, :Dirac]
 scalingfactors = reverse([1/2, 1, 2, 8, 16, 32])
 waves = [WT.morl WT.dog2 WT.paul4]
-for f in inputs
+precomputed =[true, false]
+for inn in inputs
   for wave in waves
     for sb in scalingfactors
       for ave in averagingTypes
-        waveConst = CFWA(wave, scalingfactor=sb, averagingType = ave)
-        println("$(wave), $(sb), $(ave), $(size(f))")
-        output = cwt(f,waveConst)
-        @test numScales(waveConst,size(f)[end]) == size(output)[end]
-        @test length(size(output))== 1+length(size(f))
-        output = cwt(f,waveConst,J1=0)
-        @test size(output)[end]==1
-        @test length(size(output))== 1+length(size(f))
-        output = cwt(f,waveConst,J1=20)
-        @test 20-waveConst.averagingLength+2 == size(output)[end]
-        @test length(size(output))== 1+length(size(f))
+        for comp in precomputed
+          waveConst = CFWA(wave, scalingfactor=sb, averagingType = ave)
+          println("$(wave), $(sb), $(ave), $(size(inn))")
+          if comp
+            daughters = computeWavelets(inn,waveConst)
+            output = cwt(inn, waveConst, daughters)
+          else
+            output = cwt(inn,waveConst)
+          end
+          @test numScales(waveConst,size(inn)[end]) == size(output)[end]
+          @test length(size(output))== 1+length(size(inn))
+          if comp
+            daughters = computeWavelets(inn, waveConst, J1=0)
+            output = cwt(inn, waveConst, daughters, J1=0)
+          else
+            output = cwt(inn, waveConst, J1=0)
+          end
+          @test size(output)[end]==1
+          @test length(size(output))== 1+length(size(inn))
+          if comp
+            daughters = computeWavelets(inn,waveConst, J1=20)
+            output = cwt(inn,waveConst, daughters, J1=20)
+          else
+            output = cwt(inn,waveConst,J1=20)
+          end
+          @test 20-waveConst.averagingLength+2 == size(output)[end]
+          @test length(size(output))== 1+length(size(inn))
+        end
       end
     end
   end
@@ -77,7 +93,7 @@ testConstruction1D(lay, 3, [ScatteringTransform.CFWA{Wavelets.WT.PerBoundary} fo
 f=1.0 .*[1:50; 50:-1:1]
 lay = layeredTransform(3,f)
 function testTransform(f::Array{T}, lay::layeredTransform) where T<:Number
-  n=size(f)[1]
+  n=size(f)[end]
   @time output = st(f,lay)
   sizes = ScatteringTransform.sizes(bspline,lay.subsampling,n)
   actualSizes = fill(0, size(sizes))
@@ -92,12 +108,11 @@ function testTransform(f::Array{T}, lay::layeredTransform) where T<:Number
   # check the number of paths grows correctly
   numTransformed = [prod(scaleSizes[1:k]) for k=1:length(scaleSizes)]
   @test numTransformed==([size(out)[end] for out in output.output])[2:end]
-  @test eltype(output.data) == Matrix{Complex{eltype(f)}}
-  @test eltype(output.output) == Matrix{Complex{eltype(f)}}
+  @test eltype(output.data) == Array{Complex{eltype(f)},1+length(size(f))}
+  @test eltype(output.output) == Array{eltype(f),1+length(size(f))}
 end
 # check that various constructions are well-defined
 testTransform(f,lay)
-output = st(f,lay)
 
 f = randn(1020)
 m=3
@@ -107,13 +122,19 @@ layeredTransform(3, length(f), [2, 2, 2, 2], [2, 2, 2, 2], WT.dog2)
 layeredTransform(3, length(f), 8, [2, 2, 2, 2], WT.dog2)
 layeredTransform(3, length(f), [2, 2, 2, 2], 2, WT.dog2)
 layeredTransform(3, length(f), 8, 2, WT.dog2)
-st(randn(3, 1020), lay)
+
+# test on input with multiple samples
+testTransform(randn(2,3,1020),lay)
+testTransform(randn(2,1020),lay)
+scattered(lay, randn(3,1020), "full")
 
 # scattered construction tests
-scattered1D{Float64,1}(2,randn(10,10),randn(10,10))
+scattered{Float64,2}(2,1,[im*randn(10,10) for i=1:3],[randn(10,10) for i=1:3])
 layers = layeredTransform(3, length(f), 8, 4)
 
-results = scattered1D(layers, f)
+results = scattered(layers, f)
+
+# demonstrate various ways of defining a layered transform
 layeredTransform(3, f, [2, 2, 2, 2], [2, 2, 2, 2], WT.dog2)
 layeredTransform(3, f, 8, [2, 2, 2, 2], WT.dog2)
 layeredTransform(3, f, [2, 2, 2, 2], 2, WT.dog2)
@@ -148,46 +169,45 @@ layeredTransform(3,f[1,1,:])
 #TODO: make a version that can handle input of arbitrary number of initial dimensions
 tmp = layeredTransform(1,f[1,1,:])
 ScatteringTransform.cwt(f, tmp.shears[1])
-ifft(fft(randn(10,30,61,500),3), 3)
-averageNoiseMat = cwt(f,tmp.shears[1],J1=1)
-using FFTW
-A = randn(10,10,30)
-eachindex
-CI = CartesianIndex(size(A))
-for i in Tuple(CI)
-  print(i)
-end
-axes(A,3)
-for x in axes(A)[1:end-1]
-  print(x)
-end
-for x in eachindex.(axes(A)[1:end-1])
-  print("$(size(A[x]))")
-end
-A = randn(10,10,30)
-using LinearAlgebra
-for x in eachindex(view(A,axes(A)[1:end-1]..., 1))
-  print(x)
-  print("$(size(A[x,:]))")
-  println("     ")
-end
-CartesianIndex.(axes(A, 1), axes(A, 2))
-view(A,100,100, :)
-for i in eachindex(view(A,:,1))
-  @show i
-end
-randn(100,100,100).*
-using LinearAlgebra
-
-dw = zeros(10000,10000)
-v = rand(10000)
-h = rand(10000)
-@time for i = 1:10
-  dw += h*v'
-end
-@time for i = 1:10
-  BLAS.gemm!('N', 'T', 1.0, h, v, 1.0, dw)
-end
+# averageNoiseMat = cwt(f,tmp.shears[1],J1=1)
+# using FFTW
+# A = randn(10,10,30)
+# eachindex
+# CI = CartesianIndex(size(A))
+# for i in Tuple(CI)
+#   print(i)
+# end
+# axes(A,3)
+# for x in axes(A)[1:end-1]
+#   print(x)
+# end
+# for x in eachindex.(axes(A)[1:end-1])
+#   print("$(size(A[x]))")
+# end
+# A = randn(10,10,30)
+# using LinearAlgebra
+# for x in eachindex(view(A,axes(A)[1:end-1]..., 1))
+#   print(x)
+#   print("$(size(A[x,:]))")
+#   println("     ")
+# end
+# CartesianIndex.(axes(A, 1), axes(A, 2))
+# view(A,100,100, :)
+# for i in eachindex(view(A,:,1))
+#   @show i
+# end
+# randn(100,100,100).*
+# using LinearAlgebra
+#
+# dw = zeros(10000,10000)
+# v = rand(10000)
+# h = rand(10000)
+# @time for i = 1:10
+#   dw += h*v'
+# end
+# @time for i = 1:10
+#   BLAS.gemm!('N', 'T', 1.0, h, v, 1.0, dw)
+# end
 
 
 

@@ -67,8 +67,9 @@ function reshapeFlattened(mat::Array{Float64}, sheared::S) where S<:scattered
 end
 
 """
+  transformFolder(sourceFolder::String, destFolder::String, layers::layeredTransform, separate::Bool; loadThis::Function=loadSyntheticMatFile, nonlinear::Function=abs, subsam::Function=bspline, stType::String="full")
 
-given the (relative) name of a folder and a layered transform, it will load (using a user defined function, which should output data so each column is an example) and transform the entire folder, and save the output into a similarly structured set of folders in destFolder. If separate is true, it will also save a file containing just the scattered coefficients from all inputs.
+Given the (relative) name of a folder and a layered transform, it will load (using a user defined function, which should output data so each column is an example) and transform the entire folder, and save the output into a similarly structured set of folders in destFolder. If separate is true, it will also save a file containing just the scattered coefficients from all inputs.
 """
 function transformFolder(sourceFolder::String, destFolder::String, layers::layeredTransform, separate::Bool; loadThis::Function=loadSyntheticMatFile, nonlinear::Function=abs, subsam::Function=bspline, stType::String="full")
   addprocs(14)
@@ -81,12 +82,10 @@ function transformFolder(sourceFolder::String, destFolder::String, layers::layer
       # data is expected as *column* vectors
       (fullMatrix,hasContents) = loadThis(joinpath(root,file))
       if hasContents
-        result = Vector{scattered{Complex128,1}}(size(fullMatrix,2))
+        result = Vector{scattered{eltype(fullMatrix),1}}(undef, size(fullMatrix,2))
         @distributed for i = 1:size(fullMatrix,1)
-        # for i = 1:size(fullMatrix,1)
           result[i] = st(fullMatrix[i,:],layers, nonlinear=nonlinear, subsam=subsam, stType=stType)
         end
-        root[end-+1:end]
         println("saving to $(joinpath(destFolder, relpath(root,sourceFolder),"$(file).jld"))")
         save(joinpath(destFolder, relpath(root,sourceFolder),"$(file).jld"), "result", result)
       end
@@ -98,6 +97,16 @@ function transformFolder(sourceFolder::String, destFolder::String, layers::layer
 end
 
 function loadSyntheticMatFile(datafile::String)
+  hasContents = (datafile[end-3:end]==".mat")
+  if hasContents
+    wef = matread(datafile)
+    return (wef["resp"]', hasContents)
+  else
+    return ([0.0 0.0;0.0 0.0], hasContents)
+  end
+end
+
+function loadhdf5(datafile::String)
   hasContents = (datafile[end-3:end]==".mat")
   if hasContents
     wef = matread(datafile)
