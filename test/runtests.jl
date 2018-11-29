@@ -1,6 +1,4 @@
 # tests for the various forms of layeredTransform for the ShatteringTransform
-using Revise
-using Pkg; Pkg.activate("/home/dsweber/.julia/dev/ScatteringTransform.jl")
 using Interpolations, Wavelets
 using FFTW
 using ScatteringTransform

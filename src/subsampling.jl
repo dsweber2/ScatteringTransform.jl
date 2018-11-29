@@ -90,7 +90,10 @@ end
 
   given a subsampling rate, a function func, and an initial size tuple sizeX, return an array of sizes as used by the scattering(1,2)D constructors
 """
-function sizes(func::Function, rate::Array{T}, sizeX::Int) where T<:Real
+function sizes(func::Function, rate::Array{T}, sizeX) where T<:Real
+  if typeof(sizeX)<:Tuple
+    sizeX = sizeX[end]
+  end
   if func == bspline
     subsamp = zeros(Int,length(rate)+1); subsamp[1] = sizeX[1]
     for (i,rat) in enumerate(rate)

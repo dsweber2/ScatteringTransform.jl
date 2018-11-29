@@ -72,7 +72,7 @@ end
 Given the (relative) name of a folder and a layered transform, it will load (using a user defined function, which should output data so each column is an example) and transform the entire folder, and save the output into a similarly structured set of folders in destFolder. If separate is true, it will also save a file containing just the scattered coefficients from all inputs.
 """
 function transformFolder(sourceFolder::String, destFolder::String, layers::layeredTransform, separate::Bool; loadThis::Function=loadSyntheticMatFile, nonlinear::Function=abs, subsam::Function=bspline, stType::String="full")
-  addprocs(14)
+  addprocs(9)
   for (root, dirs, files) in walkdir(sourceFolder)
     for dir in dirs
       mkpath(joinpath(destFolder,dir))
