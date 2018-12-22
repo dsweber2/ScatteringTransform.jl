@@ -149,6 +149,7 @@ function scattered(layers::layeredTransform, X::Array{T,N}) where {T <: Real, N}
   scattered{T,N+1}(layers.m, k, zerr, output)
 end
 
+
 # Note: if stType is decreasing, this function relies on functions found in Utils.jl
 function scattered(layers::layeredTransform, X::Array{T,N}, stType::String) where {T <: Number, N}
   @assert stType=="full" || stType=="decreasing" || stType=="collating"

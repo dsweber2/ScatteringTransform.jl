@@ -76,12 +76,16 @@ end
 """
   output = bspline(input::Array{S,1}, rate::T) where {S<:Number, T<:Real}
 
-  subsample using a quadratic bspline interpolation, with reflection boundary conditions. rate must be ≧ 1.
+  subsample using a quadratic bspline interpolation, with reflection boundary conditions. rate must be ≧ 1. If absolute is true, treat rate as just the total number of desired samples instead.
 """
-function bspline(input::Array{S,1}, rate::T) where {S<:Number, T<:Real}
+function bspline(input::Array{S,1}, rate::T; absolute::Bool=false) where {S<:Number, T<:Real}
   @assert rate>=1
   itp = interpolate(input,BSpline(Quadratic(Reflect(OnGrid()))))
-  itp(range(1,stop = length(input),length = floor(Int,length(input) ./rate)))
+  if absolute
+    return itp(Int.(range(1, stop = size(input)[end], length = rate)))
+  else
+    return itp(range(1, stop = size(input)[end], length = floor(Int,length(input) ./rate)))
+  end
 end
 # TODO: figure out what's wrong with Quadratic(Reflect() and re-implement it
 

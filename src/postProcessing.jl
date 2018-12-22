@@ -70,9 +70,10 @@ end
   transformFolder(sourceFolder::String, destFolder::String, layers::layeredTransform, separate::Bool; loadThis::Function=loadSyntheticMatFile, nonlinear::Function=abs, subsam::Function=bspline, stType::String="full")
 
 Given the (relative) name of a folder and a layered transform, it will load (using a user defined function, which should output data so each column is an example) and transform the entire folder, and save the output into a similarly structured set of folders in destFolder. If separate is true, it will also save a file containing just the scattered coefficients from all inputs.
+
+If overwrite is false, then skip files that already exist. If overwrite is true, for right now, it uses whatever is already there as the last entries
 """
-function transformFolder(sourceFolder::String, destFolder::String, layers::layeredTransform, separate::Bool; loadThis::Function=loadSyntheticMatFile, nonlinear::Function=abs, subsam::Function=bspline, stType::String="full")
-  addprocs(9)
+function transformFolder(sourceFolder::String, destFolder::String, layers::layeredTransform, separate::Bool; loadThis::Function=loadSyntheticMatFile, nonlinear::Function=abs, subsam::Function=bspline, stType::String="full", thin::Bool=true, postSubsample::Tuple{Int,Int}=(-1,-1), overwrite::Bool=false)
   for (root, dirs, files) in walkdir(sourceFolder)
     for dir in dirs
       mkpath(joinpath(destFolder,dir))
@@ -80,14 +81,60 @@ function transformFolder(sourceFolder::String, destFolder::String, layers::layer
     println(root)
     for file in files
       # data is expected as *column* vectors
-      (fullMatrix,hasContents) = loadThis(joinpath(root,file))
-      if hasContents
-        result = Vector{scattered{eltype(fullMatrix),1}}(undef, size(fullMatrix,2))
-        @distributed for i = 1:size(fullMatrix,1)
-          result[i] = st(fullMatrix[i,:],layers, nonlinear=nonlinear, subsam=subsam, stType=stType)
+      println("starting file $(joinpath(root,file))")
+      savefile = joinpath(destFolder, relpath(root,sourceFolder),"$(file).jld")
+      savefileSize = stat(savefile).size
+      if overwrite || savefileSize < 10
+        (fullMatrix,hasContents) = loadThis(joinpath(root,file))
+        if hasContents
+          # breaking up the data into managable chunks
+          nEx = size(fullMatrix, 1)
+          # if the save file already has meaningful content, load this content
+          if savefileSize > 10
+            prevWork = load(savefile, "result")
+          end
+          # if the savefile doesn't have content, or if there should be more examples than what the save file has, calculate the new coefficients
+          if savefileSize < 10 || (nEx>2  && size(prevWork,1)<=2)
+            innerAxes = axes(fullMatrix)[2:end]
+            usefulSlice = 1:min(2,nEx);
+            if thin
+              println("l101")
+              tmpResult = thinSt(fullMatrix[usefulSlice, innerAxes...], layers, nonlinear=nonlinear, subsam=subsam, stType=stType, outputSubsample = postSubsample)
+            else
+              println("l104")
+              tmpResult = st(fullMatrix[usefulSlice, innerAxes...], layers, nonlinear=nonlinear, subsam=subsam, stType=stType)
+            end
+            # if the data is too big, we'll need extra room to store the results
+            result = zeros(nEx, size(tmpResult)[2:end]...)
+            innerResultAxes = axes(tmpResult)[2:end]
+            result[usefulSlice, innerResultAxes...] = tmpResult
+            if nEx>2
+              if savefileSize>10
+                usefulSlice = (2*ceil(Int,nEx/2)-1):nEx
+                result[usefulSlice, innerResultAxes...] = prevWork
+              end
+              maxValue = (savefileSize>10 && nEx>2) ? ceil(Int,nEx/2)-1 : ceil(Int,nEx/2)
+              for i = 2:maxValue
+                usefulSlice = (2*i-1):min(nEx, 2*i)
+                if thin
+                  println("ln120")
+                  tmpResult = thinSt(fullMatrix[usefulSlice, innerAxes...], layers, nonlinear=nonlinear, subsam=subsam, stType=stType, outputSubsample = postSubsample)
+                else
+                  println("ln123")
+                  tmpResult = st(fullMatrix[usefulSlice, innerAxes...], layers, nonlinear=nonlinear, subsam=subsam, stType=stType)
+                end
+                println("ln126")
+                result[usefulSlice, innerResultAxes...] = tmpResult
+              end
+              # repair a problem in the previous run
+            end
+            println("saving to $(savefile)")
+            if savefileSize<10 && isfile(savefile)
+              rm(savefile)
+            end
+            save(savefile, "result", result)
+          end
         end
-        println("saving to $(joinpath(destFolder, relpath(root,sourceFolder),"$(file).jld"))")
-        save(joinpath(destFolder, relpath(root,sourceFolder),"$(file).jld"), "result", result)
       end
     end
   end
