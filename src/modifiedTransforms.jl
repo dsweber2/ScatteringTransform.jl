@@ -2,7 +2,6 @@ using Wavelets, FFTW, SpecialFunctions, LinearAlgebra
 import Wavelets.cwt
 import Wavelets.wavelet
 import Wavelets.eltypes
-# TODO: someday, make this more efficient (precompute the filters, for example)
 wavelet(WT.morl,3.5)
 # define a type for averaging continuous wavelets
 struct CFWA{T} <: ContinuousWavelet{T}
@@ -17,7 +16,7 @@ struct CFWA{T} <: ContinuousWavelet{T}
     # end
     averagingLength::Int # the number of scales to override with averaging
     averagingType  ::Symbol # either Dirac or mother; the first uniformly represents the lowest frequency information, while the second constructs a wavelet using Daughter that has mean frequency zero, and std equal to the first non-removed wavelet's mean
-
+    frameBound     ::Float64 # if positive, set the frame bound of the transform to be frameBound. Otherwise leave it so that each wavelet has an L2 norm of 1
 end
 function eltypes(::CFWA{T}) where T
     T
@@ -28,7 +27,7 @@ end
 
 
 
-function CFWA(wave::WC, scalingfactor::S=8, averagingType::Symbol=:Mother, boundary::T=WT.DEFAULT_BOUNDARY, averagingLength::Int=floor(Int,scalingfactor/2)) where {WC<:WT.WaveletClass, T<:WT.WaveletBoundary, S<:Real}
+function CFWA(wave::WC, scalingfactor::S=8, averagingType::Symbol=:Mother, boundary::T=WT.DEFAULT_BOUNDARY, averagingLength::Int=floor(Int,scalingfactor/2), frameBound::Float64=-1.0) where {WC<:WT.WaveletClass, T<:WT.WaveletBoundary, S<:Real}
     if scalingfactor<=0
         error("scaling factor must be positive")
     end
@@ -44,20 +43,20 @@ function CFWA(wave::WC, scalingfactor::S=8, averagingType::Symbol=:Mother, bound
     else
         error("I'm not sure how you got here. Apparently the WaveletClass you gave doesn't have a name. Sorry about that")
     end
-    return CFWA{T}(Float64(scalingfactor), tdef...,averagingLength, averagingType)
+    return CFWA{T}(Float64(scalingfactor), tdef...,averagingLength, averagingType, frameBound)
 end
 
 
-function CFWA(wave::WC; scalingfactor::S=8, averagingType::Symbol=:Mother, boundary::T=WT.DEFAULT_BOUNDARY, averagingLength::Int=floor(Int,scalingfactor/2)) where {WC<:WT.WaveletClass, T<:WT.WaveletBoundary, S<:Real}
+function CFWA(wave::WC; scalingfactor::S=8, averagingType::Symbol=:Mother, boundary::T=WT.DEFAULT_BOUNDARY, averagingLength::Int=floor(Int,scalingfactor/2), frameBound::Float64=-1.0) where {WC<:WT.WaveletClass, T<:WT.WaveletBoundary, S<:Real}
     return CFWA(wave, scalingfactor, averagingType, boundary, averagingLength)
 end
 # If you know the averaging length
-function wavelet(c::W, s::S, averagingLength::T, averagingType::Symbol=:Mother, boundary::WT.WaveletBoundary=WT.DEFAULT_BOUNDARY) where {W<:WT.ContinuousWaveletClass, S<:Real,T<:Real}
+function wavelet(c::W, s::S, averagingLength::T, averagingType::Symbol=:Mother, boundary::WT.WaveletBoundary=WT.DEFAULT_BOUNDARY, frameBound::Float64=-1.0) where {W<:WT.ContinuousWaveletClass, S<:Real,T<:Real}
     CFWA(c, s, averagingType, boundary, averagingLength)
 end
 # If you want a default averaging length, just input the type
-function wavelet(c::W, s::S, averagingType::Symbol, boundary::WT.WaveletBoundary=WT.DEFAULT_BOUNDARY) where {W<:WT.ContinuousWaveletClass, S<:Real}
-    CFWA(c, s, averagingType, boundary)
+function wavelet(c::W, s::S, averagingType::Symbol, boundary::WT.WaveletBoundary=WT.DEFAULT_BOUNDARY, frameBound::Float64=-1.0) where {W<:WT.ContinuousWaveletClass, S<:Real}
+    CFWA(c, s, averagingType, boundary; frameBound=frameBound)
 end
 
 
@@ -256,7 +255,12 @@ function computeWavelets(Y::AbstractArray{T}, c::CFWA{W}; J1::S=NaN, backOffset:
     for a1 in c.averagingLength:J1
         daughters[:, a1-c.averagingLength + 2] = Daughter(c, 2.0^(a1/c.scalingFactor), ω)
     end
-    daughters[:,1] = findAveraging(c,ω)
+    daughters[:, 1] = findAveraging(c,ω)
+    # normalize so energy is preserved
+    daughters = daughters./sqrt.(sum(abs.(daughters).^2, dims=1))
+    if c.frameBound > 0
+        daughters = daughters.*(c.frameBound/norm(daughters,2))
+    end
     return daughters
 end
 
