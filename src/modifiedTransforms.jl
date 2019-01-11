@@ -224,7 +224,8 @@ function cwt(Y::AbstractArray{T}, c::CFWA{W}; J1::S=NaN, backOffset::Int=0) wher
 end
 
 """
-    just precomputes the wavelets used by transform c::CFWA{W}. For details, see cwt
+    computeWavelets(Y::AbstractArray{T}, c::CFWA{W}; J1::S=NaN, backOffset::Int=0) where {T<:Number, S<:Real, W<:WT.WaveletBoundary}
+just precomputes the wavelets used by transform c::CFWA{W}. For details, see cwt
 """
 function computeWavelets(Y::AbstractArray{T}, c::CFWA{W}; J1::S=NaN, backOffset::Int=0) where {T<:Number, S<:Real, W<:WT.WaveletBoundary}
     n1 = size(Y)[end]

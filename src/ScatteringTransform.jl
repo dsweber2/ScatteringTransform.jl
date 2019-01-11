@@ -1,5 +1,6 @@
 module ScatteringTransform
-using Interpolations, Wavelets, Distributed, JLD#, MAT, Plots, LaTeXStrings
+using Distributed, SharedArrays
+using Interpolations, Wavelets, Distributed, JLD, Plots#, MAT, Plots, LaTeXStrings
 
 include("subsampling.jl")
 export maxPooling, bilinear, bspline
@@ -11,8 +12,11 @@ logabs(x)=log.(abs.(x))
 ReLU(x::Float64) = max(0,x)
 ReLU(x::A) where A<:Complex = real(x)>0 ? x : 0
 include("Utils.jl")
+export calculateThinStSizes
+include("pathMethods.jl")
+export pathType, pathToThinIndex
 
-# include("plotting.jl") # the current version of this only works with shearlets
+include("plotting.jl")
 export st, thinSt, flatten, MatrixAggrigator, plotShattered, plotCoordinate, reshapeFlattened, numberSkipped, logabs, maxPooling, ReLU, numScales, incrementKeeper, numInLayer
 
 # TODO make a way to access a scattered2D by the index of (depth, scale,shearingFactor)
@@ -27,7 +31,7 @@ export st, thinSt, flatten, MatrixAggrigator, plotShattered, plotCoordinate, res
 
   1D scattering transform using the layeredTransform layers. you can switch out the nonlinearity as well as the method of subsampling. Finally, the stType is a string. If it is "full", it will produce all paths. If it is "decreasing", it will only keep paths of increasing scale. If it is "collating", you must also include a vector of matrices.
 """
-function st(X::Array{T}, layers::layeredTransform; nonlinear::Function=abs, subsam::Function=bspline, stType::String="full") where {T<:Real}
+function st(X::Array{T}, layers::layeredTransform; nonlinear::Function=abs, subsam::Function=bspline, stType::String="full", totalScales = [NaN for i=1:layers.m]) where {T<:Real}
   numChildλ= 0
   # Insist that X has to have at least one extra meta-dimension, even if it is 1
   if size(X) == length(size(layers.subsampling))
@@ -56,7 +60,7 @@ function st(X::Array{T}, layers::layeredTransform; nonlinear::Function=abs, subs
       numChildλ = numChildren(keeper, layers, nScalesLayers)
       daughters = computeWavelets(cur[[1 for i=1:length(outerAxes)]..., innerAxes..., 1], layers.shears[i], J1=numChildλ - 1 + layers.shears[i].averagingLength)
     else
-      daughters = computeWavelets(cur[[1 for i=1:length(outerAxes)]..., innerAxes..., 1], layers.shears[i])
+      daughters = computeWavelets(cur[[1 for i=1:length(outerAxes)]..., innerAxes..., 1], layers.shears[i],J1=totalScales[i])
     end
 
     # iterate over the outerAxes
@@ -121,45 +125,24 @@ outputSubsample is a tuple, with the first number indicating a rate, and the sec
 (<1, <1): no ssubsampling
 (x, <1) subsample at a rate of x, with at least one element kept in each path
 """
-function thinSt(X::Array{T}, layers::layeredTransform; nonlinear::Function=abs, subsam::Function=bspline, stType::String="full", outputSubsample::Tuple{Int,Int}=(-1,1)) where {T<:Real}
+function thinSt(X::Array{T}, layers::layeredTransform; nonlinear::Function=abs, subsam::Function=bspline, stType::String="full", outputSubsample::Tuple{Int,Int}=(-1,1), totalScales = [NaN for i=1:layers.m]) where {T<:Real}
   # Insist that X has to have at least one extra meta-dimension, even if it is 1
   if size(X) == length(size(layers.subsampling))
     X = reshape(X, (1,size(X)...));
   end
-  numChildλ= 0
+  numChildλ = 0
   println("initial")
   #results = scattered(layers, X, stType)
-  k = length(size(layers.subsampling))
-  n = sizes(bspline, layers.subsampling, size(X)[(end-k+1):end])
-  q = [numScales(layers.shears[i],n[i]) for i=1:layers.m+1]
-  q = [prod(q[1:i-1].-1) for i=1:layers.m+1]
-  dataSizes = [[size(X)[1:end-k]..., n[i], q[i]] for i=1:layers.m+1]
-  outputSizes = [[size(X)[1:(end-k)]..., n[i+1], q[i]] for i=1:layers.m+1]
+  k, n, q, dataSizes, outputSizes, resultingSize = calculateThinStSizes(layers, outputSubsample, size(X))
   println("the required sizes are dataSizes = $(dataSizes)")
   println("outputSizes = $(outputSizes)")
   nextData = reshape(X, (size(X)..., 1))
   # create list of size references if we're subsampling the output an extra amount
-  if outputSubsample[1] > 1
-    resultingSize = zeros(k)
-    resultingSubsampling = zeros(k)
-    # subsampling limited by the second entry
-    for (i,x) in enumerate(outputSizes)
-      proposedLevel = floor(Int, x[end-1])
-      if proposedLevel < outputSubsample[2]
-        # the result is smaller than the floor
-        proposedLevel = outputSubsample[2]
-      end
-      resultingSize[i] = outputSubsample
-    end
-    println("resultingSize = $(resultingSize)")
-  elseif outputSubsample[2] > 1
-    resultingSize = outputSubsample[2]*ones(Int64,layers.m+1,k)
-    println("resultingSize = $(resultingSize)")
-  end
+
   if outputSubsample[1] > 1 || outputSubsample[2] > 1
     concatOutput = zeros(Float64, outputSizes[1][1:end-k-1]..., sum(resultingSize.*q))
   else
-    concatOutput = zeros(Float64, outputSizes[1][1:end-k-1]..., sum([prod(outputSizes[end-k:end]) for x in outputSizes])...)
+    concatOutput = zeros(Float64, outputSizes[1][1:end-k-1]..., sum([prod(x[end-k:end]) for x in outputSizes])...)
   end
   # keep track of where we are in each meta dimension
   outPos = ones(Int64, outputSizes[1][1:end-k-1]...)
@@ -172,7 +155,7 @@ function thinSt(X::Array{T}, layers::layeredTransform; nonlinear::Function=abs, 
     ######################################################################################################################################################################################################################################################################################
     cur = nextData #data from the previous layer
     if i <= layers.m
-      nextData = zeros(dataSizes[i+1]...)
+      nextData = SharedArray{Float64, length(dataSizes[i+1])}(dataSizes[i+1]...)
     end
     #println("size of nextData = $(size(nextData))")
     #println("size of cur $(size(cur))")
@@ -194,11 +177,11 @@ function thinSt(X::Array{T}, layers::layeredTransform; nonlinear::Function=abs, 
       numChildλ = numChildren(keeper, layers, nScalesLayers)
       daughters = computeWavelets(cur[[1 for i=1:length(outerAxes)]..., innerAxes..., 1], layers.shears[i], J1=numChildλ - 1 + layers.shears[i].averagingLength)
     else
-      daughters = computeWavelets(cur[[1 for i=1:length(outerAxes)]..., innerAxes..., 1], layers.shears[i])
+      daughters = computeWavelets(cur[[1 for i=1:length(outerAxes)]..., innerAxes..., 1], layers.shears[i],J1=totalScales[i])
     end
     #println("computed daughters in layer $(i)")
     # iterate over the outerAxes
-    for outer in eachindex(view(cur, outerAxes..., [1 for i=1:k]..., 1))
+    @distributed for outer in eachindex(view(cur, outerAxes..., [1 for i=1:k]..., 1))
       if i<=layers.m
         decreasingIndex = 1
         for λ = 1:size(cur)[end]

@@ -107,3 +107,46 @@ function incrementKeeper(keeper::Array{Int}, m::Int, scalingFactors::Array{Float
   return (false, keeper)
 end
 incrementKeeper(keeper::Array{Int}, m::Int, layers::layeredTransform, nScalesLayers::Array{Int}) = incrementKeeper(keeper, m, [shear.scalingFactor for shear in layers.shears], nScalesLayers::Array{Int})
+
+
+"""
+    k, n, q, dataSizes, outputSizes, resultingSize = calculateThinStSizes(layers, outputSubsample, Xsize)
+"""
+function calculateThinStSizes(layers, outputSubsample, Xsize)
+  k = length(size(layers.subsampling))
+  n = sizes(bspline, layers.subsampling, Xsize[(end-k+1):end])
+  q = getQ(layers,n)
+  dataSizes = [[Xsize[1:end-k]..., n[i], q[i]] for i=1:layers.m+1]
+  outputSizes = [[Xsize[1:(end-k)]..., n[i+1], q[i]] for i=1:layers.m+1]
+  if outputSubsample[1] > 1
+    resultingSize = zeros(layers.m+1)
+    resultingSubsampling = zeros(layers.m+1)
+    # subsampling limited by the second entry
+    for (i,x) in enumerate(outputSizes)
+      proposedLevel = floor(Int, x[end-1]/outputSubsample[1])
+      if proposedLevel < outputSubsample[2]
+        # the result is smaller than the floor
+        proposedLevel = outputSubsample[2]
+      end
+      resultingSize[i] = proposedLevel
+    end
+    println("resultingSize = $(resultingSize)")
+  elseif outputSubsample[2] > 1
+    resultingSize = outputSubsample[2]*ones(Int64,layers.m+1,k)
+    println("resultingSize = $(resultingSize)")
+  else
+    resultingSize = outputSizes
+  end
+  return (k, n, q, dataSizes, outputSizes, resultingSize)
+end
+
+"""
+  q = getQ(layers)
+calculate the total number of entries in each layer
+"""
+function getQ(layers,n)
+  println("$(n)")
+  q = [numScales(layers.shears[i],n[i]) for i=1:layers.m+1]
+  q = [prod(q[1:i-1].-1) for i=1:layers.m+1]
+  return q
+end

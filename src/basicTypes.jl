@@ -5,9 +5,10 @@
 # the type D<:Integer gives the dimension of the transform
 struct layeredTransform{T}
   m::Int # the number of layers, not counting the zeroth layer
+  n::Int # the length of a single entry
   shears::Array{T} # the array of the transforms; the final of these is used only for averaging, so it has length m+1
   subsampling::Array{Float64,1} # for each layer, the rate of subsampling. There is one of these for layer zero as well, since the output is subsampled, so it should have length m+1
-  layeredTransform{T}(m::Int,shears::Array{T},subsampling::Array{Float64,1}) where {T} = new(m,shears,subsampling)
+  layeredTransform{T}(m::Int, n::Int, shears::Array{T}, subsampling::Array{Float64,1}) where {T} = new(m,n, shears, subsampling)
 end
 
 ################################################################################
@@ -24,10 +25,9 @@ function layeredTransform(m::S, Xlength::S, nScales::Array{T,1}, subsampling::Ar
   @assert m+1==size(subsampling,1)
   @assert m+1==size(nScales,1)
 
-  Xlength = sizes(bspline,subsampling,(Xlength)) #TODO: if you add another subsampling method in 1D, this needs to change
   println("Vector Lengths: $Xlength nScales: $nScales subsampling: $subsampling")
   shears = [wavelet(CWTType, nScales[i], averagingLength[i], averagingType[i], boundary[i]) for (i,x) in enumerate(subsampling)]
-  layeredTransform{typeof(shears[1])}(m, shears, 1.0*subsampling)
+  layeredTransform{typeof(shears[1])}(m, Xlength, shears, 1.0*subsampling)
 end
 
 
