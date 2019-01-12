@@ -2,6 +2,9 @@ module ScatteringTransform
 using Distributed, SharedArrays
 using Interpolations, Wavelets, Distributed, JLD, Plots#, MAT, Plots, LaTeXStrings
 
+# add a number of processes to match the number of threads TODO: are there use cases where these are different?
+addprocs(parse(Int, ENV["JULIA_NUM_THREADS"]) - nprocs())
+
 include("subsampling.jl")
 export maxPooling, bilinear, bspline
 include("modifiedTransforms.jl")
@@ -136,26 +139,30 @@ function thinSt(X::Array{T}, layers::layeredTransform; nonlinear::Function=abs, 
   k, n, q, dataSizes, outputSizes, resultingSize = calculateThinStSizes(layers, outputSubsample, size(X))
   println("the required sizes are dataSizes = $(dataSizes)")
   println("outputSizes = $(outputSizes)")
+  println("resultingSize = $(resultingSize)")
   nextData = reshape(X, (size(X)..., 1))
   # create list of size references if we're subsampling the output an extra amount
 
   if outputSubsample[1] > 1 || outputSubsample[2] > 1
     concatOutput = zeros(Float64, outputSizes[1][1:end-k-1]..., sum(resultingSize.*q))
   else
+    println("size of concatOutput = $(outputSizes[1][1:end-k-1]), $(sum([prod(x[end-k:end]) for x in outputSizes]))")
     concatOutput = zeros(Float64, outputSizes[1][1:end-k-1]..., sum([prod(x[end-k:end]) for x in outputSizes])...)
   end
   # keep track of where we are in each meta dimension
   outPos = ones(Int64, outputSizes[1][1:end-k-1]...)
   println("outPos = $(size(outPos))")
   println("outputSizes[1] = $(outputSizes[1])")
-  println("size of concatOutput = size(concatOutput)")
   nScalesLayers = [numScales(layers.shears[i], max(dataSizes[i][1]-1,1)) for i=1:length(layers.shears)]
   for (i,layer) in enumerate(layers.shears)
     println("starting the actual transformation in layer $(i)")
     ######################################################################################################################################################################################################################################################################################
     cur = nextData #data from the previous layer
     if i <= layers.m
-      nextData = SharedArray{Float64, length(dataSizes[i+1])}(dataSizes[i+1]...)
+      nextData = Array{Array{Float64, length(dataSizes[i+1])-1}}(undef, dataSizes[i+1][end])
+      for k=1:length(nextData)
+        nextData[k] = zeros(1,1)
+      end
     end
     #println("size of nextData = $(size(nextData))")
     #println("size of cur $(size(cur))")
@@ -167,7 +174,7 @@ function thinSt(X::Array{T}, layers::layeredTransform; nonlinear::Function=abs, 
     end
 
     innerAxes = axes(cur)[end-k:end-1] # effectively a set of colons of length k, to be used for input
-        ######################################################################################################################################################################################################################################################################################
+    ######################################################################################################################################################################################################################################################################################
     innerSub = (Base.OneTo(x) for x in outputSizes[i][end-k:end-1])#axes(outputSizes[i]...)[end-k:end-1] # effectively a set of colons of length k, to be used for the subsampled output
 
     outerAxes = axes(cur)[1:(end-k-1)] # the same idea as innerAxes, but for the example indices
@@ -180,11 +187,13 @@ function thinSt(X::Array{T}, layers::layeredTransform; nonlinear::Function=abs, 
       daughters = computeWavelets(cur[[1 for i=1:length(outerAxes)]..., innerAxes..., 1], layers.shears[i],J1=totalScales[i])
     end
     #println("computed daughters in layer $(i)")
-    # iterate over the outerAxes
-    @distributed for outer in eachindex(view(cur, outerAxes..., [1 for i=1:k]..., 1))
-      if i<=layers.m
-        decreasingIndex = 1
-        for λ = 1:size(cur)[end]
+    if i<=layers.m
+      # make something to pass onto the next layer
+      decreasingIndex = 1
+      for λ = 1:size(cur)[end]
+        nextData[λ] = zeros(Float64, dataSizes[i][1:end-1]...)
+        # iterate over the outerAxes
+        @time for outer in eachindex(view(cur, outerAxes..., [1 for i=1:k]..., 1))
           # first perform the continuous wavelet transform on the data from the previous layer
           if stType=="decreasing" && i>=2
             numChildλ = numChildren(keeper, layers, nScalesLayers)
@@ -206,10 +215,11 @@ function thinSt(X::Array{T}, layers::layeredTransform; nonlinear::Function=abs, 
               #println((λ-1)*(size(output,2)-1)+j-1)
               #println("size of output $(size(output))")
               #println("size of output after subsampling $(size(subsam(output[innerAxes..., j], layers.subsampling[i])))")
-              nextData[outer, innerSub..., (λ-1)*(size(output,2)-1)+j-1] = nonlinear.(subsam(output[innerAxes..., j], layers.subsampling[i]))
+              nextData[λ][outer, innerSub...] = nonlinear.(subsam(output[innerAxes..., j], layers.subsampling[i]))
             else
+              #TODO: decreasing is *broken*
               if stType=="decreasing"
-                nextData[outer, innerSub..., decreasingIndex] = nonlinear.(subsam(output[innerAxes..., j], layers.subsampling[i]))
+                nextData[decreasingIndex] = nonlinear.(subsam(output[innerAxes..., j], layers.subsampling[i]))
                 decreasingIndex += 1
               end
             end
@@ -221,15 +231,18 @@ function thinSt(X::Array{T}, layers::layeredTransform; nonlinear::Function=abs, 
           sizeTmpOut = prod(size(tmpOut))
           if outputSubsample[1] > 1 || outputSubsample[2] > 1
             #println("outer, outPos[outer] = $((outer, outPos[outer]))")
-              concatOutput[outer, outPos[outer].+(0:(resultingSize[i]-1))] = subsam(tmpOut, resultingSize[i], absolute = true)
+            concatOutput[outer, outPos[outer].+(0:(resultingSize[i]-1))] = subsam(tmpOut, resultingSize[i], absolute = true)
             sizeTmpOut = resultingSize[i]
           else
             concatOutput[outer, outPos[outer].+(0:(sizeTmpOut-1))] = reshape(tmpOut, (sizeTmpOut))
           end
           outPos[outer] += sizeTmpOut
         end
-      else
-        for λ = 1:size(cur)[end]
+      end
+    else
+      for λ = 1:size(cur)[end]
+        # iterate over the outerAxes
+        for outer in eachindex(view(cur, outerAxes..., [1 for i=1:k]..., 1))
           output = cwt(cur[outer, innerAxes..., λ], layers.shears[i], daughters, J1=1)
           tmpOut = Array{Float64,k}(real(subsam(output[innerAxes..., end], layers.subsampling[i])))
           sizeTmpOut = prod(size(tmpOut))
@@ -243,8 +256,8 @@ function thinSt(X::Array{T}, layers::layeredTransform; nonlinear::Function=abs, 
         end
       end
     end
-  end
-  return concatOutput
+end
+return concatOutput
 end
 
 

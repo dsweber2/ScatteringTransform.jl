@@ -8,3 +8,5 @@ Basic installation: at the moment, this is not an official package. Because of t
   (ScatteringTransform) pkg> instantiate
 ```
 At the top of your project, add `using Pkg; Pkg.activate("~/.julia/dev/ScatteringTransform.jl")`.
+
+The number of processes used is set in the environment variable ENV["JULIA_NUM_THREADS"]

@@ -82,7 +82,7 @@ function bspline(input::Array{S,1}, rate::T; absolute::Bool=false) where {S<:Num
   @assert rate>=1
   itp = interpolate(input,BSpline(Quadratic(Reflect(OnGrid()))))
   if absolute
-    return itp(Int.(range(1, stop = size(input)[end], length = rate)))
+    return itp(range(1, stop = size(input)[end], length = rate))
   else
     return itp(range(1, stop = size(input)[end], length = floor(Int,length(input) ./rate)))
   end
