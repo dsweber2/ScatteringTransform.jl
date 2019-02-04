@@ -9,10 +9,10 @@ using ScatteringTransform, Plots
 t = 0:6π/100:6π
 f = (sin.(t) + 1/3*sin.(π*t+π/3)) + max.(0,t-3*π)./(t-3*π)
 plot(t, f)
-
+using 
 # default transform uses Morlet wavelets
 layeredTransform(3,f)
-
+randn
 # tmpcode
 lengthOfALayer
 sum(lengthOfALayer[1:(2)])

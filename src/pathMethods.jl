@@ -148,3 +148,24 @@ function incrementKeeper(path::Array{Int64}, m::Int64, layers::layeredTransform,
   end
   return (false, path)
 end
+# """
+#     (isLast, keeper) = incrementKeeper(keeper::Array{Float64}, m::Int, resolutions::Array{Float64})
+# keeper is a tuple where the ith entry is the scale used at layer i. This function is designed so that it only returns decreasing entries (including effects from the scales per octave). It does so in order from smallest scale in all layers, to largest in all layers, incrementing the deepest layers first. isLast is a boolean which is true if this is the last entry.
+# """
+# function incrementKeeper(keeper::Array{Int}, m::Int, scalingFactors::Array{Float64,1}, nScalesLayers::Array{Int})
+#   keeper[m]+=1
+#   if m==1
+#     # if we've cycled all possible values, we're done, so return an empty keeper
+#     if keeper[1] > nScalesLayers[1]
+#       return (true, Array{Int}(0))
+#     end
+#   else
+#     # if we've cycled this layer as much as possible, we move on
+#     if keeper[m] > nScalesLayers[m] || floor(keeper[m-1] ./scalingFactors[m-1]) < ceil(keeper[m] ./scalingFactors[m])
+#       keeper[m]=1
+#       return incrementKeeper(keeper, m-1, scalingFactors, nScalesLayers)
+#     end
+#   end
+#   return (false, keeper)
+# end
+# incrementKeeper(keeper::Array{Int}, m::Int, layers::layeredTransform, nScalesLayers::Array{Int}) = incrementKeeper(keeper, m, [shear.scalingFactor for shear in layers.shears], nScalesLayers::Array{Int})

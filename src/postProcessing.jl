@@ -69,7 +69,7 @@ end
 """
   transformFolder(sourceFolder::String, destFolder::String, layers::layeredTransform, separate::Bool; loadThis::Function=loadSyntheticMatFile, nonlinear::Function=abs, subsam::Function=bspline, stType::String="full")
 
-Given the (relative) name of a folder and a layered transform, it will load (using a user defined function, which should output data so each column is an example) and transform the entire folder, and save the output into a similarly structured set of folders in destFolder. If separate is true, it will also save a file containing just the scattered coefficients from all inputs.
+Given the (relative) name of a folder and a layered transform, it will load (using a user defined function, which should output data so that the last dimension is to be transformed) and transform the entire folder, and save the output into a similarly structured set of folders in destFolder. If separate is true, it will also save a file containing just the scattered coefficients from all inputs.
 
 If overwrite is false, then skip files that already exist. If overwrite is true, for right now, it uses whatever is already there as the last entries
 """
