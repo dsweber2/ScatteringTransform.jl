@@ -27,7 +27,7 @@ function computePath(layers::layeredTransform, layered1D::scattered{T,1}, layerM
 end
 
 
-"""
+@doc """
     numChildren = numChildren(keeper::Array{Int}, layers::layeredTransform, nScalesLayers::Array{Int})
 
 given a keeper, determine the number of children it has.
@@ -64,7 +64,7 @@ function numChildren(keeperOriginal::Array{Int}, scalingFactors::Array{Float64},
 end
 numChildren(keeperOriginal::Array{Int}, layers::layeredTransform, nScalesLayers::Array{Int}) = numChildren(keeperOriginal::Array{Int}, [shear.scalingFactor for shear in layers.shears], nScalesLayers::Array{Int})
 
-"""
+@doc """
 numInLayer(m::Int, layers::layeredTransform, nScalesLayers::Array{Int})
 
 A stupidly straightforward way of counting the number of decreasing paths in a given layer.
@@ -88,7 +88,7 @@ end
 numInLayer(m::Int, layers::layeredTransform, nScalesLayers::Array{Int}) = numInLayer(m, [shear.scalingFactor for shear in layers.shears], nScalesLayers)
 
 
-"""
+@doc """
     k, n, q, dataSizes, outputSizes, resultingSize = calculateThinStSizes(layers, outputSubsample, Xsize; totalScales=[NaN for i=1:layers.m])
 """
 function calculateThinStSizes(layers, outputSubsample, Xsize; totalScales=[-1 for i=1:layers.m+1])
@@ -109,23 +109,22 @@ function calculateThinStSizes(layers, outputSubsample, Xsize; totalScales=[-1 fo
       end
       resultingSize[i] = proposedLevel
     end
-    println("resultingSize = $(resultingSize)")
+    # println("resultingSize = $(resultingSize)")
   elseif outputSubsample[2] > 1
     resultingSize = outputSubsample[2]*ones(Int64,layers.m+1,k)
-    println("resultingSize = $(resultingSize)")
+    # println("resultingSize = $(resultingSize)")
   else
     resultingSize = outputSizes
   end
   return (k, n, q, dataSizes, outputSizes, resultingSize)
 end
 
-"""
+@doc """
   q = getQ(layers)
 calculate the total number of entries in each layer
 """
 function getQ(layers, n, totalScales; product=true)
   q = [numScales(layers.shears[i],n[i]) for i=1:layers.m+1]
-  println("in getQ, the numScales (J1-1)'s are $q, while n=$n")
   q = [totalScales[i]==-1 ? q[i] : totalScales[i] for i=1:layers.m+1]
   if product
     q = [prod(q[1:i-1]) for i=1:layers.m+1]
@@ -134,3 +133,5 @@ function getQ(layers, n, totalScales; product=true)
     return q
   end
 end
+getQ(layers, Xsize; product=true)=  getQ(layers, Int.(sizes(bspline, layers.subsampling, Xsize[(end):end]))
+, [-1 for i=1:layers.m+1]; product=product)

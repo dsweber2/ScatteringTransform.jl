@@ -1,59 +1,68 @@
 # this file is best used interactively in atom
-using Pkg; Pkg.activate("/home/dsweber/.julia/dev/ScatteringTransform.jl")
-using Revise
 using Distributed
-addprocs(9)
-include("src/ScatteringTransform.jl")
-using ScatteringTransform, Plots
+addprocs(4)
+@everywhere using Revise
+@everywhere using ScatteringTransform
+using Plots
 # simple example; a sum of sine waves that has a discontinuous jump
-t = 0:6π/100:6π
-f = (sin.(t) + 1/3*sin.(π*t+π/3)) + max.(0,t-3*π)./(t-3*π)
+t = 0.001:6π/100:6π
+f = (sin.(10*t) + 1/3*sin.(π*t.+π/3)) .+ 300 .* max.(0,t.-3*π)./(t.-3*π)
 plot(t, f)
-using 
-# default transform uses Morlet wavelets
-layeredTransform(3,f)
-randn
-# tmpcode
-lengthOfALayer
-sum(lengthOfALayer[1:(2)])
-k, n, q, dataSizes, outputSizes, resultingSize = ScatteringTransform.calculateThinStSizes(layers, outputSubsample, originalDimensions)
-thinStDims = pathToThinIndex(path, layers, outputSubsample)
-toPlot = thinResult[axes(thinResult)[1:end-1]..., thinStDims]
-toPlot = reshape(toPlot,(size(thinResult)[1:end-1]...,floor(Int,length(thinStDims)/resultingSize[path.m+1]), resultingSize[path.m+1]))
-plotlyjs()
-ranges = (minimum(toPlot),maximum(toPlot))
-colorMeMine = cgrad(:balance,scale=scale)
-plot([heatmap(toPlot[i,:,:], xticks=1:size(toPlot)[end], clims=ranges, fillcolor=colorMeMine) for i=1:size(toPlot,1)]...)
-k, n, q, dataSizes, outputSizes, resultingSize = ScatteringTransform.calculateThinStSizes(layers, (-1,3), (20032,420))
-lengthOfALayer = resultingSize.*q
-initIndex = sum(lengthOfALayer[1:(path.m)])
-tmpNlayer = [[numScales(layers.shears[j], layers.n)-1 for j=1:path.m]; 1]
-[prod(tmpNlayer[i+1:path.m]) for i=1:path.m]
-path.Idxs'*[prod(tmpNlayer[i+1:path.m]) for i=1:path.m]
+
+# brief example of what the wavelets look like
 
 
+# First create the transform configuration
+layers = layeredTransform(2,f)
 
-# A version that only has the subsampled output, primarily useful for classification
-layers = layeredTransform(2,420)
-f = randn(2000,30,420)
-outt = thinSt(f,layers)
-reshape(1:24,(3,8))
+# two major versions:
+###########################################################################################################
+#####    the first outputs a datatype specifically for working with Scattering transforms, and has both all internal results and the output. It is not particulary appropriate for use on large datasets
+###########################################################################################################
 
+@time output = st(f,layers,nonlinear=abs)
+firstLayer = zeros(25, 54)
+for i=1:54
+  firstLayer[:,i] = bspline(bspline(abs.(cwt(f)[i,:]), 2),2)
+end
+heatmap(firstLayer')
+tmp = cwt(f,layers.shears[1])
+thing = zeros(Complex{Float64}, 50, 33)
+cwt(bspline(tmp[1,:,1], 2),layers.shears[2])
+for i=1:33
+  thing[:,i]= cwt(bspline(abs.(tmp[1,:,i+1]), 2),layers.shears[2])[1,:,1]
+end
+thing
+heatmap(abs.(thing)')
+heatmap(abs.(cwt(reshape(f,(1,size(f)...)),layers.shears[1])[1,:,:])')
+heatmap(abs.(output.data[2][1,:,:])')
+heatmap(output.output[2][1,:,:]')
+output.output[2]
+
+# let's take a look at some of the coefficients
+# first, for comparison, the cwt using the same Morlet wavelets is
+heatmap(abs.(cwt(f,layers.shears[1])[1,:,:])', xaxis="Space",yaxis="Frequency")
+# where the discontinuity is clearly visible
+# For comparison, the first layer (note the difference in magnitude)
+heatmap(output.output[2][1,:,:]', xlabel="space", ylabel="Frequency",title="First Layer Output")
+# specifically, the highest scale/lowest frequency in the first layer, denoted by pathType(1,[1])
+comparePathsChildren(output, pathType(1,[1]), layers)
+# the other end
+comparePathsChildren(output,pathType(1,[33]),layers)
+# looking back at line 44, the 16th frequency looks like it should have some interesting behaviour
+comparePathsChildren(output,pathType(1,[33]),layers)
+
+###########################################################################################################
+####    the second outputs a single array where the last dimension corresponds to the transformed data. Useful for large datasets, and more optimized
+###########################################################################################################
+
+@time output = thinSt(f, layers, outputSubsample=(-1,3))
+# output subsample as written only takes 3 values from each output path
 
 # plot the actual wavelets used
-layers = layeredTransform(2,420)
-f = randn(2,420)
-
 daughters = computeWavelets(f, layers.shears[1])
 plotlyjs()
 daughters
-plot(reverse(abs.(daughters)[1:150,:],dims=2),title="Absolute Value of the Morlet Wavelets used")
-normalizeddaughters = daughters./sqrt.(sum(abs.(daughters).^2,dims=1))
-plot(reverse(abs.(normalizeddaughters)[1:150,:],dims=2),title="Absolute Value of the Morlet Wavelets used")
+plot(reverse(abs.(daughters)[1:100,:],dims=2), title="Absolute Value of the Morlet Wavelets", label="")
+heatmap(abs.(daughters[1:100,:]'), title="Absolute Value of the Morlet Wavelets")
 savefig("/home/dsweber/allHail/SonarProjectSaito/plots/SSAM2Plots/MorletWavelets.pdf")
-reverse(abs.(daughters),dims=1)
-tmp = randn(10,5)
-sum(abs.(tmp./sum(abs.(tmp).^2,dims=1)).^2,dims=1)
-tmp = [1 4; 2 5; 3 6]
-./[1 2 3]'
-sum((tmp./sqrt.(sum((tmp).^2,dims=1))).^2,dims=1)

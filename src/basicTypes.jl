@@ -16,7 +16,8 @@ end
 ################################################################################
 
 # the fully specified version
-"""
+# TODO: use a layered transform parameter to determine if we're returning a st or thinst instead
+@doc """
       layeredTransform(m::S, Xlength::S; nScales::Array{S,1}=[8 for i=1:(m+1)], subsampling::Array{T,1}=[2 for i=1:(m+1)], CWTType::WT.ContinuousWaveletClass=WT.morl, averagingLength::Array{S,1}=ceil.(S, nScales/2), averagingType::Array{Symbol,1}=[:Mother for i=1:(m+1)], boundary::Array{W,1}=[WT.DEFAULT_BOUNDARY for i=1:(m+1)]) where {S<:Integer, T<:Real, W<:WT.WaveletBoundary}
 
       alternatively, you can give an actual vector for Xlength and the length will be used implicitly.
@@ -36,8 +37,9 @@ end
 function layeredTransform(m::S, Xlength::S; nScales::Array{S,1}=[8 for i=1:(m+1)], subsampling::Array{T,1}=[2 for i=1:(m+1)], CWTType::WT.ContinuousWaveletClass=WT.morl, averagingLength::Array{S,1}=ceil.(S, nScales/2), averagingType::Array{Symbol,1}=[:Mother for i=1:(m+1)], boundary::Array{W,1}=[WT.DEFAULT_BOUNDARY for i=1:(m+1)]) where {S<:Integer, T<:Real, W<:WT.WaveletBoundary}
   layeredTransform(m, Xlength, nScales, subsampling, CWTType, averagingLength, averagingType, boundary)
 end
+
 function layeredTransform(m::S, X::Array{U}; nScales::Array{S,1}=[8 for i=1:(m+1)], subsampling::Array{T,1}=[2 for i=1:(m+1)], CWTType::WT.ContinuousWaveletClass=WT.morl, averagingLength::Array{S,1}=ceil.(S, nScales/2), averagingType::Array{Symbol,1}=[:Mother for i=1:(m+1)], boundary::Array{W,1}=[WT.DEFAULT_BOUNDARY for i=1:(m+1)]) where {S<:Integer, T<:Real, U<:Real, W<:WT.WaveletBoundary}
-  layeredTransform(m, length(X), nScales, subsampling, CWTType, averagingLength, averagingType, boundary)
+  layeredTransform(m, size(X)[end], nScales, subsampling, CWTType, averagingLength, averagingType, boundary)
 end
 
 # the methods where we are given a transform
@@ -114,7 +116,7 @@ struct scattered{T,N}
   end
 end
 
-"""
+@doc """
       scattered(m, k, fixDim::Array{<:Real, 1}, n::Array{<:Real, 2}, q::Array{<:Real, 1}, T::DataType)
 
   element type is T and N the total number of indices, including both signal dimension and any example indices. k is the actual dimension of a single signal.
@@ -133,16 +135,14 @@ function scattered(m, k, fixDim::Array{<:Real, 1}, n::Array{<:Real, 2}, q::Array
 end
 # TODO: is this an efficient implementation? Specifically <:Real
 
-
-function scattered(layers::layeredTransform, X::Array{T,N}) where {T <: Real, N}
-  k = length(size(layers.subsampling))
-  n = sizes(bspline, layers.subsampling, size(X)[(end-k+1):end]) #TODO: if you add another subsampling method in 1D, this needs to change, or when you reintegrate 2D methods
-  q = [numScales(layers.shears[i],n[i]) for i=1:layers.m+1]
+# TODO: check performance tips to see if I should add some way of discerning the type of N
+function scattered(layers::layeredTransform, X::Array{T,N}; totalScales=[-1 for i=1:layers.m+1]) where {T <: Real, N}
+  k, n, q, dataSizes, outputSizes, resultingSize = calculateThinStSizes(layers, (-1,-1), size(X), totalScales = totalScales)
   if k==N
-    zerr=[zeros(Complex{T}, n[i], prod(q[1:i-1].-1)) for i=1:layers.m+1]
-    output = [zeros(T, n[i+1], prod(q[1:i-1].-1)) for i=1:layers.m+1]
+    zerr=[zeros(T, n[i], q) for i=1:layers.m+1]
+    output = [zeros(T, n[i+1], q) for i=1:layers.m+1]
   else
-    zerr=[zeros(Complex{T}, size(X)[1:end-k]..., n[i], prod(q[1:i-1].-1)) for i=1:layers.m+1]
+    zerr=[zeros(T, size(X)[1:end-k]..., n[i], prod(q[1:i-1].-1)) for i=1:layers.m+1]
     output = [zeros(T, size(X)[1:(end-k)]..., n[i+1], prod(q[1:i-1].-1)) for i=1:layers.m+1]
   end
   zerr[1][:,:] = X
@@ -151,20 +151,19 @@ end
 
 
 # Note: if stType is decreasing, this function relies on functions found in Utils.jl
-function scattered(layers::layeredTransform, X::Array{T,N}, stType::String) where {T <: Number, N}
+function scattered(layers::layeredTransform, X::Array{T,N}, stType::String; totalScales=[-1 for i=1:layers.m+1]) where {T <: Number, N}
   @assert stType=="full" || stType=="decreasing" || stType=="collating"
-  n = sizes(bspline, layers.subsampling, size(X)[end]) #TODO: if you add another subsampling method in 1D, this needs to change
-  q = [numScales(layers.shears[i], n[i]) for i=1:layers.m+1]
+  k, n, q, dataSizes, outputSizes, resultingSize = calculateThinStSizes(layers, (-1,-1), size(X), totalScales = totalScales)
   if stType=="full"
-    zerr=[zeros(Complex{T}, size(X)[1:end-1]..., n[i], prod(q[1:i-1].-1)) for i=1:layers.m+1]
-    output = [zeros(Complex{T}, size(X)[1:end-1]..., n[i+1], prod(q[1:i-1].-1)) for i=1:layers.m+1]
+    zerr=[zeros(T, size(X)[1:end-1]..., n[i], q[i]) for i=1:layers.m+1]
+    output = [zeros(T, size(X)[1:end-1]..., n[i+1], q[i]) for i=1:layers.m+1]
   elseif stType=="decreasing"
     # brief reminder, smaller index==larger scale
     counts = [numInLayer(i,layers,q.-1) for i=0:layers.m]
-    zerr=[zeros(Complex{T}, size(X)[1:end-1]..., n[i], counts[i]) for i=1:layers.m+1]
-    output = [zeros(Complex{T}, size(X)[1:end-1]..., n[i+1], counts[i]) for i=1:layers.m+1]
+    zerr=[zeros(T, size(X)[1:end-1]..., n[i], counts[i]) for i=1:layers.m+1]
+    output = [zeros(T, size(X)[1:end-1]..., n[i+1], counts[i]) for i=1:layers.m+1]
   elseif stType=="collating"
-    zerr=[zeros(Complex{T}, size(X)[1:end-1]..., n[i], q[1:i-1].-1) for i=1:layers.m+1]
+    zerr=[zeros(T, size(X)[1:end-1]..., n[i], q[1:i-1].-1) for i=1:layers.m+1]
     output = [zeros(T, size(X)[1:end-1]..., n[i+1], q[1:i-1].-1) for i=1:layers.m+1]
   end
   for i in eachindex(view(zerr[1], axes(zerr[1])[1:end-1]..., 1))

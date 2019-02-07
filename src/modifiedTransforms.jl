@@ -63,22 +63,22 @@ end
 
 
 
-"""
+@doc """
       totalN = numScales(c::CFWA,n::S) where S<:Integer
   given a CFWA structure and the size of a vector it is acting on, return the number of transformed elements, including the averaging layer
   """
 function numScales(c::CFWA, n::S; backOffset=0,nScales=-1) where S<:Integer
-  if nScales==NaN || nScales<0
+  if isnan(nScales) || nScales<0
     nScales=floor(Int,(log2(n)-2)*c.scalingFactor)-backOffset-c.averagingLength
   end
   #println("numScales getting n=$(n), returning $(nScales)")
   return nScales
 end
 function getJ1(c,nScales, backOffset, n1)
-  if nScales<0
+  if nScales<0 || isnan(nScales)
     nScales = numScales(c, n1; backOffset=0)
   end
-  J1= nScales+c.averagingLength
+  J1= nScales+c.averagingLength-1
   return J1
 end
 
@@ -88,21 +88,21 @@ name(s::CFW) = s.name
 
 
 
-"""
+@doc """
       daughter = Daughter(this::CFW, s::Real, ω::Array{Float64,1})
 
-  given a CFW object, return a rescaled version of the mother wavelet, in the fourier domain. ω is the frequency, which is fftshift-ed. s is the scale variable
+  given a CFW object, return a rescaled version of the mother wavelet, in the fourier domain. ω is the frequency, which is fftshift-ed. s is the scale variable. This extension just allows us to use a ::CFWA type instead of a CFW type.
   """
 function Daughter(this::CFWA, s::Real, ω::Array{Float64,1})
-  if this.name=="morl"
-    daughter = this.σ[3]*(π)^(1/4)*(exp.(-(this.σ[1].-ω/s).^2/2).-this.σ[2]*exp.(-1/2*(ω/s).^2))
-  elseif this.name[1:3]=="dog"
-    daughter = normalize(im^(this.α)*sqrt(gamma((this.α)+1/2))*(ω/s).^(this.α).*exp.(-(ω/s).^2/2))
-  elseif this.name[1:4]=="paul"
-    daughter = zeros(length(ω))
-    daughter[ω.>=0]=(2^this.α)/sqrt((this.α)*gamma(2*(this.α)))*((ω[ω.>=0]/s).^(this.α).*exp.(-(ω[ω.>=0]/s)))
-  end
-  return daughter
+    if this.name=="morl"
+      daughter = this.σ[3]*(π)^(1/4)*(exp.(-(this.σ[1].-ω/s).^2/2).-this.σ[2]*exp.(-1/2*(ω/s).^2))
+    elseif this.name[1:3]=="dog"
+      daughter = normalize(im^(this.α)*sqrt(gamma((this.α)+1/2))*(ω/s).^(this.α).*exp.(-(ω/s).^2/2))
+    elseif this.name[1:4]=="paul"
+      daughter = zeros(length(ω))
+      daughter[ω.>=0]=(2^this.α)/sqrt((this.α)*gamma(2*(this.α)))*((ω[ω.>=0]/s).^(this.α).*exp.(-(ω[ω.>=0]/s)))
+    end
+    return daughter
 end
 
 
@@ -154,12 +154,17 @@ end
 
 
 
-"""
+@doc """
      wave = cwt(Y::AbstractArray{T}, c::CFWA{W}, averagingLength::Int; J1::S=NaN, averagingType::Symbol=:Mother) where {T<:Number, S<:Real, W<:WT.WaveletBoundary}
 
   return the continuous wavelet transform along the final axis with averaging wave, which is (previous dimensions)×(nscales+1)×(signalLength), of type T of Y. The extra parameter averagingLength defines the number of scales of the standard cwt that are replaced by an averaging function. This has form averagingType, which can be one of :Mother or :Dirac- in the :Mother case, it uses the same form as for the daughters, while the dirac uses a constant. J1 is the total number of scales; default (when J1=NaN, or is negative) is just under the maximum possible number, i.e. the log base 2 of the length of the signal, times the number of wavelets per octave. If you have sampling information, you will need to scale wave by δt^(1/2).
   """
-function cwt(Y::AbstractArray{T}, c::CFWA{W}, daughters::Array{ComplexF64,2}; nScales::S=NaN, backOffset::Int=0) where {T<:Number, S<:Real, W<:WT.WaveletBoundary}
+function cwt(Y::AbstractArray{T,N}, c::CFWA{W}, daughters::Array{ComplexF64,2}; nScales::S=NaN, backOffset::Int=0,fftPlan::Bool=true) where {T<:Number, S<:Real, W<:WT.WaveletBoundary, N}
+  @assert typeof(N)<:Integer
+  if N==1
+    Y= reshape(Y,(1,size(Y)...))
+  end
+  # TODO: version of this with a preplanned fft
   n1 = size(Y)[end];
   # J1 is the final scale
   J1 = getJ1(c,nScales, backOffset, n1)
@@ -168,13 +173,13 @@ function cwt(Y::AbstractArray{T}, c::CFWA{W}, daughters::Array{ComplexF64,2}; nS
   elseif nScales>0
     J1 = nScales+c.averagingLength-1
   end
-    
+
   #....construct time series to analyze, pad if necessary
-  if eltypes(c) == WT.padded
+  if eltypes(c)() == WT.padded
     base2 = round(Int,log(n1)/log(2));   # power of 2 nearest to N
-    x = [Y; zeros(2^(base2+1)-n1)];
-  elseif eltypes(c) == WT.DEFAULT_BOUNDARY
-    x = [Y; reverse(Y,length(size(Y)))]
+    x = [Y zeros(2^(base2+1)-n1)];
+  elseif eltypes(c)() == WT.DEFAULT_BOUNDARY
+    x = cat(Y, reverse(Y,dims=length(size(Y))), dims=length(size(Y)))
   else
     x= Y
   end
@@ -183,8 +188,6 @@ function cwt(Y::AbstractArray{T}, c::CFWA{W}, daughters::Array{ComplexF64,2}; nS
   x̂ = FFTW.fft(x, length(size(x)));    # [Eqn(3)]
 
   #....construct wavenumber array used in transform [Eqn(5)]
-
-
   # If the vector isn't long enough to actually have any other scales, just return the averaging
   if J1+2-c.averagingLength<=0 || J1==0
     wave = zeros(Complex{Float64}, size(Y)..., 1)
@@ -195,7 +198,7 @@ function cwt(Y::AbstractArray{T}, c::CFWA{W}, daughters::Array{ComplexF64,2}; nS
     return ifft(wave, length(size(wave))-1)
   end
   # TODO: switch J1 and n, and check everywhere this breaks
-  wave = zeros(Complex{Float64}, size(Y)..., size(daughters,2));  # define the wavelet array
+  wave = zeros(Complex{Float64}, size(x̂)..., size(daughters)[end]);  # define the wavelet array
   # loop through all scales and compute transform
   for j in 1:size(daughters,2)
     daughter = daughters[:,j]
@@ -210,7 +213,6 @@ function cwt(Y::AbstractArray{T}, c::CFWA{W}, daughters::Array{ComplexF64,2}; nS
   else
     wave = wave[1:n1, ax[end]]  # get rid of padding before returning
   end
-
   return wave
 end
 #TODO: include some logic about the types checking whether T is complex, and then using that as the base type (for both copies of wave)
@@ -221,7 +223,7 @@ function cwt(Y::AbstractArray{T}, c::CFWA{W}; nScales::S=NaN, backOffset::Int=0)
   return cwt(Y, c, daughters; nScales=nScales, backOffset=backOffset)
 end
 
-"""
+@doc """
       computeWavelets(Y::AbstractArray{T}, c::CFWA{W}; J1::S=NaN, backOffset::Int=0) where {T<:Number, S<:Real, W<:WT.WaveletBoundary}
   just precomputes the wavelets used by transform c::CFWA{W}. For details, see cwt
   """
@@ -229,12 +231,11 @@ function computeWavelets(n1::T, c::CFWA{W}; nScales::S=NaN, backOffset::Int=0) w
   # J1 is the total number of elements
   J1 = getJ1(c, nScales, backOffset, n1)
   nScales = numScales(c, n1; backOffset=backOffset,nScales=nScales)
-  #println("In computeWavelets, J1=$(J1), nScales=$nScales, while n1=$(n1)")
   #....construct time series to analyze, pad if necessary
-  if eltypes(c) == WT.padded
+  if eltypes(c)() == WT.padded
     base2 = round(Int,log(n1)/log(2));   # power of 2 nearest to n1
     n= 2^(base2+1)
-  elseif eltypes(c) == WT.DEFAULT_BOUNDARY
+  elseif eltypes(c)() == WT.DEFAULT_BOUNDARY
     n = 2*n1
   else
     n=n1
@@ -248,14 +249,8 @@ function computeWavelets(n1::T, c::CFWA{W}; nScales::S=NaN, backOffset::Int=0) w
   end
 
   daughters = zeros(Complex{Float64}, n, nScales+1)
-  for a1 in (c.averagingLength+1):J1
-    # if a1==(c.averagingLength)
-    #   println("starting daughter at $(a1-c.averagingLength + 1)")
-    # end
-    # if a1==J1
-    #   println("ending daughter at $(a1-c.averagingLength + 1)")
-    # end
-    daughters[:, a1-c.averagingLength + 1] = Daughter(c, 2.0^(a1/c.scalingFactor), ω)
+  for a1 in (c.averagingLength-1):J1
+    daughters[:, a1-c.averagingLength + 2] = Daughter(c, 2.0^(a1/c.scalingFactor), ω)
   end
   daughters[:, 1] = findAveraging(c,ω)
   # normalize so energy is preserved
@@ -265,11 +260,11 @@ function computeWavelets(n1::T, c::CFWA{W}; nScales::S=NaN, backOffset::Int=0) w
   end
   return daughters
 end
-computeWavelets(Y::AbstractArray{T}, c::CFWA{W}; J1::S=NaN, backOffset::Int=0) where {T<:Number, S<:Real, W<:WT.WaveletBoundary} = computeWavelets(size(Y)[end], c; J1=J1, backOffset=backOffset)
+computeWavelets(Y::AbstractArray{T}, c::CFWA{W}; nScales::S=NaN, backOffset::Int=0) where {T<:Number, S<:Real, W<:WT.WaveletBoundary} = computeWavelets(size(Y)[end], c; nScales=nScales, backOffset=backOffset)
 
 
 
-"""
+@doc """
       daughters, ω = getScales(n1, c::CFW{W}, averagingLength::Int; J1::S=NaN, averagingType::Symbol=:Mother) where {T<:Real, S<:Real, W<:WT.WaveletBoundary}
 
       return the wavelets and the averaging functions used as row vectors in the Fourier domain. The averaging function is first, and the frequency variable is returned as ω. n1 is the length of the input

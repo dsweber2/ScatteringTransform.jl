@@ -2,7 +2,7 @@
 # TODO: make a way of accessing based on a path, especially in the 1D case
 # TODO: make the matrix aggrigator only take the output array
 
-"""
+@doc """
     MatrixAggrigator(pardir::String; keep=[],named="output")
 
     gathers all sheared matrices in a file with the name grouped(keep) and makes a single matrix out of them, with each row being a single sheared transform. Keep determines which depth to keep, with an empty matrix meaning keep all layers. named is the name of the variable in the file, while it is saved to "grouped(keep)"
@@ -66,14 +66,15 @@ function reshapeFlattened(mat::Array{Float64}, sheared::S) where S<:scattered
   return reshape(mat, size(sheared.output[end]))
 end
 
-"""
-  transformFolder(sourceFolder::String, destFolder::String, layers::layeredTransform, separate::Bool; loadThis::Function=loadSyntheticMatFile, nonlinear::Function=abs, subsam::Function=bspline, stType::String="full")
+@doc """
+    transformFolder(sourceFolder::String, destFolder::String, layers::layeredTransform; separate::Bool=false, loadThis::Function=defaultLoadFunction, nonlinear::Function=abs, subsam::Function=bspline, stType::String="full", thin::Bool=true, postSubsample::Tuple{Int,Int}=(-1,-1), overwrite::Bool=false)
 
-Given the (relative) name of a folder and a layered transform, it will load (using a user defined function, which should output data so that the last dimension is to be transformed) and transform the entire folder, and save the output into a similarly structured set of folders in destFolder. If separate is true, it will also save a file containing just the scattered coefficients from all inputs.
+Given the (relative) name of a folder and a layered transform, it will load and transform the entire folder, and save the output into a similarly structured set of folders in destFolder. If separate is true, it will also save a file containing just the scattered coefficients from all inputs.
 
+The data is loaded via a user supplied function loadThis. This should have the signature `(data,hasContents) = loadThis(filename::String)`. `filename` is a (relative) path to the file, while `data` should be arranged so that the  last dimension is to be transformed. `hasContents` is a boolean that indicates if there is actually any data in the file.
 If overwrite is false, then skip files that already exist. If overwrite is true, for right now, it uses whatever is already there as the last entries
 """
-function transformFolder(sourceFolder::String, destFolder::String, layers::layeredTransform, separate::Bool; loadThis::Function=loadSyntheticMatFile, nonlinear::Function=abs, subsam::Function=bspline, stType::String="full", thin::Bool=true, postSubsample::Tuple{Int,Int}=(-1,-1), overwrite::Bool=false)
+function transformFolder(sourceFolder::String, destFolder::String, layers::layeredTransform; separate::Bool=false, loadThis::Function=defaultLoadFunction, nonlinear::Function=abs, subsam::Function=bspline, stType::String="full", thin::Bool=true, postSubsample::Tuple{Int,Int}=(-1,-1), overwrite::Bool=false)
   for (root, dirs, files) in walkdir(sourceFolder)
     for dir in dirs
       mkpath(joinpath(destFolder,dir))
@@ -82,7 +83,7 @@ function transformFolder(sourceFolder::String, destFolder::String, layers::layer
     for file in files
       # data is expected as *column* vectors
       println("starting file $(joinpath(root,file))")
-      savefile = joinpath(destFolder, relpath(root,sourceFolder),"$(file).jld")
+      savefile = joinpath(destFolder, relpath(root,sourceFolder), "$(file).h5")
       savefileSize = stat(savefile).size
       if overwrite || savefileSize < 10
         (fullMatrix,hasContents) = loadThis(joinpath(root,file))
@@ -91,17 +92,17 @@ function transformFolder(sourceFolder::String, destFolder::String, layers::layer
           nEx = size(fullMatrix, 1)
           # if the save file already has meaningful content, load this content
           if savefileSize > 10
-            prevWork = load(savefile, "result")
+            prevWork = h5read(savefile, "result/result")
           end
           # if the savefile doesn't have content, or if there should be more examples than what the save file has, calculate the new coefficients
           if savefileSize < 10 || (nEx>2  && size(prevWork,1)<=2)
             innerAxes = axes(fullMatrix)[2:end]
             usefulSlice = 1:min(2,nEx);
             if thin
-              println("l101")
+              # println("l101")
               tmpResult = thinSt(fullMatrix[usefulSlice, innerAxes...], layers, nonlinear=nonlinear, subsam=subsam, stType=stType, outputSubsample = postSubsample)
             else
-              println("l104")
+              # println("l104")
               tmpResult = st(fullMatrix[usefulSlice, innerAxes...], layers, nonlinear=nonlinear, subsam=subsam, stType=stType)
             end
             # if the data is too big, we'll need extra room to store the results
@@ -117,13 +118,13 @@ function transformFolder(sourceFolder::String, destFolder::String, layers::layer
               for i = 2:maxValue
                 usefulSlice = (2*i-1):min(nEx, 2*i)
                 if thin
-                  println("ln120")
+                  # println("ln120")
                   tmpResult = thinSt(fullMatrix[usefulSlice, innerAxes...], layers, nonlinear=nonlinear, subsam=subsam, stType=stType, outputSubsample = postSubsample)
                 else
-                  println("ln123")
+                  # println("ln123")
                   tmpResult = st(fullMatrix[usefulSlice, innerAxes...], layers, nonlinear=nonlinear, subsam=subsam, stType=stType)
                 end
-                println("ln126")
+                # println("ln126")
                 result[usefulSlice, innerResultAxes...] = tmpResult
               end
               # repair a problem in the previous run
@@ -132,15 +133,19 @@ function transformFolder(sourceFolder::String, destFolder::String, layers::layer
             if savefileSize<10 && isfile(savefile)
               rm(savefile)
             end
-            save(savefile, "result", result)
+            h5write(savefile, "result/result", result)
           end
         end
       end
     end
   end
-  println("saving settings to $(joinpath(destFolder,"settings.jld"))")
+  println("saving settings to $(joinpath(destFolder,"settings.h5"))")
   save(joinpath(destFolder,"settings.jld"),"layers", layers)
   return
+end
+
+function defaultLoadFunction(filename)
+  return (h5read(filename,"data"),true)
 end
 
 function loadSyntheticMatFile(datafile::String)
@@ -163,16 +168,18 @@ function loadhdf5(datafile::String)
   end
 end
 
-"""
-
-  given a scattered, it produces a single vector containing the entire transform in order, i.e. the same format as output by thinSt
-"""
-function flatten(results::scattered{T,1}) where T<:Number
+@doc """
+flatten(results::scattered{T,1}) where T<:Number
   concatOutput = Vector{Float64}(sum([prod(size(x)) for x in results.output]))
+
+given a scattered, it produces a single vector containing the entire transform in order, i.e. the same format as output by thinSt
+"""
+function flatten(results::scattered{T,N}) where {T<:Real, N}
+  concatOutput = zeros(Float64,size(results.output[1])[1:end-2]..., sum([prod(size(x)[end-1:end]) for x in results.output]))
   outPos = 1
   for curLayer in results.output
     sizeTmpOut = prod(size(curLayer))
-    concatOutput[outPos+(0:sizeTmpOut-1)] = reshape(curLayer, (sizeTmpOut))
+    concatOutput[outPos.+(0:sizeTmpOut-1)] = reshape(curLayer, (sizeTmpOut))
     outPos += sizeTmpOut
   end
   concatOutput

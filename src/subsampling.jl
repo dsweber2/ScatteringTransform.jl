@@ -73,7 +73,7 @@ function bilinear(input::Array{S,2}, rate::T) where {S<:Number,T<:Real}
   output
 end
 
-"""
+@doc """
   output = bspline(input::Array{S,1}, rate::T) where {S<:Number, T<:Real}
 
   subsample using a quadratic bspline interpolation, with reflection boundary conditions. rate must be ≧ 1. If absolute is true, treat rate as just the total number of desired samples instead.
@@ -89,7 +89,7 @@ function bspline(input::Array{S,1}, rate::T; absolute::Bool=false) where {S<:Num
 end
 # TODO: figure out what's wrong with Quadratic(Reflect() and re-implement it
 
-"""
+@doc """
   subsamp = sizes(func::Function, rate::Array{T,1}, sizeX::Tuple{Int}) where T<:Real
 
   given a subsampling rate, a function func, and an initial size tuple sizeX, return an array of sizes as used by the scattering(1,2)D constructors

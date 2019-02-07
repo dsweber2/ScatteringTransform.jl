@@ -68,6 +68,37 @@ for inn in inputs
   end
 end
 
+
+# TODO: integrate these test in some way
+plot(heatmap(abs.((cwt(reshape(f,(1,size(f)...)), layers.shears[1],nScales=50))[1,:,:])'),heatmap(abs.(cwt(f))[5:end,:]))
+cwt(f)
+c = CFW(WT.Morlet())
+ω = [0:ceil(Int, 200/2); -floor(Int,200/2)+1:-1]*2π
+daughters = zeros(200,54)
+for a1 in 0:53
+  daughters[:,a1+1] = WT.Daughter(c, 2.0^(a1/c.scalingFactor), ω)
+end
+heatmap((daughters./[norm(daughters[:,i]) for i=1:54]')')
+norm(daughters[:,53])
+localDaughters = computeWavelets(f, layers.shears[1],nScales=50)
+layers.shears[1]
+daughters[:,5:end]'
+abs.(localDaughters[:,2:end])'
+heatmap(daughters[:,5:end]')
+heatmap(abs.(localDaughters[:,2:end])')
+(daughters[:,5:end]-localDaughters)
+heatmap(abs.(localDaughters'))
+heatmap(abs.(computeWavelets(f, layers.shears[1],nScales=49))')
+
+
+
+
+
+
+
+
+
+
 function testConstruction1D(lay::layeredTransform, m::Int, shearType, averagingLength, averagingType, nShears::Vector{Int}, subsampling::Array{Float64,1}, n::Int)
   @test lay.m == m
   @test lay.subsampling==subsampling
@@ -207,6 +238,63 @@ ScatteringTransform.cwt(f, tmp.shears[1])
 #   BLAS.gemm!('N', 'T', 1.0, h, v, 1.0, dw)
 # end
 
+# TODO write tests for thinST
+#      no outputSubsample
+#      fixed size outputSubsample
+#      fraction outputSubsample
 
 
-# fixed tests, improved final layer efficiency
+
+
+
+# testing folder transformations
+using Distributed
+addprocs(8)
+@everywhere using Revise
+@everywhere using HDF5, JLD, ScatteringTransform
+using ScatteringTransform
+mkpath("tmpData")
+data = randn(20, 3, 5, 100)
+for i=1:20
+  mkpath("tmpData/tmp$(i)")
+  for j=1:3
+    h5write("tmpData/tmp$(i)/tmp$(j).h5", "data",data[i,j,:,:])
+  end
+end
+# direct transformation
+layers = layeredTransform(2,data)
+@time thinOutput = thinSt(data,layers,outputSubsample=(-1,3))
+# auxillary functions
+targetDir = "tmpOutput"
+function defaultLoadFunction(filename)
+  return (h5read(filename,"data"), true)
+end
+transformFolder("tmpData", targetDir, layers; separate=true, loadThis = defaultLoadFunction, postSubsample=(-1,3))
+load("tmpOutput/settings.jld","layers")
+load("/VastExpanse/data/SSAM2_motionCompensatedData/newData/lipschitz2Layer3Samples/settings.jld  ")
+layeredTransform
+@testset "folder transformations"
+end
+for i=1:20
+  mkpath("tmpData/tmp$(i)")
+  for j=1:3
+    h5write("tmpData/tmp$(i)/tmp$(j).h5", "data",data[i,j,:,:])
+  end
+end
+"α_"[1]
+layers
+using JLD
+module ScatteringTransform
+include("src/modifiedTransforms.jl")
+export layeredTransform
+struct layeredTransform{T}
+  m::Int # the number of layers, not counting the zeroth layer
+  n::Int # the length of a single entry
+  shears::Array{T} # the array of the transforms; the final of these is used only for averaging, so it has length m+1
+  subsampling::Array{Float64,1} # for each layer, the rate of subsampling. There is one of these for layer zero as well, since the output is subsampled, so it should have length m+1
+  layeredTransform{T}(m::Int, n::Int, shears::Array{T}, subsampling::Array{Float64,1}) where {T} = new(m,n, shears, subsampling)
+end
+end
+@everywhere
+¥
+"¥_"[2]

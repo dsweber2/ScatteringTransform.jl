@@ -48,8 +48,8 @@ function pathToThinIndex(path::pathType, layers::layeredTransform, outputSubsamp
         initIndex += numChildrenPer*(path.Idxs[i-1]-1)*resultingSize[i]
         if i==path.m+1
             endIndex = initIndex + numChildrenPer*resultingSize[i]
-            println("added $(numChildrenPer*(path.Idxs[i-1]-1)*resultingSize[i]), ($(numChildrenPer),$((path.Idxs[i-1]-1)), $(resultingSize[i]))")
-            println("initIndex = $(initIndex), endIndex = $(endIndex)")
+            # println("added $(numChildrenPer*(path.Idxs[i-1]-1)*resultingSize[i]), ($(numChildrenPer),$((path.Idxs[i-1]-1)), $(resultingSize[i]))")
+            # println("initIndex = $(initIndex), endIndex = $(endIndex)")
         end
     end
   else
@@ -57,6 +57,16 @@ function pathToThinIndex(path::pathType, layers::layeredTransform, outputSubsamp
   end
   return initIndex+1:endIndex
 end
+
+"""
+  Given a path, get the list of entries in the next layer that are children of that path
+"""
+function getPathsChildren(path::pathType, layers::layeredTransform, sizeX)
+  @assert path.m<=layers.m
+  q = getQ(layers, sizeX, product=false)
+  return sum([(path.Idxs[i]-1)*prod(q[i+1:path.m+1]) for i=1:path.m]) .+ (1:q[path.m+1])
+end
+
 
 """
   p = computePath(layers::layeredTransform, layerM::Int64, λ::Int64; stType::String="full"))
