@@ -8,7 +8,7 @@ using Interpolations, Wavelets, Distributed, HDF5, Plots, JLD
 include("subsampling.jl")
 export maxPooling, bilinear, bspline
 include("modifiedTransforms.jl")
-export CFWA, wavelet, cwt, getScales, computeWavelets
+export CFWA, WT, wavelet, cwt, getScales, computeWavelets
 include("basicTypes.jl")
 export layeredTransform, scattered
 logabs(x)=log.(abs.(x))
@@ -94,7 +94,13 @@ function st(X::Array{T}, layers::layeredTransform; nonlinear::Function=abs, subs
               end
             end
           end
-          results.output[i][outer, innerSub..., λ] = Array{Float64,results.k}(nonlinear.(real(subsam(output[outer, innerAxes..., end], layers.subsampling[i]))))
+          # println("THING BROKE")
+          # println("results.output[i][outer, innerSub..., λ] =$(size(results.output[i][outer, innerSub..., λ]))")
+          # println("size(output) = $(size(output))")
+          # println("innerAxes = $(innerAxes)")
+          # println("size(output[outer, innerAxes..., end]) = $(size(output[outer, innerAxes..., size(output)[end]]))")
+          # println("nonlinear.(real(subsam(output[outer, innerAxes..., end], layers.subsampling[i]))) $(nonlinear.(real(subsam(output[outer, innerAxes..., size(output)[end]], layers.subsampling[i]))))")
+          results.output[i][outer, innerSub..., λ] = Array{Float64,results.k}(nonlinear.(real(subsam(output[outer, innerAxes..., size(output)[end]], layers.subsampling[i]))))
         end
         if stType=="decreasing" && i>1
           isEnd, keeper = incrementKeeper(keeper, i-1, layers, nScalesLayers)
@@ -104,7 +110,7 @@ function st(X::Array{T}, layers::layeredTransform; nonlinear::Function=abs, subs
       for λ = 1:size(cur)[end]
         output = cwt(cur[outerAxes..., innerAxes..., λ], layers.shears[i], daughters, nScales=1)
         for outer in eachindex(view(cur, outerAxes..., [1 for i=1:results.k]..., 1))
-          results.output[i][outer, innerSub..., λ] = Array{Float64,results.k}(nonlinear.(real(subsam(output[outer, innerAxes..., end], layers.subsampling[i]))))
+          results.output[i][outer, innerSub..., λ] = Array{Float64,results.k}(nonlinear.(real(subsam(output[outer, innerAxes..., size(output)[end]], layers.subsampling[i]))))
         end
       end
     end

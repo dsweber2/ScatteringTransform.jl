@@ -120,12 +120,12 @@ function calculateThinStSizes(layers, outputSubsample, Xsize; totalScales=[-1 fo
 end
 
 @doc """
-  q = getQ(layers)
+  q = getQ(layers, n, totalScales; product=true)
 calculate the total number of entries in each layer
 """
 function getQ(layers, n, totalScales; product=true)
   q = [numScales(layers.shears[i],n[i]) for i=1:layers.m+1]
-  q = [totalScales[i]==-1 ? q[i] : totalScales[i] for i=1:layers.m+1]
+  q = [(isnan(totalScales[i]) || totalScales[i]<=0) ? q[i] : totalScales[i] for i=1:layers.m+1]
   if product
     q = [prod(q[1:i-1]) for i=1:layers.m+1]
     return q

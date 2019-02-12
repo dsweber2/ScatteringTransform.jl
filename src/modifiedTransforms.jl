@@ -5,14 +5,14 @@ import Wavelets.eltypes
 wavelet(WT.morl,3.5)
 # define a type for averaging continuous wavelets
 struct CFWA{T} <: ContinuousWavelet{T}
-  scalingFactor  ::Float64 # the number of wavelets per octave, ie the scaling is s=2^(j/scalingfactor)
+  scalingFactor  ::Float64 # the number of wavelets per octave, ie the scaling is s=2^(j/scalingFactor)
   fourierFactor  ::Float64
   coi            ::Float64
   α              ::Int   # the order for a Paul and the number of derivatives for a DOG
   σ              ::Array{Float64} # the morlet wavelet parameters (σ,κσ,cσ). NaN if not morlet.
   name           ::String
-  # function CFW{T}(scalingfactor, fourierfactor, coi, daughterfunc, name) where T<: WaveletBoundary
-  # new(scalingfactor, fourierfactor, coi, daughterfunc, name)
+  # function CFW{T}(scalingFactor, fourierfactor, coi, daughterfunc, name) where T<: WaveletBoundary
+  # new(scalingFactor, fourierfactor, coi, daughterfunc, name)
   # end
   averagingLength::Int # the number of scales to override with averaging
   averagingType  ::Symbol # either Dirac or mother; the first uniformly represents the lowest frequency information, while the second constructs a wavelet using Daughter that has mean frequency zero, and std equal to the first non-removed wavelet's mean
@@ -27,10 +27,8 @@ end
 
 
 
-function CFWA(wave::WC, scalingfactor::S=8, averagingType::Symbol=:Mother, boundary::T=WT.DEFAULT_BOUNDARY, averagingLength::Int=floor(Int,scalingfactor/2), frameBound::Float64=-1.0) where {WC<:WT.WaveletClass, T<:WT.WaveletBoundary, S<:Real}
-  if scalingfactor<=0
-    error("scaling factor must be positive")
-  end
+function CFWA(wave::WC, scalingFactor::S=8.0, averagingType::Symbol=:Mother, boundary::T=WT.DEFAULT_BOUNDARY, averagingLength::Int=floor(Int,scalingFactor/2), frameBound::Float64=-1.0) where {WC<:WT.WaveletClass, T<:WT.WaveletBoundary, S<:Real}
+  @assert scalingFactor > 0
   @assert (averagingType==:Mother ||averagingType==:Dirac)
   namee = WT.name(wave)[1:3]
   tdef = get(WT.CONT_DEFS, namee, nothing)
@@ -43,12 +41,14 @@ function CFWA(wave::WC, scalingfactor::S=8, averagingType::Symbol=:Mother, bound
   else
     error("I'm not sure how you got here. Apparently the WaveletClass you gave doesn't have a name. Sorry about that")
   end
-  return CFWA{T}(Float64(scalingfactor), tdef...,averagingLength, averagingType, frameBound)
+  return CFWA{T}(Float64(scalingFactor), tdef...,averagingLength, averagingType, frameBound)
+end
+function CFWA(wave::WC; scalingFactor::S=8.0, averagingType::Symbol=:Mother, boundary::T=WT.DEFAULT_BOUNDARY, averagingLength::Int=floor(Int,scalingFactor/2), frameBound::Float64=-1.0) where {WC<:WT.WaveletClass, T<:WT.WaveletBoundary, S<:Real}
+  return CFWA(wave, scalingFactor, averagingType, boundary, averagingLength, frameBound)
 end
 
-
-#function CFWA(wave::WC; scalingfactor::S=8, averagingType::Symbol=:Mother, boundary::T=WT.DEFAULT_BOUNDARY, averagingLength::Int=floor(Int,scalingfactor/2)) where {WC<:WT.WaveletClass, T<:WT.WaveletBoundary, S<:Real}
-#    return CFWA(wave, scalingfactor, averagingType, boundary, averagingLength)
+#function CFWA(wave::WC; scalingFactor::S=8, averagingType::Symbol=:Mother, boundary::T=WT.DEFAULT_BOUNDARY, averagingLength::Int=floor(Int,scalingFactor/2)) where {WC<:WT.WaveletClass, T<:WT.WaveletBoundary, S<:Real}
+#    return CFWA(wave, scalingFactor, averagingType, boundary, averagingLength)
 #end
 # If you know the averaging length
 function wavelet(c::W, s::S, averagingLength::T, averagingType::Symbol=:Mother, boundary::WT.WaveletBoundary=WT.DEFAULT_BOUNDARY, frameBound::Float64=-1.0) where {W<:WT.ContinuousWaveletClass, S<:Real,T<:Real}
@@ -69,7 +69,7 @@ end
   """
 function numScales(c::CFWA, n::S; backOffset=0,nScales=-1) where S<:Integer
   if isnan(nScales) || nScales<0
-    nScales=floor(Int,(log2(n)-2)*c.scalingFactor)-backOffset-c.averagingLength
+    nScales=floor(Int,(log2(max(n,1))-2)*c.scalingFactor)-backOffset-c.averagingLength
   end
   #println("numScales getting n=$(n), returning $(nScales)")
   return nScales
@@ -159,8 +159,10 @@ end
 
   return the continuous wavelet transform along the final axis with averaging wave, which is (previous dimensions)×(nscales+1)×(signalLength), of type T of Y. The extra parameter averagingLength defines the number of scales of the standard cwt that are replaced by an averaging function. This has form averagingType, which can be one of :Mother or :Dirac- in the :Mother case, it uses the same form as for the daughters, while the dirac uses a constant. J1 is the total number of scales; default (when J1=NaN, or is negative) is just under the maximum possible number, i.e. the log base 2 of the length of the signal, times the number of wavelets per octave. If you have sampling information, you will need to scale wave by δt^(1/2).
   """
-function cwt(Y::AbstractArray{T,N}, c::CFWA{W}, daughters::Array{ComplexF64,2}; nScales::S=NaN, backOffset::Int=0,fftPlan::Bool=true) where {T<:Number, S<:Real, W<:WT.WaveletBoundary, N}
+function cwt(Y::AbstractArray{T,N}, c::CFWA{W}, daughters::Array{U,M}; nScales::S=NaN, backOffset::Int=0,fftPlan::Bool=true) where {T<:Number, S<:Real, U<:Number, W<:WT.WaveletBoundary, N, M}
   @assert typeof(N)<:Integer
+  @assert typeof(M)<:Integer
+  @assert M==1 || M==2
   if N==1
     Y= reshape(Y,(1,size(Y)...))
   end
@@ -190,7 +192,7 @@ function cwt(Y::AbstractArray{T,N}, c::CFWA{W}, daughters::Array{ComplexF64,2}; 
   #....construct wavenumber array used in transform [Eqn(5)]
   # If the vector isn't long enough to actually have any other scales, just return the averaging
   if J1+2-c.averagingLength<=0 || J1==0
-    wave = zeros(Complex{Float64}, size(Y)..., 1)
+    wave = zeros(Complex{Float64}, size(x)..., 1)
     mother = daughters[:,1]
     for i in eachindex(view(x̂, axes(x̂)[1:end-1]..., 1))
       wave[i,:]= x̂[i,:].* mother
@@ -243,7 +245,7 @@ function computeWavelets(n1::T, c::CFWA{W}; nScales::S=NaN, backOffset::Int=0) w
   ω = [0:ceil(Int, n/2); -floor(Int,n/2)+1:-1]*2π
 
   if J1+2-c.averagingLength<=0 || J1==0
-    mother = zeros(Complex{Float64}, n1, 1)
+    mother = zeros(Complex{Float64}, n, 1)
     mother[:,1] = findAveraging(c,ω)
     return mother
   end

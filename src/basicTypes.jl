@@ -139,8 +139,8 @@ end
 function scattered(layers::layeredTransform, X::Array{T,N}; totalScales=[-1 for i=1:layers.m+1]) where {T <: Real, N}
   k, n, q, dataSizes, outputSizes, resultingSize = calculateThinStSizes(layers, (-1,-1), size(X), totalScales = totalScales)
   if k==N
-    zerr=[zeros(T, n[i], q) for i=1:layers.m+1]
-    output = [zeros(T, n[i+1], q) for i=1:layers.m+1]
+    zerr=[zeros(T, n[i], q[i]) for i=1:layers.m+1]
+    output = [zeros(T, n[i+1], q[i]) for i=1:layers.m+1]
   else
     zerr=[zeros(T, size(X)[1:end-k]..., n[i], prod(q[1:i-1].-1)) for i=1:layers.m+1]
     output = [zeros(T, size(X)[1:(end-k)]..., n[i+1], prod(q[1:i-1].-1)) for i=1:layers.m+1]
