@@ -1,10 +1,14 @@
-# tests for the various forms of layeredTransform for the ShatteringTransform
+# tests for the various forms of layeredTransform for the ScatteringTransform
+using Debugger, JuliaInterpreter
+using Revise
 using Interpolations, Wavelets
 using FFTW
-using ScatteringTransform
+#using ScatteringTransform
+using Pkg; Pkg.add("JuliaInterpreter")
+exit()
 using Test
 f = randn(102)
-lay = layeredTransform(1,f)
+lay = layeredTransform(1, size(f)[1])
 scattered(lay, f)
 # some basic tests for the scattered type
 # m=2, 3extra, 2transformed
@@ -28,49 +32,202 @@ end
 ################################ cwt tests ################################
 # 1D input tests
 @testset "cwt tests" begin
-  inputs = [randn(1, 128), randn(100,128), randn(10, 21, 128), randn(2, 3, 5, 128)]
-  averagingTypes = [:Mother, :Dirac]
-  scalingfactors = reverse([1/2, 1, 2, 8, 16, 32])
-  waves = [WT.morl WT.dog2 WT.paul4]
-  precomputed =[true, false]
-  for inn in inputs
-    for wave in waves
-      for sb in scalingfactors
-        for ave in averagingTypes
-          for comp in precomputed
-            waveConst = CFWA(wave, scalingFactor=sb, averagingType = ave)
-            println("$(wave), $(sb), $(ave), $(size(inn))")
-            if comp
-              daughters = computeWavelets(inn,waveConst)
-              output = cwt(inn, waveConst, daughters)
-            else
-              output = cwt(inn, waveConst)
+    inputs = [randn(1, 128), randn(100,128), randn(10, 21, 128), randn(2, 3, 5, 128)]
+    averagingTypes = [:Mother, :Dirac]
+    scalingfactors = reverse([1/2, 1, 2, 8, 16, 32])
+    waves = [WT.morl WT.dog2 WT.paul4]
+    precomputed =[true, false]
+    for inn in inputs
+        for wave in waves
+            for sb in scalingfactors
+                for ave in averagingTypes
+                    for comp in precomputed
+                        waveConst = CFWA(wave, scalingFactor=sb, averagingType
+                                         = ave)
+                        println("$(wave), $(sb), $(ave), $(size(inn))")
+                        if comp
+                            daughters = computeWavelets(inn,waveConst)
+                            output = cwt(inn, waveConst, daughters)
+                        else
+                            output = cwt(inn, waveConst)
+                        end
+                        @test numScales(waveConst,size(inn)[end])+1 ==
+                            size(output)[end]
+                        @test length(size(output))== 1+length(size(inn))
+                        # testing just averaging
+                        if comp
+                            daughters = computeWavelets(inn, waveConst,
+                                                        nScales=0)
+                            output = cwt(inn, waveConst, daughters, nScales=0)
+                        else
+                            output = cwt(inn, waveConst, nScales=0)
+                        end
+                        @test size(output)[end]==1
+                        @test length(size(output))== 1+length(size(inn))
+                        if comp
+                            daughters = computeWavelets(inn,waveConst,
+                                                        nScales=20)
+                            output = cwt(inn,waveConst, daughters, nScales=20)
+                        else
+                            output = cwt(inn,waveConst,nScales=20)
+                        end
+                        @test 21 == size(output)[end]
+                        @test length(size(output))== 1+length(size(inn))
+                    end
+                end
             end
-            @test numScales(waveConst,size(inn)[end])+1 == size(output)[end]
-            @test length(size(output))== 1+length(size(inn))
-            # testing just averaging
-            if comp
-              daughters = computeWavelets(inn, waveConst, nScales=0)
-              output = cwt(inn, waveConst, daughters, nScales=0)
-            else
-              output = cwt(inn, waveConst, nScales=0)
-            end
-            @test size(output)[end]==1
-            @test length(size(output))== 1+length(size(inn))
-            if comp
-              daughters = computeWavelets(inn,waveConst, nScales=20)
-              output = cwt(inn,waveConst, daughters, nScales=20)
-            else
-              output = cwt(inn,waveConst,nScales=20)
-            end
-            @test 21 == size(output)[end]
-            @test length(size(output))== 1+length(size(inn))
-          end
         end
-      end
     end
-  end
 end
+
+######################################################################################################
+###################################### Shattering Tests ##############################################
+######################################################################################################
+function testLayerConstruction(layer::layeredTransform, X::Array{Float64,2},
+                               m::Int64, xSubsampled::Array{Int64},
+                               ySubsampled::Array{Int64}, subsampling::Vector{Float64})
+    @test layer.m==m
+    @test layer.subsampling == subsampling
+    @test sizes(bsplineType(), layer.subsampling,size(X,1)) == xSubsampled
+    @test sizes(bsplineType(), layer.subsampling,size(X,2)) == ySubsampled
+    @test sizes(bsplineType(), layer.subsampling,size(X,1))[1:end-1] ==
+        [x.size[1] for x in layer.shears]
+    @test sizes(bsplineType(), layer.subsampling,size(X,2))[1:end-1] ==
+        [x.size[2] for x in layer.shears]
+end
+
+m1=2; n1=50; p1=55
+X1 = randn(n1,p1)
+layer1 = layeredTransform(m1, size(X1))
+subsamp = 1.5; nScales = 3
+m2=2; n2=201; p2=325
+X2 = randn(n2,p2)
+layer2 = layeredTransform(m2, size(X2); subsample = subsamp, nScale=nScales)
+
+@testset "layer construction" begin
+    xSubsampled = [50, 25, 13, 7]; ySubsampled = [55, 28, 14, 7]
+    testLayerConstruction(layer1, X1, m1, xSubsampled, ySubsampled, [2.0 for
+                                                                     i=1:m1+1])
+    xSubsampled = [201, 134, 90, 60]; ySubsampled= [325, 217, 145, 97]
+    testLayerConstruction(layer2, X2, m2, xSubsampled, ySubsampled, [subsamp
+                                                                     for i =
+                                                                     1:m2+1])
+end
+
+
+################# Subsampling methods #################
+function testSubsampling(X::Array{Float64},layer::layeredTransform,m::Int64)
+    tmpX = Array{ComplexF64}(X)
+    tmpSizesx = sizes(bsplineType(), layer.subsampling,size(X,1))
+    tmpSizesy = sizes(bsplineType(), layer.subsampling,size(X,2))
+    for i=1:m1+1
+      @test size(tmpX)==(tmpSizesx[i],tmpSizesy[i])
+      tmpX = resample(tmpX, layer.subsampling[i])
+    end
+end
+@testset "sizes in the layered transform match those produced by subsampling" begin
+    testSubsampling(X1,layer1,m1)
+    testSubsampling(X2,layer2,m2)
+end
+
+#TODO: test different percentages
+function testShattered(X::Array{T},layer::layeredTransform,m::Int64) where {T
+                                                                            <:
+                                                                            Real}
+    thing = scattered(layer, X)
+    @test typeof(thing.data[1]) == Array{T, 3}
+    @test typeof(thing.output[1]) == Array{T, 3}
+    @test thing.m ==layer.m
+    # test the subsampling of the array is correct
+    @test [size(thing.data[i],1) for i=1:m+1] == sizes(bsplineType(),
+                                                       layer.subsampling,
+                                                       size(X,1))[1:3]
+    @test [size(thing.data[i],2) for i=1:m+1] == sizes(bsplineType(),
+                                                       layer.subsampling,
+                                                       size(X,2))[1:3]
+    @test [size(thing.output[i],1) for i=1:m+1] ==
+        getResizingRates(layer.shears, layer.m)[1, :]
+    @test [size(thing.output[i],2) for i=1:m+1] ==
+        getResizingRates(layer.shears, layer.m)[2, :]
+    # check the number of scales
+    q = [1; [(layer.shears[i].nShearlets-1) for i=1:m+1]]
+    @test [size(thing.data[i],3) for i=1:m+1] == [prod(q[1:i]) for i=1:m+1]
+    @test [size(thing.output[i],3) for i=1:m+1] == [prod(q[1:i]) for i=1:m+1]
+end
+
+@testset "shattered construction" begin
+    # type input works properly
+    testShattered(X1, layer1, m1)
+    testShattered(X2, layer2, m2)
+end
+
+# test the nonlinearity definitions
+t = [x+im*y for x=-10:1/5:10, y=-10:1/5:10]
+@testset "nonlinearity definitions" begin
+    @test ScatteringTransform.abs.(t)==abs.(t)
+    @test ScatteringTransform.ReLU.(t) == max.(0,real(t))+im*max.(0,imag(t))
+    @test ScatteringTransform.Tanh.(t) == tanh.(real(t))+im*tanh.(imag(t))
+    @test ScatteringTransform.softplus.(t) == ((log.(1 .+ exp.(real.(t)))
+                                                .-log(2)) + im .*(log.(1 .+
+                                                                       exp.(imag.(t)))
+                                                                  .-log(2)))
+end
+function testShattering(X::Array{Float64}, nonlinear::S, layer::layeredTransform, m::Int64) where S <: nonlinearity
+    @time outputFull = shatter(X,layer,nonlinear,thin=false)
+    @test typeof(outputFull.data[1])==Array{Float64,3}
+    @test typeof(outputFull.output[1])==Array{Float64,3}
+    @test outputFull.m ==layer.m
+    # test the subsampling of the array is correct
+    @test [size(outputFull.data[i],1) for i=1:m+1] == sizes(bsplineType(), layer.subsampling, size(X,1))[1:3]
+    @test [size(outputFull.data[i],2) for i=1:m+1] == sizes(bsplineType(), layer.subsampling, size(X,2))[1:3]
+    @test [size(outputFull.output[i],1) for i=1:m+1] == layer.reSizingRates[1, :]
+    @test [size(outputFull.output[i],2) for i=1:m+1] == layer.reSizingRates[2, :]
+    # check the number of scales
+    q = [1; [(layer.shears[i].nShearlets-1) for i=1:m+1]]
+    @test [size(outputFull.data[i],3) for i=1:m+1] == [prod(q[1:i]) for i=1:m+1]
+    @test [size(outputFull.output[i],3) for i=1:m+1] == [prod(q[1:i]) for i=1:m+1]
+
+    # check that the data isn't NaN
+    @test minimum([isfinite(maximum(abs.(outputFull.data[i]))) for i=1:m+1])
+    @test minimum([isfinite(maximum(abs.(outputFull.output[i]))) for i=1:m+1])
+
+    # see how the thin version is doing
+    @time outputThin = shatter(X,layer,nonlinear,thin=true)
+    @test isfinite(maximum(abs.(outputThin)))
+
+    # compare the two
+    @test maximum(abs.(flatten(outputFull)-outputThin))==0.0
+    return outputFull
+end
+@testset "actually shattering" begin
+    testShattering(X1, absType(), layer1, 2)
+    testShattering(X2, absType(), layer2, 2)
+    testShattering(X1, ReLUType(), layer1, 2)
+    testShattering(X2, ReLUType(), layer2, 2)
+    testShattering(X1, tanhType(), layer1, 2)
+    testShattering(X2, tanhType(), layer2, 2)
+    testShattering(X1, softplusType(), layer1, 2)
+    testShattering(X2, softplusType(), layer2, 2)
+end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # TODO: integrate these test in some way
 # plot(heatmap(abs.((cwt(reshape(f,(1,size(f)...)), layers.shears[1],nScales=50))[1,:,:])'),heatmap(abs.(cwt(f))[5:end,:]))
@@ -105,7 +262,7 @@ end
 function testConstruction1D(lay::layeredTransform, m::Int, shearType, averagingLength, averagingType, nShears::Vector{Int}, subsampling::Array{Float64,1}, n::Int)
   @test lay.m == m
   @test lay.subsampling==subsampling
-  sizes = ScatteringTransform.sizes(bspline,lay.subsampling,n)
+  sizes = ScatteringTransform.sizes(bsplineType(), bspline,lay.subsampling,n)
   for i=1:length(lay.shears)
     @test typeof(lay.shears[i]) == shearType[i]
     @test lay.shears[i].averagingLength == averagingLength[i]
@@ -124,7 +281,7 @@ end
 function testTransform(f::Array{T}, lay::layeredTransform) where T<:Number
   n=size(f)[end]
   @time output = st(f,lay)
-  sizes = ScatteringTransform.sizes(bspline,lay.subsampling,n)
+  sizes = ScatteringTransform.sizes(bsplineType(), bspline,lay.subsampling,n)
   actualSizes = fill(0, size(sizes))
   actualSizes[1] = size(output.data[1])[end-1]
   for i=1:length(actualSizes)-2
@@ -165,36 +322,6 @@ scattered{Float64,2}(2,1,[im*randn(10,10) for i=1:3],[randn(10,10) for i=1:3])
 layers = layeredTransform(3, length(f), 8, 4)
 
 results = scattered(layers, f)
-
-# demonstrate various ways of defining a layered transform
-layeredTransform(3, f, [2, 2, 2, 2], [2, 2, 2, 2], WT.dog2)
-layeredTransform(3, f, 8, [2, 2, 2, 2], WT.dog2)
-layeredTransform(3, f, [2, 2, 2, 2], 2, WT.dog2)
-layeredTransform(3, f, 8, 2, WT.dog2)
-
-layeredTransform(3, f, [2, 2, 2, 2], WT.dog2)
-layeredTransform(3, f, 7, WT.dog2)
-layeredTransform(3, length(f), [7, 7, 7, 7], WT.dog2)
-layeredTransform(3, length(f), 7, WT.dog2)
-
-layeredTransform(3,f,WT.dog2)
-
-layeredTransform(3, length(f), [2, 2, 2, 2], [2, 2, 2, 2])
-layeredTransform(3, length(f), 8, [2, 2, 2, 2])
-layeredTransform(3, length(f), [2, 2, 2, 2], 2)
-layeredTransform(3, length(f), 8, 2)
-
-layeredTransform(3, f, [2, 2, 2, 2], [2, 2, 2, 2])
-layeredTransform(3, f, 8, [2, 2, 2, 2])
-layeredTransform(3, f, [2, 2, 2, 2], 2)
-layeredTransform(3, f, 8, 2)
-
-layeredTransform(3, f, [2, 2, 2, 2])
-layeredTransform(3, f, 7)
-layeredTransform(3, length(f), [7, 7, 7, 7])
-layeredTransform(3, length(f), 7)
-
-layeredTransform(3,f)
 
 f = randn(10,30,500) #there are 10 examples of length 500
 layeredTransform(3,f[1,1,:])

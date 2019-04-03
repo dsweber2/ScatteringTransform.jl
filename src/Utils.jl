@@ -1,3 +1,43 @@
+abstract type stType end
+struct fullType <: stType end
+struct decreasingType <: stType end
+
+
+"""
+    resized = getResizingRates(shears::Array{Shearlab.Shearletsystem2D{T}, 1}, M::Integer; percentage::Real=.9) where T<:Real
+    getResizingRates(shears::layeredTransform; percentage::Real=.9)
+2×(length of x) array of sizes the output should be to retain percentage of the mass of the averaging function.
+  """
+function getResizingRates(shears::Array{Shearlab.Shearletsystem2D{T}, 1}, M::Int; percentage=.9) where {T <: Real}
+  newRates =zeros(Int64,2,M+1)
+  for m=1:M+1
+    tmpAveraging = abs.(ifftshift(shears[m].shearlets[:,:,end]))
+    # since it's a product, we want to find when they're separately 90% their total masses
+    tmpAveragingx = tmpAveraging[:,1]/sum(tmpAveraging[:,1])
+    tmpAveragingy = tmpAveraging[1,:]./sum(tmpAveraging[1,:])
+    tmpSum = 0.0
+    for i=1:length(tmpAveragingx)
+      tmpSum += tmpAveragingx[i]
+      if tmpSum>percentage/2
+        newRates[1,m] = i
+        break
+      end
+    end
+    tmpSum=0.0
+    for j=1:length(tmpAveragingy)
+      tmpSum+=tmpAveragingy[j]
+      if tmpSum>percentage/2
+        newRates[2,m] = j
+        break
+      end
+    end
+  end
+  2*newRates
+end
+
+getResizingRates(shears::layeredTransform{T}; percentage::Real=.9) where {T<:Real} = getResizingRates(shears.shears,shears.m; percentage=percentage)
+
+
 """
 
   given a path p and a flattened scattering transform flat, return the transform of that row.
@@ -89,43 +129,80 @@ numInLayer(m::Int, layers::layeredTransform, nScalesLayers::Array{Int}) = numInL
 
 
 @doc """
-    k, n, q, dataSizes, outputSizes, resultingSize = calculateThinStSizes(layers, outputSubsample, Xsize; totalScales=[NaN for i=1:layers.m])
+      n, q, dataSizes, outputSizes, resultingSize = calculateSizes(layers::layeredTransform{K,1}, outputSubsample, Xsize; totalScales = [-1 for i=1:layers.m+1]) where {K}
+
+  * n is a list of the sizes of a single example. It is (m+1)×dataDim
+one dimension at a time
+  * q is a list of the number of scales, as used in 1D
+  * datasizes is a list of tuples of sizes encountered in each layer
+  * outputsizes is the same for the output arrays
+  * resultingsize is a list of the output size as a result of subsampling
 """
-function calculateThinStSizes(layers, outputSubsample, Xsize; totalScales=[-1 for i=1:layers.m+1])
-  k = length(size(layers.subsampling))
-  n = Int.(sizes(bspline, layers.subsampling, Xsize[(end-k+1):end]))
-  q = getQ(layers,n,totalScales)
-  dataSizes = [Int.([Xsize[1:end-k]..., n[i], q[i]]) for i=1:layers.m+1]
-  outputSizes = [Int.([Xsize[1:(end-k)]..., n[i+1], q[i]]) for i=1:layers.m+1]
-  if outputSubsample[1] > 1
-    resultingSize = zeros(layers.m+1)
-    resultingSubsampling = zeros(layers.m+1)
-    # subsampling limited by the second entry
-    for (i,x) in enumerate(outputSizes)
-      proposedLevel = floor(Int, x[end-1]/outputSubsample[1])
-      if proposedLevel < outputSubsample[2]
-        # the result is smaller than the floor
-        proposedLevel = outputSubsample[2]
-      end
-      resultingSize[i] = proposedLevel
+function calculateSizes(layers::layeredTransform{K,1},
+                        outputSubsample, Xsize; totalScales = [-1
+                                                               for
+                                                               i=1:layers.m+1]) where {K}
+    @bp
+    n = Int.(sizes(bsplineType(), layers.subsampling, Xsize[(end):end]))
+    q = getQ(layers,n,totalScales)
+    dataSizes = [Int.([Xsize[1:end-1]..., n[i], q[i]]) for i=1:layers.m+1]
+    outputSizes = [Int.([Xsize[1:(end-1)]..., n[i+1], q[i]]) for i=1:layers.m+1]
+    if outputSubsample[1] > 1
+        resultingSize = zeros(Int, layers.m+1)
+        resultingSubsampling = zeros(layers.m+1)
+        # subsampling limited by the second entry
+        for (i,x) in enumerate(outputSizes)
+            proposedLevel = floor(Int, x[end-1]/outputSubsample[1])
+            if proposedLevel < outputSubsample[2]
+                # the result is smaller than the floor
+                proposedLevel = outputSubsample[2]
+            end
+            resultingSize[i] = Int(proposedLevel)
+        end
+    elseif outputSubsample[2] > 1
+        resultingSize = outputSubsample[2]*ones(Int64,layers.m+1,k)
+    else
+        resultingSize = outputSizes
     end
-    # println("resultingSize = $(resultingSize)")
-  elseif outputSubsample[2] > 1
-    resultingSize = outputSubsample[2]*ones(Int64,layers.m+1,k)
-    # println("resultingSize = $(resultingSize)")
-  else
-    resultingSize = outputSizes
-  end
-  return (k, n, q, dataSizes, outputSizes, resultingSize)
+    return (n, q, dataSizes, outputSizes, resultingSize)
 end
+
+function calculateSizes(layers::layeredTransform{K,2},
+                        outputSubsample, Xsize; subsam=true) where {K}
+    dataXsizes = sizes(bsplineType(), layers.subsampling, Xsize[(end-1):(end-1)])
+    dataYsizes = sizes(bsplineType(), layers.subsampling, Xsize[(end):(end)])
+    n = [reshape(dataXsizes, (layers.m+1, 1))
+                        reshape(dataYsizes,(layers.m+1, 1))]
+    if subsam == true
+        reSizingRates = getResizingRates(layers.shears, layers.m;
+                                         percentage=percentage)
+        XOutputSizes = reSizingRates[1,:]
+        YOutputSizes = reSizingRates[2,:]
+    else
+        XOutputSizes = dataXsizes
+        YOutputSizes = dataYsizes
+    end
+    outputSizes = [(Int(Xsize[1:end-2]), Int(XOutputSizes[m]),
+                    Int(YOutputSizes[m]), Int(numInLayer(m-1,
+                                                         layers)))
+                   for m=1:layers.m+1]
+    resultingSize = [XoutputSizes[m] *YoutputSizes[m] for m = 1:leayers.m+1]
+    q = getQ(layers,n,totalScales)
+    dataSizes = [Int.([Xsize[1:end-k]..., dataXSizes[i],
+                       dataYSizes[i], q[i]]) for i=1:layers.m+1]
+    return (n, q, dataSizes, outputSizes, outputSizes)
+end
+
+
+
 
 @doc """
   q = getQ(layers, n, totalScales; product=true)
 calculate the total number of entries in each layer
 """
-function getQ(layers, n, totalScales; product=true)
-  q = [numScales(layers.shears[i],n[i]) for i=1:layers.m+1]
-  q = [(isnan(totalScales[i]) || totalScales[i]<=0) ? q[i] : totalScales[i] for i=1:layers.m+1]
+function getQ(layers::layeredTransform{K,1}, n, totalScales; product=true) where {K}
+    q = [numScales(layers.shears[i],n[i]) for i=1:layers.m+1]
+    q = [(isnan(totalScales[i]) || totalScales[i]<=0) ? q[i] : totalScales[i] for i=1:layers.m+1]
   if product
     q = [prod(q[1:i-1]) for i=1:layers.m+1]
     return q
@@ -133,5 +210,78 @@ function getQ(layers, n, totalScales; product=true)
     return q
   end
 end
-getQ(layers, Xsize; product=true)=  getQ(layers, Int.(sizes(bspline, layers.subsampling, Xsize[(end):end]))
+@doc """
+  q = getQ(layers, n, totalScales; product=true)
+calculate the total number of shearlets/wavelets in each layer
+"""
+function getQ(layers::layeredTransform{K, 2}, n, totalScales; product=true) where {K}
+    q = [numScales(layers.shears[i],n[i]) for i=1:layers.m+1]
+    q = [(isnan(totalScales[i]) || totalScales[i]<=0) ? q[i] : totalScales[i] for i=1:layers.m+1]
+    if product
+        q = [prod(q[1:i-1]) for i=1:layers.m+1]
+        return q
+    else
+        return q
+    end
+end
+
+getQ(layers, Xsize; product=true) = getQ(layers, Int.(sizes(bspline, layers.subsampling, Xsize[(end):end]))
 , [-1 for i=1:layers.m+1]; product=product)
+
+
+
+
+
+
+
+
+function getPadBy(shearletSystem::Shearlab.Shearletsystem2D{T}) where T
+    padBy = (0,0)
+    for sysPad in shearletSystem.support
+        padBy = (max(sysPad[1][2]-sysPad[1][1], padBy[1]), max(padBy[2], sysPad[2][2]-sysPad[2][1]))
+    end
+    return padBy
+end
+
+
+
+
+
+
+
+
+
+
+
+import Base.-
+-(scattered1::scattered{T,N},scattered2::scattered{S,N}) where {T<:Number, S<:Number, N} = scattered{T, N}(scattered1.m, [scattered1.data[i] .+ -1*scattered2.data[i] for i=1:scattered1.m+1],[scattered1.output[i]+ -1*scattered2.output[i] for i=1:scattered1.m+1])
+
+import LinearAlgebra.norm
+function norm(scattered::scattered{T,N}, p) where {T<:Number, N}
+    #TODO functional version of this
+    # entrywise = zeros(T,size(scattered.output)[1:(end-2)])
+    # innerAxes = axes(scattered.output)[end-1:end]
+    # for outer in eachindex(view(scatte))
+    return (sum([norm(scattered.output[i],p).^p for i=1:scattered.m+1])).^(1/p)
+end
+
+
+function pad(x, padBy)
+    return [ zeros(padBy...)            zeros(padBy[1], size(x,2)) zeros(padBy...);
+             zeros(size(x,1), padBy[2])             x              zeros(size(x,1), padBy[2]);
+             zeros(padBy...)            zeros(padBy[1], size(x,2)) zeros(padBy...)];
+end
+
+
+
+# TODO maybe fold this in?
+"""
+    totalSize, Xsizes, Ysizes = outputSize(X,layers)
+
+get the length of a thin version
+"""
+function outputSize(X, layers)
+  Xsizes = [size(X,1); layers.reSizingRates[1,:]]
+  Ysizes = [size(X,2); layers.reSizingRates[2,:]]
+  return (sum([numInLayer(m-1,layers)*Xsizes[m+1]*Ysizes[m+1] for m=1:layers.m+1]), Xsizes, Ysizes)
+end

@@ -1,8 +1,9 @@
-using Wavelets, FFTW, SpecialFunctions, LinearAlgebra
 import Wavelets.cwt
 import Wavelets.wavelet
 import Wavelets.eltypes
-wavelet(WT.morl,3.5)
+import Wavelets.WT
+import Shearlab.Shearletsystem2D
+
 # define a type for averaging continuous wavelets
 struct CFWA{T} <: ContinuousWavelet{T}
   scalingFactor  ::Float64 # the number of wavelets per octave, ie the scaling is s=2^(j/scalingFactor)
@@ -64,8 +65,13 @@ end
 
 
 @doc """
-      totalN = numScales(c::CFWA,n::S) where S<:Integer
-  given a CFWA structure and the size of a vector it is acting on, return the number of transformed elements, including the averaging layer
+      totalN = numScales(c::CFWA,n::S; backOffset=0,nScales=-1) where S<:Integer
+      totalN = numScales(c::Shearletsystem2D) where S<:Integer
+  given a CFWA structure and the size of a vector it is acting on,
+      return the number of transformed elements, including the
+      averaging layer.
+  alternatively, given a Shearletsystem2D structure, return the number
+      of shearlets, including the averaging layer.
   """
 function numScales(c::CFWA, n::S; backOffset=0,nScales=-1) where S<:Integer
   if isnan(nScales) || nScales<0
@@ -74,6 +80,11 @@ function numScales(c::CFWA, n::S; backOffset=0,nScales=-1) where S<:Integer
   #println("numScales getting n=$(n), returning $(nScales)")
   return nScales
 end
+
+function numScales(c::Shearletsystem2D) where S<:Integer
+  return size(c.shearletIdxs,1)
+end
+
 function getJ1(c,nScales, backOffset, n1)
   if nScales<0 || isnan(nScales)
     nScales = numScales(c, n1; backOffset=0)
@@ -159,63 +170,81 @@ end
 
   return the continuous wavelet transform along the final axis with averaging wave, which is (previous dimensions)×(nscales+1)×(signalLength), of type T of Y. The extra parameter averagingLength defines the number of scales of the standard cwt that are replaced by an averaging function. This has form averagingType, which can be one of :Mother or :Dirac- in the :Mother case, it uses the same form as for the daughters, while the dirac uses a constant. J1 is the total number of scales; default (when J1=NaN, or is negative) is just under the maximum possible number, i.e. the log base 2 of the length of the signal, times the number of wavelets per octave. If you have sampling information, you will need to scale wave by δt^(1/2).
   """
-function cwt(Y::AbstractArray{T,N}, c::CFWA{W}, daughters::Array{U,M}; nScales::S=NaN, backOffset::Int=0,fftPlan::Bool=true) where {T<:Number, S<:Real, U<:Number, W<:WT.WaveletBoundary, N, M}
-  @assert typeof(N)<:Integer
-  @assert typeof(M)<:Integer
-  @assert M==1 || M==2
-  if N==1
-    Y= reshape(Y,(1,size(Y)...))
-  end
-  # TODO: version of this with a preplanned fft
-  n1 = size(Y)[end];
-  # J1 is the final scale
-  J1 = getJ1(c,nScales, backOffset, n1)
-  if (isnan(nScales) || (nScales<0)) && c.name!="morl"
-    J1=floor(Int,(log2(n1)-2)*c.scalingFactor)-backOffset
-  elseif nScales>0
-    J1 = nScales+c.averagingLength-1
-  end
-
-  #....construct time series to analyze, pad if necessary
-  if eltypes(c)() == WT.padded
-    base2 = round(Int,log(n1)/log(2));   # power of 2 nearest to N
-    x = [Y zeros(2^(base2+1)-n1)];
-  elseif eltypes(c)() == WT.DEFAULT_BOUNDARY
-    x = cat(Y, reverse(Y,dims=length(size(Y))), dims=length(size(Y)))
-  else
-    x= Y
-  end
-
-  n = size(x)[end]
-  x̂ = FFTW.fft(x, length(size(x)));    # [Eqn(3)]
-
-  #....construct wavenumber array used in transform [Eqn(5)]
-  # If the vector isn't long enough to actually have any other scales, just return the averaging
-  if J1+2-c.averagingLength<=0 || J1==0
-    wave = zeros(Complex{Float64}, size(x)..., 1)
-    mother = daughters[:,1]
-    for i in eachindex(view(x̂, axes(x̂)[1:end-1]..., 1))
-      wave[i,:]= x̂[i,:].* mother
+function cwt(Y::AbstractArray{T,N}, c::CFWA{W}, daughters::Array{U,M};
+             nScales::S=NaN, backOffset::Int=0,
+             fftPlan::FFTW.rFFTWPlan{T,A,B,C} = plan_rfft([1])) where {T<:Real, S<:Real, U<:Number, W<:WT.WaveletBoundary, N, M,A,B,C} 
+    # TODO: complex input version of this
+    @assert typeof(N)<:Integer
+    @assert typeof(M)<:Integer
+    @assert M==1 || M==2
+    if N==1
+        Y= reshape(Y,(1,size(Y)...))
     end
-    return ifft(wave, length(size(wave))-1)
-  end
-  # TODO: switch J1 and n, and check everywhere this breaks
-  wave = zeros(Complex{Float64}, size(x̂)..., size(daughters)[end]);  # define the wavelet array
-  # loop through all scales and compute transform
-  for j in 1:size(daughters,2)
-    daughter = daughters[:,j]
-    for i in eachindex(view(x̂, axes(x̂)[1:end-1]..., 1))
-      wave[i, :, j] = x̂[i,:].*daughter  # wavelet transform[Eqn(4)]
+    # TODO: version of this with a preplanned fft
+    n1 = size(Y)[end];
+    # J1 is the final scale
+    J1 = getJ1(c,nScales, backOffset, n1)
+    if (isnan(nScales) || (nScales<0)) && c.name!="morl"
+        J1=floor(Int,(log2(n1)-2)*c.scalingFactor)-backOffset
+    elseif nScales>0
+        J1 = nScales+c.averagingLength-1
     end
-  end
-  wave = ifft(wave, length(size(wave))-1)
-  ax = axes(wave)
-  if length(ax)>2
-    wave = wave[ax[1:end-2]..., 1:n1, ax[end]]  # get rid of padding before returning
-  else
-    wave = wave[1:n1, ax[end]]  # get rid of padding before returning
-  end
-  return wave
+    
+    #....construct time series to analyze, pad if necessary
+    if eltypes(c)() == WT.padded
+        base2 = round(Int,log(n1)/log(2));   # power of 2 nearest to N
+        x = [Y zeros(2^(base2+1)-n1)];
+    elseif eltypes(c)() == WT.DEFAULT_BOUNDARY
+        x = cat(Y, reverse(Y,dims = length(size(Y))), dims = length(size(Y)))
+    else
+        x= Y
+    end
+
+    # check if the plan we were given is a dummy or not
+    @bp
+    if size(fftPlan)==(1,)
+        fftPlan = plan_rfft(x[[1 for i=1:length(size(x))-1]..., :])
+    end
+    n = size(x)[end]
+    x̂ = zeros(Complex{eltype(x)}, size(x)[1:end-1]..., div(size(x)[end],2) + 1)
+    for i in eachindex(view(x, axes(x)[1:end-1]..., 1))
+        x̂[i, :] = fftPlan * x[i, :];    # [Eqn(3)]
+    end
+
+    #....construct wavenumber array used in transform [Eqn(5)]
+    # If the vector isn't long enough to actually have any other scales, just
+    # return the averaging
+    if J1+2-c.averagingLength<=0 || J1==0
+        wave = zeros(T, size(x)..., 1)
+        mother = daughters[1:(div(size(daughters,1),2)+1), 1]
+        for i in eachindex(view(x̂, axes(x̂)[1:end-1]..., 1))
+            wave[i,:]= fftPlan \ (x̂[i,:] .* mother)
+        end
+        return wave
+    end
+    # TODO: switch J1 and n, and check everywhere this breaks
+    wave = zeros(T, size(x)..., size(daughters)[end]);  # define the wavelet
+    # array
+
+    # loop through all scales and compute transform
+    for j in 1:size(daughters,2)
+        daughter = daughters[1:(div(size(daughters,1),2)+1), j]
+        # daughter = reshape(daughter, ([1 for i=1:length(size(x))-1]..., length(daughter)))
+        @bp
+        for i in eachindex(view(x̂, axes(x̂)[1:end-1]..., 1))
+            #tmpConv = 
+            wave[i, :, j] = fftPlan \ (x̂[i,:] .* daughter)  # wavelet
+            # transform [Eqn(4)]
+        end
+    end
+    ax = axes(wave)
+    if length(ax)>2
+        wave = wave[ax[1:end-2]..., 1:n1, ax[end]]  # get rid of padding before
+        # returning
+    else
+        wave = wave[1:n1, ax[end]]  # get rid of padding before returning
+    end
+    return wave
 end
 #TODO: include some logic about the types checking whether T is complex, and then using that as the base type (for both copies of wave)
 
@@ -269,7 +298,10 @@ computeWavelets(Y::AbstractArray{T}, c::CFWA{W}; nScales::S=NaN, backOffset::Int
 @doc """
       daughters, ω = getScales(n1, c::CFW{W}, averagingLength::Int; J1::S=NaN, averagingType::Symbol=:Mother) where {T<:Real, S<:Real, W<:WT.WaveletBoundary}
 
-      return the wavelets and the averaging functions used as row vectors in the Fourier domain. The averaging function is first, and the frequency variable is returned as ω. n1 is the length of the input
+  return the wavelets and the averaging functions used as row
+  vectors in the Fourier domain. The averaging function is first, and
+  the frequency variable is returned as ω. n1 is the length of the
+  input
   """
 function getScales(n1::Int, c::CFWA{W}; J1::S=NaN) where {S<:Real, W<:WT.WaveletBoundary}
   # J1 is the total number of elements
@@ -302,4 +334,113 @@ function getScales(n1::Int, c::CFWA{W}; J1::S=NaN) where {S<:Real, W<:WT.Wavelet
   return (daughters,ω)
 end
 
-getScales(c::CFWA{W}, n1::Int; J1::S=NaN) where {S<:Real, W<:WT.WaveletBoundary} = getScales(n1, c; J1=J1)
+function getScales(c::CFWA{W}, n1::Int; J1::S=NaN) where {S<:Real,
+                                                          W<:WT.WaveletBoundary}
+    getScales(n1, c; J1=J1)
+end
+
+
+
+
+
+
+###################################################################################
+#################### Shattering methods ###########################################
+###################################################################################
+
+
+
+function sheardec2D(X::Array{Complex{T}, N},
+                    shearletSystem::Shearlab.Shearletsystem2D{T},
+                    P::FFTW.cFFTWPlan{Complex{T}, A, B, C},
+                    padded::Bool, padBy::Int) where {T<:Real, A,
+                                                       B, C, N}
+    if shearletSystem.gpu;
+        coeffs = AFArray(zeros(Complex{T},
+                    size(shearletSystem.shearlets))) 
+    else
+        coeffs = zeros(Complex{T}, size(shearletSystem.shearlets))
+    end
+
+    #compute shearlet coefficients at each scale
+    #not that pointwise multiplication in the fourier domain equals convolution
+    #in the time-domain
+    for j = 1:shearletSystem.nShearlets
+        if padded
+            # The fourier transform of X
+            Xfreq = fftshift(P*(ifftshift(pad(X, padby))))
+            coeffs[:,:,j] = real.(fftshift(P \ ifftshift(Xfreq.*conj(shearletSystem.shearlets[:,:,j]))))[padby[1] .+ (1:size(X,1)), padby[2] .+ (1:size(X,2))]
+        else
+            coeffs[:,:,j] = real.(fftshift(P \ ifftshift(Xfreq.*conj(shearletSystem.shearlets[:,:,j]))))
+        end
+    end
+    return coeffs
+end # sheardec2D
+
+
+
+function sheardec2D(X::Array{T,N},
+                    shearletSystem::Shearlab.Shearletsystem2D{T},
+                    P::FFTW.rFFTWPlan{T,A,B,C}, padded::Bool,
+                    padBy::Int) where {T<:Real, A, N, B, C}
+    if shearletSystem.gpu;
+        coeffs = AFArray(zeros(Complex{T},
+                               size(shearletSystem.shearlets))) 
+    else
+        coeffs = zeros(Complex{T}, size(shearletSystem.shearlets))
+    end
+
+    # compute shearlet coefficients at each scale
+    # not that pointwise multiplication in the fourier domain equals convolution
+    # in the time-domain
+    for j = 1:shearletSystem.nShearlets
+        # The fourier transform of X
+        Xfreq = fftshift( P * ifftshift(pad(X, padby)))
+        coeffs[:,:,j] = real.(fftshift(P \ ifftshift(Xfreq .* conj(shearletSystem.shearlets[:,:,j]))))[padby[1] .+ (1:size(X,1)), padby[2] .+ (1:size(X,2))]
+    end
+    return real.(coeffs)
+end # sheardec2D
+
+
+function getPadBy(shearletSystem::Shearlab.Shearletsystem2D{T}) where {T<:Number}
+    padBy = (0, 0)
+    for sysPad in shearletSystem.support
+        padBy = (max(sysPad[1][2]-sysPad[1][1], padBy[1]), max(padBy[2], sysPad[2][2]-sysPad[2][1]))
+    end
+    return padBy
+end
+
+
+"""
+    coeffs = averagingFunction(X,shearletSystem)
+
+compute just the averaging coefficient matrix of the Shearlet transform of the array X. If preFFT is true, then it assumes that you have already taken the fft of X
+...
+"""
+function averagingFunction(X::Array{Complex{S},2},
+                           shearletSystem::Shearlab.Shearletsystem2D{S},
+                           P::FFTW.cFFTWPlan{Complex{S},A,B,C}, padded::Bool,
+                           padBy::Int) where{S <: Real, A, B, C} 
+    # The fourier transform of X
+    Xfreq = fftshift( P * ifftshift(pad(X, padBy)))
+    
+    #compute the last shearlet coefficient
+    return fftshift(P \ ifftshift(Xfreq .*
+                                  conj(shearletSystem.shearlets[:,:,end])))[padby[1] .+ (1:size(X,1)), padby[2] .+ (1:size(X,2))]
+end # averagingFunction
+
+
+
+
+
+function averagingFunction(X::Array{S,2},
+                           shearletSystem::Shearlab.Shearletsystem2D{S},
+                           P::FFTW.rFFTWPlan{S,A,B,C}) where{S <:
+                           Real, A, B, C}
+    # The fourier transform of X
+    Xfreq = fftshift(P * ifftshift(X))
+
+    #compute the last shearlet coefficient
+    return real.(fftshift(P \ ifftshift(Xfreq .*
+                                  conj(shearletSystem.shearlets[:,:,end])))[padby[1] .+ (1:size(X,1)), padby[2] .+ (1:size(X,2))])
+end # averagingFunction

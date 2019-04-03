@@ -184,3 +184,44 @@ function flatten(results::scattered{T,N}) where {T<:Real, N}
   end
   concatOutput
 end
+
+
+
+# treating them kind of like vectors
+
+import Base.-
+-(scattered1::scattered{T,N},scattered2::scattered{S,N}) where {T<:Number,S<:Number, N} = scattered{T, N}(scattered1.m, scattered1.k, [scattered1.data[i] - scattered2.data[i] for i=1:scattered1.m+1], [scattered1.output[i]+ -1*scattered2.output[i] for i=1:scattered1.m+1])
+
+import LinearAlgebra.norm
+#norm(scattered1::scattered{T,N},dims::Int=k) where {T<:Number} = sum([norm(scattered.output[i]) for i=1:scattered.m+1])
+
+# function norm(scattered1::scattered{T,N},p::S; dims::Array{Int,1}) where {T<:Number,N,K,S<:Real}
+#   setdiff(1:(length(size(scattered1))-1), dims)
+#   result = Array{T,N}()
+#   reduce(norm, +, view(scattered1),)
+#   axes(scattered.output[i])
+#   for i=1:
+#   sum([norm(view(scattered.output[i][]) for i=1:scattered.m+1]))
+# end
+"""
+   norm(scattered1::scattered{T,N},p::S=2) where {T<:Number, S<:Real, N}
+
+the norm of a scattered result. By default it doesn't take a norm over the leading dimensions
+"""
+function norm(scattered1::scattered{T,N},p::S=2) where {T<:Number, S<:Real, N}
+  results = Array{Float64, N-2}(undef, size(scattered1.output[1])[1:(end-2)])
+  outerAxes = axes(scattered1.output[1])[1:end-2]
+  for i in eachindex(view(scattered1.output[1], outerAxes..., 1,1))
+    results[i] = sum(norm(x[i, :, :], p).^p for x in scattered1.output).^(1/p)
+  end
+  return results
+end
+# function norm(scattered1::scattered{T,N},p::S; keepdims::Val{K}) where {T<:Number, N,K}
+#   result = Array{T,Val(N) - Val(K)}(undef,size(scattered1))
+# function norm(scattered1::scattered{T,N},p::S; dims::Array{Int,1}) where {T<:Number,N,K,S<:Real}
+#   result = Array{T, Val(N) - length(dims)}(zeros())
+#   return sum(norm(view(x[axes(x)[dims],:]), p).^p for x in scattered1.output)
+# end
+#wef = randn(10,10,10)
+#from scratch version
+#(mapreduce(x->mapreduce(y->y.^p, +, x, dims=dims), +, x for x in wef)).^(1/p)

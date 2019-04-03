@@ -1,0 +1,32 @@
+using FFTW
+using Shearlab
+Shearletsystem2D{Float16}<:Shearletsystem2D
+Shearlab.Shearletsystem2D{Float16}<:Shearlab.Shearletsystem2D
+using Wavelets
+ls
+pwd()
+using Shearlab
+exit()
+using Shearlab
+exit()
+exit())
+exit()
+exit()
+exit()
+thing = layeredTransform{Float64, 2}(3,(30,2), [33.2, 43.1], [3.0f0, 1.0f4])
+thing = layeredTransform{Float64, 2}(3,(30,2), [33.2, 43.1], [3.0f0, 1.0f4])
+size(thing.n)
+length(thing.n)
+eltype(thing.shears)
+eltypes(thing)
+using ScatteringTransform
+Pkg.resolve()
+using Pkg
+Pkg.resolve()
+Pkg.activate("/home/dsweber/.julia/dev/ScatteringTransform/")
+Pkg.add("Shearlab")
+using ScatteringTransform
+exit()
+using ScatteringTransform
+exit()
+exit()
