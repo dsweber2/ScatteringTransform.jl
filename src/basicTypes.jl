@@ -9,14 +9,19 @@ struct layeredTransform{T, D}
     n::Tuple{Vararg{Int,D}} # the dimensions of a single entry
     shears::Array{T,1} # the array of the transforms; the final of these is
     # used only for averaging, so it has length m+1
-    subsampling::Array{Float32,1} # for each layer, the rate of
+    subsampling::Array{Float32, 1} # for each layer, the rate of
     # subsampling. There is one of these for layer zero as well, since the
     # output is subsampled, so it should have length m+1
+    outputSize::Array{Int, 2} # a list of the size of a single output example
+    # dimensions in each layer. The first index is layer, the second is
+    # dimension (e.g. a 3 layer shattering transform is 3×2) TODO: currently
+    # unused for the 1D case
     function layeredTransform{T,D}(m::Int, n::Tuple{Vararg{Int, D}},
                                    shears::Array{T,1},
-                                   subsampling::Array{Float32,1}) where {T,D}
+                                   subsampling::Array{Float32, 1},
+                                   outputSize::Array{Int, 2}) where {T,D}
         @assert (D==2 && T<:Shearletsystem2D)  || (D==1 && T<:CFWA)
-        return new(m, n, shears, subsampling)
+        return new(m, n, shears, subsampling, outputSize)
     end
 end
 
@@ -70,15 +75,19 @@ function layeredTransform(m::S, Xlength::S, nScales::Array{S,1},
     @assert m+1==size(subsampling,1)
     @assert m+1==size(nScales,1)
     
-    println("Treating as a 1D Signal. Vector Lengths: $Xlength nScales: $nScales subsampling: $subsampling")
+    println("Treating as a 1D Signal. Vector Lengths: $Xlength nScales:" *
+            "$nScales subsampling: $subsampling")
     shears = [wavelet(CWTType, nScales[i], averagingLength[i],
                       averagingType[i], boundary[i]) for (i,x) in
               enumerate(subsampling)]
-    layeredTransform{typeof(shears[1]), 1}(m, (Xlength,), shears, Float32.(subsampling))
+    layeredTransform{typeof(shears[1]), 1}(m, (Xlength,), shears,
+                                           Float32.(subsampling), [1 1])
 end
 
 
-# the fully internal shearlet version
+################################################################################
+######################### Shearlet Transform  ##################################
+################################################################################
 function layeredTransform(m::S, Xsizes::Tuple{<:Integer, <:Integer},
                           nScales::Array{<:Integer, 1}, subsampling::Array{T, 1},
                           shearLevels::Array{<:Array{<:Integer, 1}},
@@ -98,19 +107,28 @@ function layeredTransform(m::S, Xsizes::Tuple{<:Integer, <:Integer},
                                             shearLevels[i];
                                             typeBecomes=typeBecomes) for (i,x) in
                enumerate(subsampling)]
+    outputSizes = getResizingRates(shears, length(shears)-1, percentage=percentage)
     # adjust the shearlets to handle the padding
     for (i, shear) in enumerate(shears)
         padBy = getPadBy(shears[i])
-        newshears = zeros(eltype(shear.shearlets), (size(shear.shearlets)[1:2]
-                                                    .+ 2 .* padBy)...,
+        shearlets = real.(fftshift(ifft(ifftshift(shear.shearlets, (1, 2)), (1, 2)), (1, 2)))
+        newShears = zeros(eltype(shearlets), (size(shear.shearlets)[1:2]
+                                              .+ 2 .* padBy)...,
                           size(shear.shearlets, 3))
-        shearlets = fftshift(ifft(shears[i].shearlets, (1, 2)))
-        P = plan_fft(newshears[:,:,1])
+        if typeBecomes<:Real
+            P = plan_rfft(view(newShears, :, :, 1))
+            newShears = zeros(Complex{eltype(shearlets)}, div(size(newShears,1), 2)+1,
+                              size(newShears)[2:3]...)
+        else
+            P = plan_fft(view(newShears, :, :, 1))
+            newShears = zeros(eltype(shearlets), div(size(newShears,1), 2)+1,
+                              size(newShears)[2:3]...)
+        end
         for j=1:size(shear.shearlets, 3)
-            newshears[:, :, j] = fftshift(P * pad(shearlets[:,:,j],
+            newShears[:, :, j] = fftshift(P * pad(shearlets[:,:,j],
                                                   padBy))
         end
-        shears[i] = Shearletsystem2D{typeBecomes}(newshears, shear.size,
+        shears[i] = Shearletsystem2D{typeBecomes}(newShears, shear.size,
                                                   shear.shearLevels,
                                                   shear.full, shear.nShearlets,
                                                   shear.shearletIdxs,
@@ -119,7 +137,7 @@ function layeredTransform(m::S, Xsizes::Tuple{<:Integer, <:Integer},
                                                   shear.gpu, shear.support)
     end
     return layeredTransform{typeof(shears[1]), 2}(m, Xsizes, shears,
-                                            Float32.(subsampling))
+                                                  Float32.(subsampling), outputSizes)
 end
 
 

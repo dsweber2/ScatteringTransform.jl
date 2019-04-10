@@ -98,11 +98,17 @@ end
 
 m1=2; n1=50; p1=55
 X1 = randn(n1,p1)
-layer1 = layeredTransform(m1, size(X1))
+layer1 = layeredTransform(m1, size(X1), typeBecomes=eltype(X1))
 subsamp = 1.5; nScales = 3
 m2=2; n2=201; p2=325
 X2 = randn(n2,p2)
-layer2 = layeredTransform(m2, size(X2); subsample = subsamp, nScale=nScales)
+layer2 = layeredTransform(m2, size(X2); subsample = subsamp, nScale = nScales,
+                          typeBecomes = eltype(X2))
+# A more carefully constructed test that also tests a different element type
+X3 = zeros(Float32, 100,100)
+X3[26:75, 26:75] = ones(Float32, 50,50)
+layer3 = layeredTransform(m1,size(X3), typeBecomes=eltype(X3))
+
 
 @testset "layer construction" begin
     xSubsampled = [50, 25, 13, 7]; ySubsampled = [55, 28, 14, 7]

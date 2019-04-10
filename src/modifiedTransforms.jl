@@ -74,23 +74,22 @@ end
       of shearlets, including the averaging layer.
   """
 function numScales(c::CFWA, n::S; backOffset=0,nScales=-1) where S<:Integer
-  if isnan(nScales) || nScales<0
-    nScales=floor(Int,(log2(max(n,1))-2)*c.scalingFactor)-backOffset-c.averagingLength
-  end
-  #println("numScales getting n=$(n), returning $(nScales)")
-  return nScales
+    if isnan(nScales) || nScales<0
+        nScales=floor(Int,(log2(max(n,1))-2)*c.scalingFactor)-backOffset-c.averagingLength
+    end
+    return nScales
 end
 
 function numScales(c::Shearletsystem2D) where S<:Integer
-  return size(c.shearletIdxs,1)
+    return size(c.shearletIdxs,1)
 end
 
 function getJ1(c,nScales, backOffset, n1)
-  if nScales<0 || isnan(nScales)
-    nScales = numScales(c, n1; backOffset=0)
-  end
-  J1= nScales+c.averagingLength-1
-  return J1
+    if nScales<0 || isnan(nScales)
+        nScales = numScales(c, n1; backOffset=0)
+    end
+    J1= nScales+c.averagingLength-1
+    return J1
 end
 
 
@@ -350,10 +349,10 @@ end
 
 
 
-function sheardec2D(X::Array{Complex{T}, N},
+function sheardec2D(X::SubArray{Complex{T}, N},
                     shearletSystem::Shearlab.Shearletsystem2D{T},
                     P::FFTW.cFFTWPlan{Complex{T}, A, B, C},
-                    padded::Bool, padBy::Int) where {T<:Real, A,
+                    padded::Bool, padBy::Tuple{Int, Int}) where {T <: Real, A,
                                                        B, C, N}
     if shearletSystem.gpu;
         coeffs = AFArray(zeros(Complex{T},
@@ -365,41 +364,70 @@ function sheardec2D(X::Array{Complex{T}, N},
     #compute shearlet coefficients at each scale
     #not that pointwise multiplication in the fourier domain equals convolution
     #in the time-domain
+    @bp
     for j = 1:shearletSystem.nShearlets
         if padded
             # The fourier transform of X
-            Xfreq = fftshift(P*(ifftshift(pad(X, padby))))
-            coeffs[:,:,j] = real.(fftshift(P \ ifftshift(Xfreq.*conj(shearletSystem.shearlets[:,:,j]))))[padby[1] .+ (1:size(X,1)), padby[2] .+ (1:size(X,2))]
+            Xfreq = fftshift(P*(ifftshift(pad(X, padBy))))
+            coeffs[:,:,j] = real.(P \ ifftshift(Xfreq.*conj(shearletSystem.shearlets[:,:,j])))[padBy[1] .+ (1:size(X,1)), padBy[2] .+ (1:size(X,2))]
         else
             coeffs[:,:,j] = real.(fftshift(P \ ifftshift(Xfreq.*conj(shearletSystem.shearlets[:,:,j]))))
         end
     end
     return coeffs
 end # sheardec2D
+sheardec2D(X::Array{Complex{T}, N},
+           shearletSystem::Shearlab.Shearletsystem2D{T},
+           P::FFTW.cFFTWPlan{Complex{T}, A, B, C}, padded::Bool,
+           padBy::Tuple{Int, Int}) where {T <: Real, A,
+                                          B, C, N} = sheardec2D(view(X),
+                                                                shearletSystem,
+                                                                P, padded,
+                                                                padBy)
 
 
-
-function sheardec2D(X::Array{T,N},
+function sheardec2D(X::SubArray{T,N},
                     shearletSystem::Shearlab.Shearletsystem2D{T},
-                    P::FFTW.rFFTWPlan{T,A,B,C}, padded::Bool,
-                    padBy::Int) where {T<:Real, A, N, B, C}
+                    P::FFTW.rFFTWPlan{T,B,C,D}, padded::Bool,
+                    padBy::Tuple{Int, Int}) where {T<:Real, N, B, C, D}
+    @bp
     if shearletSystem.gpu;
         coeffs = AFArray(zeros(Complex{T},
                                size(shearletSystem.shearlets))) 
     else
-        coeffs = zeros(Complex{T}, size(shearletSystem.shearlets))
+        coeffs = zeros(T, size(X)..., size(shearletSystem.shearlets,3))
     end
-
+    
     # compute shearlet coefficients at each scale
     # not that pointwise multiplication in the fourier domain equals convolution
     # in the time-domain
+    used1 = padBy[1] .+ (1:size(X)[end-1])
+    used2 = padBy[2] .+ (1:size(X)[end])
     for j = 1:shearletSystem.nShearlets
         # The fourier transform of X
-        Xfreq = fftshift( P * ifftshift(pad(X, padby)))
-        coeffs[:,:,j] = real.(fftshift(P \ ifftshift(Xfreq .* conj(shearletSystem.shearlets[:,:,j]))))[padby[1] .+ (1:size(X,1)), padby[2] .+ (1:size(X,2))]
+        neededShear = conj(shearletSystem.shearlets[:, :, j])
+        shearing!(X, neededShear, P,  coeffs, padBy, used1, used2, j)
     end
-    return real.(coeffs)
+    return coeffs
 end # sheardec2D
+function shearing!(X::SubArray{T,N}, neededShear, P, coeffs, padBy, used1,
+                   used2, j) where N
+    for i in eachindex(view(X, axes(X)[1:end-2]..., 1, 1))
+        Xfreq = fftshift( P * ifftshift(pad(X[i, :, :], padBy)))
+        coeffs[i,:,:,j] = real.(P \ ifftshift(Xfreq .* neededShear))[used1,
+                                                                     used2]
+    end
+end
+function shearing!(X::SubArray{T,2}, neededShear, P, coeffs, padBy, used1,
+                   used2, j)
+    Xfreq =  fftshift( P * ifftshift(pad(X[:, :], padBy)))
+    coeffs[:,:,j] = real.(P \ ifftshift(Xfreq .* neededShear))[used1,
+                                                                 used2]
+end
+    
+
+sheardec2D(X::Array{T,N}, shearletSystem::Shearlab.Shearletsystem2D{T},
+           P::FFTW.rFFTWPlan{T,B,C,D}, padded::Bool, padBy::Tuple{Int, Int}) where {T<:Real, N, B, C, D} = sheardec2D(view(X,:,:), shearletSystem, P, padded, padBy)
 
 
 function getPadBy(shearletSystem::Shearlab.Shearletsystem2D{T}) where {T<:Number}
@@ -417,30 +445,27 @@ end
 compute just the averaging coefficient matrix of the Shearlet transform of the array X. If preFFT is true, then it assumes that you have already taken the fft of X
 ...
 """
-function averagingFunction(X::Array{Complex{S},2},
-                           shearletSystem::Shearlab.Shearletsystem2D{S},
-                           P::FFTW.cFFTWPlan{Complex{S},A,B,C}, padded::Bool,
-                           padBy::Int) where{S <: Real, A, B, C} 
-    # The fourier transform of X
-    Xfreq = fftshift( P * ifftshift(pad(X, padBy)))
-    
-    #compute the last shearlet coefficient
-    return fftshift(P \ ifftshift(Xfreq .*
-                                  conj(shearletSystem.shearlets[:,:,end])))[padby[1] .+ (1:size(X,1)), padby[2] .+ (1:size(X,2))]
+function averagingFunction(X, shearletSystem, P, padded, padBy)
+    coeffs = zeros(eltypeof(X), size(X)...)
+    nScale = size(shearletSystem.shearlets,3)
+    neededShear = conj(shearletSystem.shearlets[:, :, end])
+    used1 = padBy[1] .+ (1:size(X)[end-1])
+    used2 = padBy[2] .+ (1:size(X)[end])
+    shearing!(X, neededShear, P,  coeffs, padBy, used1, used2, nScale)
+    return coeffs
 end # averagingFunction
 
 
-
-
-
-function averagingFunction(X::Array{S,2},
-                           shearletSystem::Shearlab.Shearletsystem2D{S},
-                           P::FFTW.rFFTWPlan{S,A,B,C}) where{S <:
-                           Real, A, B, C}
-    # The fourier transform of X
-    Xfreq = fftshift(P * ifftshift(X))
-
-    #compute the last shearlet coefficient
-    return real.(fftshift(P \ ifftshift(Xfreq .*
-                                  conj(shearletSystem.shearlets[:,:,end])))[padby[1] .+ (1:size(X,1)), padby[2] .+ (1:size(X,2))])
-end # averagingFunction
+# make sure the types are done correctly
+function averagingFunction(X::SubArray{Complex{T}, N},
+                           shearletSystem::Shearlab.Shearletsystem2D{T},
+                           P::FFTW.cFFTWPlan{Complex{T},A,B,C}, padded::Bool,
+                           padBy::Tuple{Int, Int}) where{T <: Real, A, B, C, N} 
+    averagingFunction(X, shearletSystem, P, padded, padBy)
+end
+function averagingFunction(X::SubArray{T, N},
+                           shearletSystem::Shearlab.Shearletsystem2D{T},
+                           P::FFTW.rFFTWPlan{T,A,B,C}, padded::Bool,
+                           padBy::Tuple{Int,Int}) where{T <: Real, A, B, C, N}
+    averagingFunction(X, shearletSystem, P, padded, padBy)
+end

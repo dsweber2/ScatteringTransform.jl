@@ -19,7 +19,7 @@ maximum(A::Array{Complex{Float64}}) = A[indmax(abs(A))]
 
 Use bilinear interpolation to evaluate the points off-grid. This is linear in x and linear in y, but quadratic in the pair.
 """
-function resample(input::Array{T,2}, rate::Float32,
+function resample(input::SubArray{T,2}, rate::Float32,
                   samplingType::bsplineType; newSize::Tuple{Int,Int} =
                   (-1,-1)) where T<:Number
     Nin = size(input)
@@ -27,15 +27,24 @@ function resample(input::Array{T,2}, rate::Float32,
     if rate!=0.0 || newSize[1]<=0
         newSize = (Int64(ceil(size(input,1)/rate)),
                    Int64(ceil(size(input,2)/rate)))
+        #println("originalsize=$(size(input)), newSize = $(newSize)")
     end
-    xInds = range(1, stop = Nin[1], length = newSize[1])
-    yInds = range(1, stop = Nin[2], length = newSize[2])
+    if newSize[1]>1
+        xInds = range(1, stop = Nin[1], length = newSize[1])
+    else
+        xInds = floor(Int,Nin[1]+1)/2
+    end
+    if newSize[2]>1
+        yInds = range(1, stop = Nin[2], length = newSize[2])
+    else
+        yInds = floor(Int,Nin[2]+1)/2
+    end
     itp = interpolate(input, BSpline(Cubic(Natural(OnGrid()))))
-    output = itp(xInds,yInds)
+    output = T.(itp(xInds,yInds))
 end
 
-function resample(input::Array{T,1}, rate::Float32,
-                  samplingType::bsplineType; newSize::Tuple{Int,Int} =
+function resample(input::SubArray{T,1}, rate::Float32,
+                  samplingType::bsplineType; newSize::Tuple{Int} =
                   (-1,-1)) where T<:Number
     Nin = size(input)
     # if the rate results in a non-integer number of samples, round up.
@@ -48,11 +57,11 @@ function resample(input::Array{T,1}, rate::Float32,
 end
 
 """
-    output = resample(input::Array{T,{1,2}}, rate::Float32, samplingType::bilinear; newSize::Tuple{Int,Int} = (-1,-1)) where T<:Number
+    output = resample(input::SubArray{T,{1,2}}, rate::Float32, samplingType::bilinear; newSize::Tuple{Int,Int} = (-1,-1)) where T<:Number
 
 Use bilinear interpolation to evaluate the points off-grid. This is linear in x and linear in y, but quadratic in the pair.
 """
-function resample(input::Array{T,2}, rate::Float32, samplingType::bilinearType; newSize::Tuple{Int,Int} = (-1,-1)) where T<:Number
+function resample(input::SubArray{T,2}, rate::Float32, samplingType::bilinearType; newSize::Tuple{Int,Int} = (-1,-1)) where T<:Number
   Nin = size(input)
   # if the rate results in a non-integer number of samples, round up.
   if rate != 0.0 || newSize[1] <= 0
@@ -60,7 +69,7 @@ function resample(input::Array{T,2}, rate::Float32, samplingType::bilinearType; 
   end
   xInds = range(1, stop = Nin[1], length = newSize[1])
   yInds = range(1, stop = Nin[2], length = newSize[2])
-  output = zeros(T,newSize)
+  output = zeros(T, newSize)
   for (i,x)=enumerate(xInds), (j,y)=enumerate(yInds)
     xi = (modf(x)[1], Int(modf(x)[2]))
     yi = (modf(y)[1], Int(modf(y)[2]))
@@ -81,11 +90,17 @@ function resample(input::Array{T,2}, rate::Float32, samplingType::bilinearType; 
 end
 
 # provide default behaviour, which is bspline subsampling
-resample(input::Array{T,2}, rate::Float32; newSize::Tuple{Int,Int} =
+resample(input::SubArray{T,1}, rate::Float32; newSize::Tuple{Int,Int} = 
+         (-1,-1)) where T<:Number = resample(input, rate, bsplineType();
+                                             newSize=newSize)
+resample(input::SubArray{T,2}, rate::Float32; newSize::Tuple{Int,Int} =
          (-1,-1)) where T<:Number = resample(input, rate, bsplineType();
                                              newSize=newSize)
 resample(input::Array{T,1}, rate::Float32; newSize::Tuple{Int,Int} = 
-         (-1,-1)) where T<:Number = resample(input, rate, bsplineType();
+         (-1,-1)) where T<:Number = resample(view(input, :, :), rate, bsplineType();
+                                             newSize=newSize)
+resample(input::Array{T,2}, rate::Float32; newSize::Tuple{Int,Int} =
+         (-1,-1)) where T<:Number = resample(view(input,:,:), rate, bsplineType();
                                              newSize=newSize)
 
 

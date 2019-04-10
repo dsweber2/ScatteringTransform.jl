@@ -8,31 +8,33 @@ struct decreasingType <: stType end
     getResizingRates(shears::layeredTransform; percentage::Real=.9)
 2×(length of x) array of sizes the output should be to retain percentage of the mass of the averaging function.
   """
-function getResizingRates(shears::Array{Shearlab.Shearletsystem2D{T}, 1}, M::Int; percentage=.9) where {T <: Real}
-  newRates =zeros(Int64,2,M+1)
-  for m=1:M+1
-    tmpAveraging = abs.(ifftshift(shears[m].shearlets[:,:,end]))
-    # since it's a product, we want to find when they're separately 90% their total masses
-    tmpAveragingx = tmpAveraging[:,1]/sum(tmpAveraging[:,1])
-    tmpAveragingy = tmpAveraging[1,:]./sum(tmpAveraging[1,:])
-    tmpSum = 0.0
-    for i=1:length(tmpAveragingx)
-      tmpSum += tmpAveragingx[i]
-      if tmpSum>percentage/2
-        newRates[1,m] = i
-        break
-      end
+function getResizingRates(shears::Array{Shearlab.Shearletsystem2D{T}, 1},
+                          M::Int; percentage=.9) where {T <: Real}
+    newRates =zeros(Int64,M+1,2)
+    for m=1:M+1
+        tmpAveraging = abs.(ifftshift(shears[m].shearlets[:,:,end]))
+        # since it's a product, we want to find when they're separately 90% their
+        # total masses
+        tmpAveragingx = tmpAveraging[:,1]/sum(tmpAveraging[:,1])
+        tmpAveragingy = tmpAveraging[1,:]./sum(tmpAveraging[1,:])
+        tmpSum = 0.0
+        for i=1:length(tmpAveragingx)
+            tmpSum += tmpAveragingx[i]
+            if tmpSum>percentage/2
+                newRates[m, 1] = i
+                break
+            end
+        end
+        tmpSum=0.0
+        for j=1:length(tmpAveragingy)
+            tmpSum+=tmpAveragingy[j]
+            if tmpSum>percentage/2
+                newRates[m, 2] = j
+                break
+            end
+        end
     end
-    tmpSum=0.0
-    for j=1:length(tmpAveragingy)
-      tmpSum+=tmpAveragingy[j]
-      if tmpSum>percentage/2
-        newRates[2,m] = j
-        break
-      end
-    end
-  end
-  2*newRates
+    2 .* newRates
 end
 
 getResizingRates(shears::layeredTransform{T}; percentage::Real=.9) where {T<:Real} = getResizingRates(shears.shears,shears.m; percentage=percentage)
@@ -142,7 +144,6 @@ function calculateSizes(layers::layeredTransform{K,1},
                         outputSubsample, Xsize; totalScales = [-1
                                                                for
                                                                i=1:layers.m+1]) where {K}
-    @bp
     n = Int.(sizes(bsplineType(), layers.subsampling, Xsize[(end):end]))
     q = getQ(layers,n,totalScales)
     dataSizes = [Int.([Xsize[1:end-1]..., n[i], q[i]]) for i=1:layers.m+1]
@@ -168,29 +169,30 @@ function calculateSizes(layers::layeredTransform{K,1},
 end
 
 function calculateSizes(layers::layeredTransform{K,2},
-                        outputSubsample, Xsize; subsam=true) where {K}
-    dataXsizes = sizes(bsplineType(), layers.subsampling, Xsize[(end-1):(end-1)])
-    dataYsizes = sizes(bsplineType(), layers.subsampling, Xsize[(end):(end)])
-    n = [reshape(dataXsizes, (layers.m+1, 1))
-                        reshape(dataYsizes,(layers.m+1, 1))]
+                        outputSubsample, Xsize; totalScales=[-1 for
+                                                             i=1:layers.m+1],
+                        subsam=true, percentage = .9) where {K}
+    dataXSizes = sizes(bsplineType(), layers.subsampling,
+                       Xsize[(end-1):(end-1)])
+    dataYSizes = sizes(bsplineType(), layers.subsampling, Xsize[(end):(end)])
+    n = [reshape(dataXSizes, (layers.m+2, 1))
+         reshape(dataYSizes, (layers.m+2, 1))]
     if subsam == true
-        reSizingRates = getResizingRates(layers.shears, layers.m;
-                                         percentage=percentage)
-        XOutputSizes = reSizingRates[1,:]
-        YOutputSizes = reSizingRates[2,:]
+        XOutputSizes = layers.outputSize[:, 1]
+        YOutputSizes = layers.outputSize[:, 2]
     else
-        XOutputSizes = dataXsizes
-        YOutputSizes = dataYsizes
+        XOutputSizes = dataXSizes
+        YOutputSizes = dataYSizes
     end
-    outputSizes = [(Int(Xsize[1:end-2]), Int(XOutputSizes[m]),
-                    Int(YOutputSizes[m]), Int(numInLayer(m-1,
-                                                         layers)))
+    outputSizes = [(Int.(Xsize[1:end-2])..., Int.(XOutputSizes[m])...,
+                    Int.(YOutputSizes[m])..., Int.(numInLayer(m-1,
+                                                              layers)))
                    for m=1:layers.m+1]
-    resultingSize = [XoutputSizes[m] *YoutputSizes[m] for m = 1:leayers.m+1]
-    q = getQ(layers,n,totalScales)
-    dataSizes = [Int.([Xsize[1:end-k]..., dataXSizes[i],
+    resultingSize = [XOutputSizes[m] *YOutputSizes[m] for m = 1:layers.m+1]
+    q = getQ(layers, totalScales, product = false) .- 1
+    dataSizes = [Int.([Xsize[1:end-2]..., dataXSizes[i],
                        dataYSizes[i], q[i]]) for i=1:layers.m+1]
-    return (n, q, dataSizes, outputSizes, outputSizes)
+    return (n, q, dataSizes, outputSizes, resultingSize)
 end
 
 
@@ -203,19 +205,19 @@ calculate the total number of entries in each layer
 function getQ(layers::layeredTransform{K,1}, n, totalScales; product=true) where {K}
     q = [numScales(layers.shears[i],n[i]) for i=1:layers.m+1]
     q = [(isnan(totalScales[i]) || totalScales[i]<=0) ? q[i] : totalScales[i] for i=1:layers.m+1]
-  if product
-    q = [prod(q[1:i-1]) for i=1:layers.m+1]
-    return q
-  else
-    return q
-  end
+    if product
+        q = [prod(q[1:i-1]) for i=1:layers.m+1]
+        return q
+    else
+        return q
+    end
 end
 @doc """
   q = getQ(layers, n, totalScales; product=true)
 calculate the total number of shearlets/wavelets in each layer
 """
-function getQ(layers::layeredTransform{K, 2}, n, totalScales; product=true) where {K}
-    q = [numScales(layers.shears[i],n[i]) for i=1:layers.m+1]
+function getQ(layers::layeredTransform{K, 2}, totalScales; product=true) where {K}
+    q = [numScales(layers.shears[i]) for i=1:layers.m+1]
     q = [(isnan(totalScales[i]) || totalScales[i]<=0) ? q[i] : totalScales[i] for i=1:layers.m+1]
     if product
         q = [prod(q[1:i-1]) for i=1:layers.m+1]
@@ -267,9 +269,23 @@ end
 
 
 function pad(x, padBy)
-    return [ zeros(padBy...)            zeros(padBy[1], size(x,2)) zeros(padBy...);
-             zeros(size(x,1), padBy[2])             x              zeros(size(x,1), padBy[2]);
-             zeros(padBy...)            zeros(padBy[1], size(x,2)) zeros(padBy...)];
+    T = eltype(x)
+    firstRow = cat(zeros(T, size(x)[1:end-2]..., padBy...),
+                   zeros(T, size(x)[1:end-2]..., padBy[1], size(x)[end]),
+                   zeros(T, size(x)[1:end-2]..., padBy...), dims = length(size(x)))
+    secondRow = cat(zeros(T, size(x)[1:end-1]..., padBy[2]), x,
+                    zeros(T, size(x)[1:end-1]..., padBy[2]), dims=length(size(x)))
+    thirdRow = cat(zeros(T, size(x)[1:end-2]..., padBy...), zeros(T, size(x)[1:end-2]...,
+                                                              padBy[1], size(x)[end]),
+                   zeros(T, size(x)[1:end-2]..., padBy...), dims = length(size(x)))
+    # if size(x,1)==13
+    #     println("size(firstRow) = $(size(firstRow))")
+    #     println("size(secondRow) = $(size(secondRow))")
+    #     println("size(thirdRow) = $(size(thirdRow))")
+    #     println("catting along $(length(size(x))-1)")
+    #     println("$(size(cat(firstRow, secondRow, thirdRow, dims = length(size(x))-1)))")
+    # end
+    return cat(firstRow, secondRow, thirdRow, dims = length(size(x))-1)
 end
 
 

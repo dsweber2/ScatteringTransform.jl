@@ -4,8 +4,19 @@ using Distributed, SharedArrays
 using LinearAlgebra, Shearlab, Interpolations, Wavelets, FFTW
 using SpecialFunctions, LinearAlgebra
 using HDF5, Plots, JLD
-
-
+using Debugger, JuliaInterpreter
+using Test
+cd("/home/dsweber/.julia/dev/ScatteringTransform/src")
+include("subsampling.jl")
+include("modifiedTransforms.jl")
+include("basicTypes.jl")
+include("Utils.jl")
+include("nonlinearities.jl")
+include("pathMethods.jl")
+include("transform.jl")
+include("plotting.jl")
+include("postProcessing.jl")
+include("/home/dsweber/.julia/dev/ScatteringTransform/test/testtmp.jl")
 
 include("subsampling.jl")
 export resample, sizes, bsplineType, bilinearType, autocorrType
