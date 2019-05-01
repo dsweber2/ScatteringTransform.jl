@@ -30,3 +30,16 @@ exit()
 using ScatteringTransform
 exit()
 exit()
+using ScatteringTransform
+exit()
+julia> 
+\
+layers
+layers
+layers = layeredTransform(m, (28, 28), subsamples=[28/19, 19/13, 13/8], shearLevel=Int.(ceil.((1:4)/4)), typeBecomes = Float32);
+layesr
+layers
+ScatteringTransform.createFFTPlans(layers)
+ScatteringTransform.createFFTPlans(layers)
+exit())
+exit()

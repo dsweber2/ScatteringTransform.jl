@@ -2,6 +2,65 @@
 # TODO: make a way of accessing based on a path, especially in the 1D case
 # TODO: make the matrix aggrigator only take the output array
 
+
+
+
+
+
+@doc """
+    scattered = wrap(layers::layeredTransform{K, 2}, results::Array{T,N}) where {K, N,
+                                                                          T<:
+                                                                          Number}
+
+given a layeredTransform and an array as produced by the thin ST, wrap the
+results in the easier to process scattered type. note that the data is zero
+when produced this way.
+"""
+function wrap(layers::layeredTransform{K, 2}, results::AbstractArray{T,N}, X;
+              percentage=.9) where {K, N, T<: Number}
+    wrapped = scattered(layers, X)
+    n, q, dataSizes, outputSizes, resultingSize = calculateSizes(layers,
+                                                                 (-1,-1),
+                                                                 size(X),
+                                                                 percentage =
+                                                                 percentage)
+    for (i,layer) in enumerate(layers.shears[1:layers.m+1])
+        concatStart = sum([prod(oneLayer) for oneLayer in
+                           outputSizes[1:i-1]]) + 1
+        outerAxes = axes(wrapped.output[i])[1:end-3]
+        for j = 1:size(wrapped.output[i])[end]
+            wrapped.output[i][outerAxes..., :,:,j] = results[outerAxes...,
+                                                             concatStart .+
+                                                             (j-1)*resultingSize[i] .+
+                                                             (0:(resultingSize[i]-1))]
+        end
+    end
+    return wrapped
+end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 @doc """
     MatrixAggrigator(pardir::String; keep=[],named="output")
 
@@ -174,7 +233,7 @@ flatten(results::scattered{T,1}) where T<:Number
 
 given a scattered, it produces a single vector containing the entire transform in order, i.e. the same format as output by thinSt
 """
-function flatten(results::scattered{T,N}) where {T<:Real, N}
+function flatten(results::scattered{T,N}, layers::layeredTransform{S, 1}) where {T<:Real, N, S}
   concatOutput = zeros(Float64,size(results.output[1])[1:end-2]..., sum([prod(size(x)[end-1:end]) for x in results.output]))
   outPos = 1
   for curLayer in results.output
@@ -185,6 +244,21 @@ function flatten(results::scattered{T,N}) where {T<:Real, N}
   concatOutput
 end
 
+function flatten(results::scattered{T,N}, layers::layeredTransform{S, 2}) where {T<:Real, N, S}
+    concatOutput = zeros(T, size(results.output[1])[1:end-3]...,
+                         sum([prod(size(x)[end-2:end]) for x in results.output]))
+    outPos = 1
+    for curLayer in results.output
+        outerAxes = axes(curLayer)[1:end-3]
+        sizeTmpOut = prod(size(curLayer)[end-2:end])
+        for outer in eachindex(view(curLayer, outerAxes..., 1, 1, 1))
+            concatOutput[outer, outPos.+(0:sizeTmpOut-1)] = reshape(curLayer,
+                                                                    (sizeTmpOut))
+        end
+        outPos += sizeTmpOut
+    end
+    concatOutput
+end
 
 
 # treating them kind of like vectors

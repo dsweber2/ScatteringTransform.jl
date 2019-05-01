@@ -44,13 +44,7 @@ function CFWA(wave::WC, scalingFactor::S=8.0, averagingType::Symbol=:Mother, bou
   end
   return CFWA{T}(Float64(scalingFactor), tdef...,averagingLength, averagingType, frameBound)
 end
-function CFWA(wave::WC; scalingFactor::S=8.0, averagingType::Symbol=:Mother, boundary::T=WT.DEFAULT_BOUNDARY, averagingLength::Int=floor(Int,scalingFactor/2), frameBound::Float64=-1.0) where {WC<:WT.WaveletClass, T<:WT.WaveletBoundary, S<:Real}
-  return CFWA(wave, scalingFactor, averagingType, boundary, averagingLength, frameBound)
-end
 
-#function CFWA(wave::WC; scalingFactor::S=8, averagingType::Symbol=:Mother, boundary::T=WT.DEFAULT_BOUNDARY, averagingLength::Int=floor(Int,scalingFactor/2)) where {WC<:WT.WaveletClass, T<:WT.WaveletBoundary, S<:Real}
-#    return CFWA(wave, scalingFactor, averagingType, boundary, averagingLength)
-#end
 # If you know the averaging length
 function wavelet(c::W, s::S, averagingLength::T, averagingType::Symbol=:Mother, boundary::WT.WaveletBoundary=WT.DEFAULT_BOUNDARY, frameBound::Float64=-1.0) where {W<:WT.ContinuousWaveletClass, S<:Real,T<:Real}
   CFWA(c, s, averagingType, boundary, averagingLength)
@@ -200,7 +194,6 @@ function cwt(Y::AbstractArray{T,N}, c::CFWA{W}, daughters::Array{U,M};
     end
 
     # check if the plan we were given is a dummy or not
-    @bp
     if size(fftPlan)==(1,)
         fftPlan = plan_rfft(x[[1 for i=1:length(size(x))-1]..., :])
     end
@@ -229,7 +222,6 @@ function cwt(Y::AbstractArray{T,N}, c::CFWA{W}, daughters::Array{U,M};
     for j in 1:size(daughters,2)
         daughter = daughters[1:(div(size(daughters,1),2)+1), j]
         # daughter = reshape(daughter, ([1 for i=1:length(size(x))-1]..., length(daughter)))
-        @bp
         for i in eachindex(view(x̂, axes(x̂)[1:end-1]..., 1))
             #tmpConv = 
             wave[i, :, j] = fftPlan \ (x̂[i,:] .* daughter)  # wavelet
@@ -301,36 +293,36 @@ computeWavelets(Y::AbstractArray{T}, c::CFWA{W}; nScales::S=NaN, backOffset::Int
   vectors in the Fourier domain. The averaging function is first, and
   the frequency variable is returned as ω. n1 is the length of the
   input
-  """
+      """
 function getScales(n1::Int, c::CFWA{W}; J1::S=NaN) where {S<:Real, W<:WT.WaveletBoundary}
-  # J1 is the total number of elements
-  if (isnan(J1) || (J1<0)) && c.name!="morl"
-    J1=floor(Int,(log2(n1))*c.scalingFactor);
-  elseif isnan(J1) || (J1<0)
-    J1=floor(Int,(log2(n1)-2)*c.scalingFactor);
-  end
-  #....construct time series to analyze, pad if necessary
-  if eltypes(c) == WT.padded
-    base2 = round(Int,log(n1)/log(2));   # power of 2 nearest to N
-    n = n1+2^(base2+1)-n1
-  elseif eltypes(c) == WT.DEFAULT_BOUNDARY
-    n= 2*n1
-  else
-    n=n1
-  end
+    # J1 is the total number of elements
+    if (isnan(J1) || (J1<0)) && c.name!="morl"
+        J1=floor(Int,(log2(n1))*c.scalingFactor);
+    elseif isnan(J1) || (J1<0)
+        J1=floor(Int,(log2(n1)-2)*c.scalingFactor);
+    end
+    #....construct time series to analyze, pad if necessary
+    if eltypes(c) == WT.padded
+        base2 = round(Int,log(n1)/log(2));   # power of 2 nearest to N
+        n = n1+2^(base2+1)-n1
+    elseif eltypes(c) == WT.DEFAULT_BOUNDARY
+        n= 2*n1
+    else
+        n=n1
+    end
 
-  #....construct wavenumber array used in transform [Eqn(5)]
-  ω = [0:ceil(Int, n/2); -floor(Int,n/2)+1:-1]*2π
+    #....construct wavenumber array used in transform [Eqn(5)]
+    ω = [0:ceil(Int, n/2); -floor(Int,n/2)+1:-1]*2π
 
-  daughters = Array{Complex{Float64},2}(J1+2-c.averagingLength,n)
-  # loop through all scales and compute transform
-  for a1 in c.averagingLength:J1
-    daughter = Daughter(c, 2.0^(a1/c.scalingFactor), ω)
-    daughters[a1-c.averagingLength+2,:] = daughter
-  end
-  daughters[1,:] = findAveraging(c,ω)
+    daughters = Array{Complex{Float64},2}(J1+2-c.averagingLength,n)
+    # loop through all scales and compute transform
+    for a1 in c.averagingLength:J1
+        daughter = Daughter(c, 2.0^(a1/c.scalingFactor), ω)
+        daughters[a1-c.averagingLength+2,:] = daughter
+    end
+    daughters[1,:] = findAveraging(c,ω)
 
-  return (daughters,ω)
+    return (daughters,ω)
 end
 
 function getScales(c::CFWA{W}, n1::Int; J1::S=NaN) where {S<:Real,
@@ -347,7 +339,9 @@ end
 #################### Shattering methods ###########################################
 ###################################################################################
 
-
+function sheardec2D(X, shearletSystem, P::Future, padded, padBy)
+    sheardec2D(X,shearletSystem, fetch(P), padded, padBy)
+end
 
 function sheardec2D(X::SubArray{Complex{T}, N},
                     shearletSystem::Shearlab.Shearletsystem2D{T},
@@ -364,7 +358,6 @@ function sheardec2D(X::SubArray{Complex{T}, N},
     #compute shearlet coefficients at each scale
     #not that pointwise multiplication in the fourier domain equals convolution
     #in the time-domain
-    @bp
     for j = 1:shearletSystem.nShearlets
         if padded
             # The fourier transform of X
@@ -390,7 +383,6 @@ function sheardec2D(X::SubArray{T,N},
                     shearletSystem::Shearlab.Shearletsystem2D{T},
                     P::FFTW.rFFTWPlan{T,B,C,D}, padded::Bool,
                     padBy::Tuple{Int, Int}) where {T<:Real, N, B, C, D}
-    @bp
     if shearletSystem.gpu;
         coeffs = AFArray(zeros(Complex{T},
                                size(shearletSystem.shearlets))) 
@@ -410,19 +402,28 @@ function sheardec2D(X::SubArray{T,N},
     end
     return coeffs
 end # sheardec2D
+
+
 function shearing!(X::SubArray{T,N}, neededShear, P, coeffs, padBy, used1,
-                   used2, j) where N
+                   used2, j) where {N,T}
     for i in eachindex(view(X, axes(X)[1:end-2]..., 1, 1))
-        Xfreq = fftshift( P * ifftshift(pad(X[i, :, :], padBy)))
-        coeffs[i,:,:,j] = real.(P \ ifftshift(Xfreq .* neededShear))[used1,
-                                                                     used2]
+        try 
+            Xfreq = fftshift( P * ifftshift(pad(X[i, :, :], padBy)))
+            coeffs[i,:,:,j] = real.(P \ ifftshift(Xfreq .* neededShear))[used1,
+                                                                         used2]
+        catch e
+            println("size(P)= $(size(P)), size(padX) = $(size(pad(X[i, :, :], padBy)))")
+            println("size(X) = $(size(X)), size(Xfreq) = $(size(Xfreq)), size(neededShear) = $(size(neededShear))")
+            throw(e)
+        end 
     end
 end
+
 function shearing!(X::SubArray{T,2}, neededShear, P, coeffs, padBy, used1,
-                   used2, j)
+                   used2, j) where T
     Xfreq =  fftshift( P * ifftshift(pad(X[:, :], padBy)))
     coeffs[:,:,j] = real.(P \ ifftshift(Xfreq .* neededShear))[used1,
-                                                                 used2]
+                                                               used2]
 end
     
 
@@ -442,17 +443,19 @@ end
 """
     coeffs = averagingFunction(X,shearletSystem)
 
-compute just the averaging coefficient matrix of the Shearlet transform of the array X. If preFFT is true, then it assumes that you have already taken the fft of X
+compute just the averaging coefficient matrix of the Shearlet transform of the array X. If preFFT is true, then it assumes that you have already taken the fft of X.
+
+general is a dummy variable used to make the more specific versions call the less specific one, since they are used primarily for uniform type checking
 ...
 """
-function averagingFunction(X, shearletSystem, P, padded, padBy)
-    coeffs = zeros(eltypeof(X), size(X)...)
+function averagingFunction(X, shearletSystem, P, padded, padBy, general)
+    coeffs = zeros(eltype(X), size(X)..., 1)
     nScale = size(shearletSystem.shearlets,3)
     neededShear = conj(shearletSystem.shearlets[:, :, end])
     used1 = padBy[1] .+ (1:size(X)[end-1])
     used2 = padBy[2] .+ (1:size(X)[end])
-    shearing!(X, neededShear, P,  coeffs, padBy, used1, used2, nScale)
-    return coeffs
+    shearing!(X, neededShear, P,  coeffs, padBy, used1, used2, 1)
+    return coeffs[:, :]
 end # averagingFunction
 
 
@@ -461,11 +464,17 @@ function averagingFunction(X::SubArray{Complex{T}, N},
                            shearletSystem::Shearlab.Shearletsystem2D{T},
                            P::FFTW.cFFTWPlan{Complex{T},A,B,C}, padded::Bool,
                            padBy::Tuple{Int, Int}) where{T <: Real, A, B, C, N} 
-    averagingFunction(X, shearletSystem, P, padded, padBy)
+    averagingFunction(view(X,:,:), shearletSystem, P, padded, padBy, true)
 end
 function averagingFunction(X::SubArray{T, N},
                            shearletSystem::Shearlab.Shearletsystem2D{T},
                            P::FFTW.rFFTWPlan{T,A,B,C}, padded::Bool,
                            padBy::Tuple{Int,Int}) where{T <: Real, A, B, C, N}
-    averagingFunction(X, shearletSystem, P, padded, padBy)
+    averagingFunction(X, shearletSystem, P, padded, padBy, true)
+end
+
+
+
+function averagingFunction(X, shearletSystem, P::Future, padded, padBy)
+    return averagingFunction(X, shearletSystem, fetch(P), padded, padBy)
 end

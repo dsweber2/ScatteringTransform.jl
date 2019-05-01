@@ -92,9 +92,9 @@ function layeredTransform(m::S, Xsizes::Tuple{<:Integer, <:Integer},
                           nScales::Array{<:Integer, 1}, subsampling::Array{T, 1},
                           shearLevels::Array{<:Array{<:Integer, 1}},
                           padding::Bool, gpu::Bool=false, percentage=.9,
-                          typeBecomes::DataType=Float32) where {S<:Integer,
-                                                                T<:Real,
-                                                                W<:Shearlab.Shearletsystem2D}
+                          typeBecomes::DataType=Float32, frameBound=typeBecomes(-1.0)) where {S<:Integer,
+                                                                                              T<:Real,
+                                                                                              W<:Shearlab.Shearletsystem2D}
     @assert m+1==size(subsampling, 1)
     @assert m+1==size(nScales, 1)
 
@@ -128,13 +128,21 @@ function layeredTransform(m::S, Xsizes::Tuple{<:Integer, <:Integer},
             newShears[:, :, j] = fftshift(P * pad(shearlets[:,:,j],
                                                   padBy))
         end
+        dualFrameWeights = sum(real.(abs.(newShears)), dims=3)[:,:]
+        if frameBound > 0
+            totalMass = norm(dualFrameWeights, Inf)
+            normalize = typeBecomes(frameBound)/totalMass
+            newShears = newShears .* normalize
+            dualFrameWeights
+        end
+
         shears[i] = Shearletsystem2D{typeBecomes}(newShears, shear.size,
                                                   shear.shearLevels,
                                                   shear.full, shear.nShearlets,
                                                   shear.shearletIdxs,
-                                                  shear.dualFrameWeights,
-                                                  shear.RMS, shear.isComplex,
-                                                  shear.gpu, shear.support)
+                                                  dualFrameWeights, shear.RMS,
+                                                  shear.isComplex, shear.gpu,
+                                                  shear.support)
     end
     return layeredTransform{typeof(shears[1]), 2}(m, Xsizes, shears,
                                                   Float32.(subsampling), outputSizes)
@@ -168,8 +176,8 @@ function layeredTransform(m::Int, Xsizes::Tuple{<:Integer, <:Integer};
                           subsample::S = 2.0, subsamples::Array{<:Real,1} =
                           [Float32(subsample) for i=1:(m+1)], gpu::Bool =
                           false, padding::Bool=true,
-                          typeBecomes::DataType=Float32, percentage=.9) where {T<:Number,
-                                                                               S<:Number}
+                          typeBecomes::DataType=Float32, percentage=.9,
+                          frameBound=typeBecomes(1.0)) where {T<:Number, S<:Number}
     return layeredTransform(m, Xsizes, nScales, subsamples, shearLevels,
                             padding, gpu, percentage, typeBecomes)
 end
@@ -201,13 +209,16 @@ struct scattered{T,N}
         # check data
         singlentry = eltype(data[1])
         arrayType = eltype(data)
-        @assert arrayType<:AbstractArray{singlentry,N}
+        @assert arrayType <: AbstractArray{singlentry, N}
         @assert size(data,1)==m+1
 
         # check output
         singlentry = eltype(output[1])
         arrayType = eltype(output)
-        @assert arrayType<:AbstractArray{singlentry,N}
+        println("arrayType = $(arrayType)")
+        println("AbstractArray = $(AbstractArray{singlentry, N})")
+        println("N=$(N)")
+        @assert arrayType <: AbstractArray{singlentry, N}
         @assert size(output,1)==m+1
         new(m, k, data, output)
     end
@@ -265,19 +276,16 @@ function scattered(layers::layeredTransform{U,2}, X::Array{T, N};
                    subsample::Bool=true, percentage::Float64=.9) where {U, T <:
                                                                         Number, N,
                                                                         S<:Number} 
-    n = sizes(bsplineType(), layers.subsampling, size(X, 1))
-    p = sizes(bsplineType(), layers.subsampling, size(X, 2))
-    q = [layers.shears[i].nShearlets for i=1:layers.m+1]
-    zerr = [zeros(T, n[i], p[i], prod(q[1:i-1].-1)) for i=1:layers.m+1] 
-    zerr[1][:,:,1] = X
-    reSizingRates = getResizingRates(layers.shears, layers.m,
-                                     percentage = percentage)
+    n, q, dataSizes, outputSizes, resultingSize = calculateSizes(layers,
+                                                                    true,
+                                                                    size(X))
+    zerr = [zeros(T, size(X)[1:end-2]..., n[i,:]..., prod(q[1:i-1])) for i=1:layers.m+1] 
+    zerr[1] = reshape(X, (size(X)..., 1))
     if subsample
-        output = [zeros(T, reSizingRates[:,i]..., prod(q[1:i-1].-1)) for
-                  i=1:layers.m+1] 
+        output = [zeros(T, outputSizes[i]...) for i=1:layers.m+1]
     else
-        output = [zeros(T, n[i+1], p[i+1], prod(q[1:i-1].-1)) for
-                  i=1:layers.m+1]
+        output = [zeros(T, size(X)[1:end-2]..., n[i+1,:]...,
+                        prod(q[1:i-1])) for i=1:layers.m+1]
     end
     return scattered{T, N+1}(layers.m, 2, zerr, output)
 end

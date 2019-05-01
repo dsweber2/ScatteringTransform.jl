@@ -1,22 +1,10 @@
-__precompile__(false)
 module ScatteringTransform
 using Distributed, SharedArrays
 using LinearAlgebra, Shearlab, Interpolations, Wavelets, FFTW
 using SpecialFunctions, LinearAlgebra
 using HDF5, Plots, JLD
-using Debugger, JuliaInterpreter
-using Test
-cd("/home/dsweber/.julia/dev/ScatteringTransform/src")
-include("subsampling.jl")
-include("modifiedTransforms.jl")
-include("basicTypes.jl")
-include("Utils.jl")
-include("nonlinearities.jl")
-include("pathMethods.jl")
-include("transform.jl")
-include("plotting.jl")
-include("postProcessing.jl")
-include("/home/dsweber/.julia/dev/ScatteringTransform/test/testtmp.jl")
+
+
 
 include("subsampling.jl")
 export resample, sizes, bsplineType, bilinearType, autocorrType
@@ -25,9 +13,9 @@ export CFWA, WT, wavelet, cwt, getScales, computeWavelets
 include("basicTypes.jl")
 export layeredTransform, scattered
 include("Utils.jl")
-export getResizingRates, calculateThinStSizes, getPadBy,  outputSize
+export getResizingRates, calculateThinStSizes, getPadBy, pad, outputSize, createFFTPlans, remoteMultiply, createRemoteFFTPlan
 include("nonlinearities.jl")
-export absType, ReLUType, tanhType, softplusType, spInverse, aTanh,
+export nonlinearity, absType, ReLUType, tanhType, softplusType, spInverse, aTanh,
     Tanh, ReLU
 # TODO: integrate path methods
 include("pathMethods.jl")
@@ -41,7 +29,7 @@ export flatten, MatrixAggrigator, plotCoordinate, reshapeFlattened,
     numInLayer
 include("postProcessing.jl")
 export logabs, ReLU, MatrixAggrigator, reshapeFlattened,
-    loadSyntheticMatFile, transformFolder
+    loadSyntheticMatFile, transformFolder, flatten
 
 # TODO make a way to access a scattered2D by the index of (depth, scale,shearingFactor)
 end

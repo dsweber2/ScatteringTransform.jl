@@ -57,51 +57,66 @@ function resample(input::SubArray{T,1}, rate::Float32,
 end
 
 """
-    output = resample(input::SubArray{T,{1,2}}, rate::Float32, samplingType::bilinear; newSize::Tuple{Int,Int} = (-1,-1)) where T<:Number
+        output = resample(input::SubArray{T,{1,2}}, rate::Float32, samplingType::bilinear; newSize::Tuple{Int,Int} = (-1,-1)) where T<:Number
 
-Use bilinear interpolation to evaluate the points off-grid. This is linear in x and linear in y, but quadratic in the pair.
-"""
+    Use bilinear interpolation to evaluate the points off-grid. This is linear in x and linear in y, but quadratic in the pair.
+    """
 function resample(input::SubArray{T,2}, rate::Float32, samplingType::bilinearType; newSize::Tuple{Int,Int} = (-1,-1)) where T<:Number
-  Nin = size(input)
-  # if the rate results in a non-integer number of samples, round up.
-  if rate != 0.0 || newSize[1] <= 0
-    newSize = (Int(ceil(size(input,1)/rate)),Int(ceil(size(input,2)/rate)))
-  end
-  xInds = range(1, stop = Nin[1], length = newSize[1])
-  yInds = range(1, stop = Nin[2], length = newSize[2])
-  output = zeros(T, newSize)
-  for (i,x)=enumerate(xInds), (j,y)=enumerate(yInds)
-    xi = (modf(x)[1], Int(modf(x)[2]))
-    yi = (modf(y)[1], Int(modf(y)[2]))
-    if xi[2]<Nin[1] && yi[2]<Nin[2]
-    output[i,j] = (1-xi[1])*(1-yi[1])*input[xi[2],yi[2]] + xi[1]*(1-yi[1])*input[xi[2]+1,yi[2]] + (1-xi[1])*yi[1]*input[xi[2],yi[2]+1] + xi[1]*yi[1]*input[xi[2]+1,yi[2]+1]
-    elseif yi[2]<Nin[2]
-      # just a linear interpolation vertically, as we're on an edge
-      output[i,j] = (1-yi[1])*input[xi[2],yi[2]] + yi[1]*input[xi[2],yi[2]+1]
-    elseif xi[2]<Nin[1]
-      # just a linear interpolation horizontally, as we're on an edge
-      output[i,j] = (1-xi[1])*input[xi[2],yi[2]] + xi[1]*input[xi[2]+1,yi[2]]
-    else
-      # we're just at the final gridpoint, stupid simple
-      output[i,j] = input[xi[2],yi[2]]
+    Nin = size(input)
+    # if the rate results in a non-integer number of samples, round up.
+    if rate != 0.0 || newSize[1] <= 0
+        newSize = (Int(ceil(size(input,1)/rate)),Int(ceil(size(input,2)/rate)))
     end
-  end
-  output
+    xInds = range(1, stop = Nin[1], length = newSize[1])
+    yInds = range(1, stop = Nin[2], length = newSize[2])
+    output = zeros(T, newSize)
+    for (i,x)=enumerate(xInds), (j,y)=enumerate(yInds)
+        xi = (modf(x)[1], Int(modf(x)[2]))
+        yi = (modf(y)[1], Int(modf(y)[2]))
+        if xi[2]<Nin[1] && yi[2]<Nin[2]
+            output[i,j] = (1-xi[1])*(1-yi[1])*input[xi[2],yi[2]] + xi[1]*(1-yi[1])*input[xi[2]+1,yi[2]] + (1-xi[1])*yi[1]*input[xi[2],yi[2]+1] + xi[1]*yi[1]*input[xi[2]+1,yi[2]+1]
+        elseif yi[2]<Nin[2]
+            # just a linear interpolation vertically, as we're on an edge
+            output[i,j] = (1-yi[1])*input[xi[2],yi[2]] + yi[1]*input[xi[2],yi[2]+1]
+        elseif xi[2]<Nin[1]
+            # just a linear interpolation horizontally, as we're on an edge
+            output[i,j] = (1-xi[1])*input[xi[2],yi[2]] + xi[1]*input[xi[2]+1,yi[2]]
+        else
+            # we're just at the final gridpoint, stupid simple
+            output[i,j] = input[xi[2],yi[2]]
+        end
+    end
+    output
 end
 
 # provide default behaviour, which is bspline subsampling
-resample(input::SubArray{T,1}, rate::Float32; newSize::Tuple{Int,Int} = 
+resample(input::SubArray{T,1}, rate::Float32; newSize::Tuple{Int} = 
          (-1,-1)) where T<:Number = resample(input, rate, bsplineType();
                                              newSize=newSize)
 resample(input::SubArray{T,2}, rate::Float32; newSize::Tuple{Int,Int} =
          (-1,-1)) where T<:Number = resample(input, rate, bsplineType();
                                              newSize=newSize)
-resample(input::Array{T,1}, rate::Float32; newSize::Tuple{Int,Int} = 
-         (-1,-1)) where T<:Number = resample(view(input, :, :), rate, bsplineType();
-                                             newSize=newSize)
+resample(input::Array{T,1}, rate::Float32; newSize::Tuple{Int} = 
+         (-1,-1)) where T<:Number = resample(view(input, :, :), rate,
+                                             bsplineType(); newSize=newSize)
 resample(input::Array{T,2}, rate::Float32; newSize::Tuple{Int,Int} =
-         (-1,-1)) where T<:Number = resample(view(input,:,:), rate, bsplineType();
-                                             newSize=newSize)
+         (-1,-1)) where T<:Number = resample(view(input,:,:), rate,
+                                             bsplineType(); newSize=newSize)
+function resample(input::Array{T,N}, rate::Float32; newSize::Tuple{Int,Int} =
+                  (-1,-1)) where {T<:Number, N}
+    if rate != 0.0 || newSize[1] <= 0
+        newSize = (Int(ceil(size(input)[end-1]/rate)),
+                   Int(ceil(size(input)[end]/rate)))
+    end
+    outerAxes = axes(input)[1:end-2]
+    newResult = zeros(T,outerAxes..., newSize...)
+    println(size(newResult))
+    for outer in eachindex(view(input, outerAxes..., 1, 1))
+        newResult[outer, :, :] = resample(view(input, outer, :, :), rate,
+                                          bsplineType(); newSize = newSize)
+    end
+    return newResult
+end
 
 
 

@@ -175,8 +175,8 @@ function calculateSizes(layers::layeredTransform{K,2},
     dataXSizes = sizes(bsplineType(), layers.subsampling,
                        Xsize[(end-1):(end-1)])
     dataYSizes = sizes(bsplineType(), layers.subsampling, Xsize[(end):(end)])
-    n = [reshape(dataXSizes, (layers.m+2, 1))
-         reshape(dataYSizes, (layers.m+2, 1))]
+    n = [reshape(dataXSizes, (layers.m+2, 1)) reshape(dataYSizes, (layers.m+2,
+                                                                   1))]
     if subsam == true
         XOutputSizes = layers.outputSize[:, 1]
         YOutputSizes = layers.outputSize[:, 2]
@@ -255,8 +255,6 @@ end
 
 
 
-import Base.-
--(scattered1::scattered{T,N},scattered2::scattered{S,N}) where {T<:Number, S<:Number, N} = scattered{T, N}(scattered1.m, [scattered1.data[i] .+ -1*scattered2.data[i] for i=1:scattered1.m+1],[scattered1.output[i]+ -1*scattered2.output[i] for i=1:scattered1.m+1])
 
 import LinearAlgebra.norm
 function norm(scattered::scattered{T,N}, p) where {T<:Number, N}
@@ -301,3 +299,42 @@ function outputSize(X, layers)
   Ysizes = [size(X,2); layers.reSizingRates[2,:]]
   return (sum([numInLayer(m-1,layers)*Xsizes[m+1]*Ysizes[m+1] for m=1:layers.m+1]), Xsizes, Ysizes)
 end
+
+
+
+
+
+"""
+    
+
+to be called after distributed. returns a 2D array of futures; the i,jth entry has a future (referenced using fetch) for the fft to be used by worker i in layer j.
+"""
+function createFFTPlans(layers, dataSizes; verbose=false, T=Float32, iscomplex::Bool=false)
+    FFTs = Array{Future,2}(undef, nworkers(), layers.m+1)
+    for i=1:nworkers(), j=1:layers.m+1
+        if verbose
+            println("i=$(i), j=$(j)")
+        end
+        padBy = getPadBy(layers.shears[j])
+        FFTs[i, j] = remotecall(createRemoteFFTPlan, i, dataSizes[j][(end-2):(end-1)], padBy, T, iscomplex)
+    end
+    return FFTs
+end
+
+
+function createRemoteFFTPlan(sizeOfArray, padBy, T, iscomplex)
+    if iscomplex
+        return plan_fft!(pad(zeros(T, sizeOfArray...), padBy), flags = FFTW.PATIENT)
+    else
+        return plan_rfft(pad(zeros(T, sizeOfArray...), padBy), flags = FFTW.PATIENT)
+    end
+end
+function remoteMult(x::Future,y)
+    fetch(x)*y
+end
+remoteMult(y,x::Future) = remoteMultiply(x,y)
+
+function remoteDiv(x::Future,y)
+    fetch(x) / y
+end
+remoteDiv(y,x::Future) = remoteMultiply(x,y)
