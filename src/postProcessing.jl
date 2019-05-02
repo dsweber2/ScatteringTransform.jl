@@ -8,7 +8,7 @@
 
 
 @doc """
-    scattered = wrap(layers::layeredTransform{K, 2}, results::Array{T,N}) where {K, N,
+    scattered = wrap(layers::layeredTransform{K, 2}, results::Array{T,N}, X) where {K, N,
                                                                           T<:
                                                                           Number}
 

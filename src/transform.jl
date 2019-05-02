@@ -231,7 +231,7 @@ function spawningJobs!(listOfProcessResults, layers, results, cur, dataSizes,
                        outputSize, concatStart, padBy, resultingSize,
                        dataChannel, fftPlans, T, verbose)
     njobs = Distributed.nworkers();
-    cjob = 1;
+    cjob = 0;
     for (j,x) in enumerate(cur)
         # iterate over all paths in layer i
         if verbose
@@ -269,7 +269,7 @@ function spawningJobs!(listOfProcessResults, layers, results, cur, outerAxes,
                        resultingSize, concatStart, concatStartLast, padBy,
                        padByLast, nScalesLastLayer, fftPlans, T, dataSizes, verbose)
     njobs = Distributed.nworkers();
-    cjob = 1;
+    cjob = 0;
     for (j,x) in enumerate(cur)
         # iterate over all paths in layer i
         for λ = 1:size(x)[end]

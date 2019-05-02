@@ -100,12 +100,14 @@ X2 = randn(n2,p2)
 layer2 = layeredTransform(m2, size(X2); subsample = subsamp, nScale = nScales,
                           typeBecomes = eltype(X2))
 # A more carefully constructed test that also tests a different element type
+using Revise
+using ScatteringTransform
 m3=2
 X3 = zeros(Float32, 1, 50, 50)
 X3[1, 13:37, 13:37] = ones(Float32, 25, 25)
-layer3 = layeredTransform(m2, size(X3)[end-1:end], typeBecomes=eltype(X3))
-
-
+layer3 = layeredTransform(m3, size(X3)[end-1:end], typeBecomes=eltype(X3))
+asdf = st(X3, layer3, absType())
+results = ScatteringTransform.wrap(layer3, asdf, X3)
 @testset "layer construction" begin
     xSubsampled = [50, 25, 13, 7]; ySubsampled = [55, 28, 14, 7]
     testLayerConstruction(layer1, X1, m1, xSubsampled, ySubsampled, [2.0 for
