@@ -66,8 +66,9 @@ for nonlinTyp in nonlinTypes
     h5open(filename, "w") do file
         g = g_create(file, "data")
         g["labels"] = labelTot
-        shatteredTraining = zeros(Float32, size(dataTot)[1:end-2]..., dimension)
-        outerAxes = axes(shatteredTraining)
+        g["shattered"] = zeros(Float32, size(dataTot)[1:end-2]..., dimension)
+        systemCopy = readmmap(g["shattered"])
+        outerAxes = axes(systemCopy)
         batchSize = 700
         totalBatches = ceil.(nTot/batchSize)
         start = time()
@@ -76,12 +77,21 @@ for nonlinTyp in nonlinTypes
             global a
             println("at batch $(i), taking $(time()-a), total time of $(time()-start)")
             a = time()
-            shatteredTraining[((i-1)*batchSize+1):(i*batchSize), outerAxes[2:end]...] =
+            systemCopy[((i-1)*batchSize+1):(i*batchSize), outerAxes[2:end]...] =
                 st(dataTot[((i-1)*batchSize+1):(i*batchSize), innerAxes...], layers,
                    nonlinTyp[1], thin=true, verbose=false)
         end
-        g["shattered"] = shatteredTraining
     end
 end
 
 
+# using HDF5
+# f = h5open("tmp.h5","w")
+# f["tmp/data"] = zeros(100,100)
+# f["tmp/massive"] = zeros(100000,10000)
+# wef = 3
+# readmmap(f["tmp/massive"])
+# f["tmp/data"][:,200] = randn(100)
+# f["tmp/data"][:,1]
+# [:,1]
+# = randn(100)

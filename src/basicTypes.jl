@@ -100,7 +100,7 @@ function layeredTransform(m::S, Xsizes::Tuple{<:Integer, <:Integer},
 
     rows = sizes(bsplineType(), subsampling, Xsizes[1])[1:end-1]
     cols = sizes(bsplineType(), subsampling, Xsizes[2])[1:end-1]
-    
+
     println("Treating as a 2D signal. Vector Lengths: $Xsizes nScales:" *
             "$nScales subsampling: $subsampling")
     shears =  [Shearlab.getshearletsystem2D(rows[i], cols[i], nScales[i],
