@@ -13,7 +13,8 @@ println("using statements done in $(time()-a)")
 a = time()
 
 
-whichset = 2
+whichset = 1
+whichNonlin = 5
 m = 2
 
 
@@ -25,10 +26,11 @@ end
 shearLevel = Int.(ceil.((1:4)/4))
 frameBound = 1.0
 nonlinTypes = [(absType(),"abs"), (ReLUType(), "ReLU"), (tanhType(), "tanh"),
- (softplusType(), "softplus")]
+ (softplusType(), "softplus"), (piecewiseType(), "Piecewise")]
+
 datasets = [(MNIST,"MNIST"), (CIFAR10, "CIFAR10"), (CIFAR100, "CIFAR100"), (FashionMNIST,"FashionMNIST")]
 
-nonlinTypes = [nonlinTypes[1]]
+nonlinTypes = [nonlinTypes[whichNonlin]]
 
 
 train_x, train_y = datasets[whichset][1].traindata();

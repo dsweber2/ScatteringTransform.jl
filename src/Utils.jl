@@ -64,7 +64,7 @@ function computePath(layers::layeredTransform, layered1D::scattered{T,1}, layerM
       tmpλ -= (p[i]-1)*prod(nScalesLayers[i+1:end])
     end
   elseif stType=="decreasing"
-
+      println("not here")
   end
 end
 
@@ -105,6 +105,21 @@ function numChildren(keeperOriginal::Array{Int}, scalingFactors::Array{Float64},
   numThisLayer
 end
 numChildren(keeperOriginal::Array{Int}, layers::layeredTransform, nScalesLayers::Array{Int}) = numChildren(keeperOriginal::Array{Int}, [shear.scalingFactor for shear in layers.shears], nScalesLayers::Array{Int})
+
+"""
+    getChildren()
+
+given an index in a layer, determine the indices in the next layer that correspond to the children of that index
+"""
+function getChildren(layers::layeredTransform, m, parent)
+    return getChildren(shear, m, parent)
+end
+function getChildren(shear, m, parent)
+    nChildrenPerParent = shear.nShearlets-1
+    firstChild= (parent-1)*nChildrenPerParent+1
+    lastChild = parent*nChildrenPerParent
+    return firstChild:lastChild
+end
 
 @doc """
 numInLayer(m::Int, layers::layeredTransform, nScalesLayers::Array{Int})

@@ -125,10 +125,9 @@ function layeredTransform(m::S, Xsizes::Tuple{<:Integer, <:Integer},
                               size(newShears)[2:3]...)
         end
         for j=1:size(shear.shearlets, 3)
-            newShears[:, :, j] = fftshift(P * pad(shearlets[:,:,j],
-                                                  padBy))
+            newShears[:, :, j] = fftshift(P * pad(shearlets[:,:,j], padBy))
         end
-        dualFrameWeights = sum(real.(abs.(newShears)), dims=3)[:,:]
+        dualFrameWeights = sum(real.(abs.(newShears).^2), dims=3)[:,:]
         if frameBound > 0
             totalMass = norm(dualFrameWeights, Inf)
             normalize = typeBecomes(frameBound)/totalMass
@@ -268,7 +267,7 @@ function scattered(layers::layeredTransform{S,1}, X::Array{T,N};
         output = [zeros(T, size(X)[1:(end-1)]..., n[i+1], prod(q[1:i-1].-1))
                   for i=1:layers.m+1]
     end
-    zerr[1][:,:] = X
+    zerr[1][:,:] = copy(X)
     return scattered{T,N+1}(layers.m, 1, zerr, output)
 end
 
@@ -280,7 +279,7 @@ function scattered(layers::layeredTransform{U,2}, X::Array{T, N};
                                                                     true,
                                                                     size(X))
     zerr = [zeros(T, size(X)[1:end-2]..., n[i,:]..., prod(q[1:i-1])) for i=1:layers.m+1] 
-    zerr[1] = reshape(X, (size(X)..., 1))
+    zerr[1] = reshape(copy(X), (size(X)..., 1))
     if subsample
         output = [zeros(T, outputSizes[i]...) for i=1:layers.m+1]
     else

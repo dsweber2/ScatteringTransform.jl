@@ -15,14 +15,15 @@ export layeredTransform, scattered
 include("Utils.jl")
 export getResizingRates, calculateThinStSizes, getPadBy, pad, outputSize, createFFTPlans, remoteMultiply, createRemoteFFTPlan
 include("nonlinearities.jl")
-export nonlinearity, absType, ReLUType, tanhType, softplusType, spInverse, aTanh,
-    Tanh, ReLU
+export nonlinearity, absType, ReLUType, tanhType, softplusType, piecewiseType, spInverse, aTanh, Tanh, ReLU, piecewiseLinear, plInverse
 # TODO: integrate path methods
 include("pathMethods.jl")
 export pathType, pathToThinIndex
 include("transform.jl")
 export st, transformMidLayer!, transformFinalLayer!,
     comparePathsChildren
+include("inversion.jl")
+export pseudoInversion
 include("plotting.jl")
 export flatten, MatrixAggrigator, plotCoordinate, reshapeFlattened,
     numberSkipped, logabs, maxPooling, numScales, incrementKeeper,

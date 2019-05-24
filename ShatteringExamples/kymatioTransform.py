@@ -3,7 +3,7 @@ import h5py
 import numpy as np
 from kymatio import Scattering2D
 import torchvision
-examples = torchvision.datasets.MNIST("~/allHail/projects/ShatteringTransform.jl/kymatioTests/",download=True)
+examples = torchvision.datasets.FashionMNIST("~/allHail/projects/ShatteringTransform.jl/kymatioTests/",download=True)
 testEx = torchvision.datasets.MNIST("~/allHail/projects/ShatteringTransform.jl/kymatioTests/",download=True,train=False)
 data = torch.cat([examples.data, testEx.data])
 labels =  torch.cat([examples.targets, testEx.targets])
@@ -12,7 +12,7 @@ scattering = Scattering2D(J=2, L=8, shape=(28,28))
 stCoeff = scattering(data.float())
 stCoeff = stCoeff.numpy()
 stCoeff = stCoeff.reshape((-1, np.prod(stCoeff.shape[1:])))
-filename = "/fasterHome/workingDataDir/shattering/kymatio2MNIST.h5"
+filename = "/fasterHome/workingDataDir/shattering/kymatio2FashionMNIST.h5"
 with h5py.File(filename, "w") as file:
     db = file.create_group("data")
     label = db.create_dataset("labels", labels.shape, dtype=labels.dtype)
@@ -25,3 +25,5 @@ db = f["data"]
 labels = db["labels"][:]
 stCoeff = db["shattered"]
 stCoeff = stCoeff[:,:].transpose()
+
+

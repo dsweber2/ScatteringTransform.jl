@@ -369,14 +369,14 @@ function sheardec2D(X::SubArray{Complex{T}, N},
     end
     return coeffs
 end # sheardec2D
-sheardec2D(X::Array{Complex{T}, N},
+
+function sheardec2D(X::Array{Complex{T}, 2},
            shearletSystem::Shearlab.Shearletsystem2D{T},
            P::FFTW.cFFTWPlan{Complex{T}, A, B, C}, padded::Bool,
            padBy::Tuple{Int, Int}) where {T <: Real, A,
-                                          B, C, N} = sheardec2D(view(X),
-                                                                shearletSystem,
-                                                                P, padded,
-                                                                padBy)
+                                          B, C, N}
+    sheardec2D(view(X, :, :), shearletSystem, P, padded, padBy)
+end
 
 
 function sheardec2D(X::SubArray{T,N},
@@ -404,30 +404,118 @@ function sheardec2D(X::SubArray{T,N},
 end # sheardec2D
 
 
-function shearing!(X::SubArray{T,N}, neededShear, P, coeffs, padBy, used1,
-                   used2, j) where {N,T}
+#################### Reconstruction main functions ##############################
+
+
+function shearrec2D(coeffs::SubArray{T,N},
+                    shearletSystem::Shearlab.Shearletsystem2D{T},
+                    P::FFTW.rFFTWPlan{T,B,C,D}, padded::Bool,
+                    padBy::Tuple{Int, Int}, resultSize::Tuple{Int,Int};
+                    averaging::Bool=false) where {T<:Real, N, B, C, D}
+    if N==3
+        X = zeros(Complex{T}, size(shearletSystem.shearlets)[1:2])
+    else
+        X = zeros(Complex{T}, size(coeffs)[1:end-3]..., size(shearletSystem.shearlets)[1:2])
+    end
+    
+    # sum X in the Fourier domain over the coefficients at each scale/shearing
+    used1 = padBy[1] .+ (1:resultSize[1])
+    used2 = padBy[2] .+ (1:resultSize[2])
+    if averaging
+        neededShear = shearletSystem.shearlets[:,:, end]
+        # println("size(X)=$(size(X))")
+        # println("size(coeffs)=$(size(coeffs))")
+        # println("size(P) = $(size(P))")
+        # println("type(X) = $(typeof(X)), type(coeffs) = $(typeof(coeffs))")
+        # println("padBy = $(padBy), size(pad)= $(size(pad(coeffs[:, :, 1], padBy))))")
+        unshearing!(X, neededShear, P, coeffs, padBy, 1)
+    else
+        for j = 1:shearletSystem.nShearlets
+            # The fourier transform of X
+            neededShear = shearletSystem.shearlets[:, :, j]
+            unshearing!(X, neededShear, P,  coeffs, padBy, j)
+        end
+    end
+    realX = zeros(T, size(coeffs)[1:end-1])
+    realX!(realX, X, shearletSystem.dualFrameWeights, P, used1, used2)
+    return realX
+end
+
+
+function shearrec2D(coeffs, shearletSystem, P::Future, padded, padBy, resultSize; averaging=false)
+    shearrec2D(coeffs, shearletSystem, fetch(P), padded, padBy, resultSize, averaging=averaging)
+end
+    
+function shearrec2D(coeffs::Array{T,N},
+                    shearletSystem::Shearlab.Shearletsystem2D{T},
+                    P::FFTW.rFFTWPlan{T,B,C,D}, padded::Bool,
+                    padBy::Tuple{Int, Int}, resultSize; averaging::Bool=false) where {T<:Real, N, B, C, D}
+    shearrec2D(view(coeffs, axes(coeffs)...), shearletSystem, P, padded, padBy,
+               resultSize; averaging = averaging)
+end
+ 
+
+
+
+
+###################### Helper methods shearlets ###################################
+
+
+function unshearing!(X, neededShear, P, coeffs, padBy, j) where {N,T}
     for i in eachindex(view(X, axes(X)[1:end-2]..., 1, 1))
-        try 
-            Xfreq = fftshift( P * ifftshift(pad(X[i, :, :], padBy)))
-            coeffs[i,:,:,j] = real.(P \ ifftshift(Xfreq .* neededShear))[used1,
-                                                                         used2]
-        catch e
-            println("size(P)= $(size(P)), size(padX) = $(size(pad(X[i, :, :], padBy)))")
-            println("size(X) = $(size(X)), size(Xfreq) = $(size(Xfreq)), size(neededShear) = $(size(neededShear))")
-            throw(e)
-        end 
+        cFreq = fftshift( P * ifftshift(pad(coeffs[i, :, :, j], padBy)))
+        X[i, :, :] = X[i, :, :] + cFreq .* neededShear
     end
 end
 
-function shearing!(X::SubArray{T,2}, neededShear, P, coeffs, padBy, used1,
+function unshearing!(X::Array{Complex{T},2}, neededShear, P,
+                     coeffs::Array{T,3}, padBy, j) where {N,T}
+    cFreq = fftshift( P * ifftshift(pad(coeffs[:, :, j], padBy)))
+    X[:, :] = X[:, :] + cFreq .* neededShear
+end
+
+function unshearing!(X::SubArray{Complex{T},2}, neededShear, P,
+                     coeffs::SubArray{T,3}, padBy, j) where {N,T}
+    cFreq = fftshift( P * ifftshift(pad(coeffs[:, :, j], padBy)))
+    X[:, :] = X[:, :] + cFreq .* neededShear
+end
+function unshearing!(X::Array{Complex{T},2}, neededShear, P,
+                     coeffs::SubArray{T,3}, padBy, j) where {N,T}
+    cFreq = fftshift( P * ifftshift(pad(coeffs[:, :, j], padBy)))
+    X[:, :] = X[:, :] + cFreq .* neededShear
+end
+
+
+function realX!(realX, X, duals, P, used1, used2)
+    println("this one")
+    for i in eachindex(view(X, axes(X)[1:end-2]..., 1, 1))
+        realX[i, :, :] = real.((P \ (ifftshift(X[i,:,:] ./
+                                               duals))))[used1, used2]
+    end
+end
+function realX!(realX, X::AbstractArray{T,2}, duals, P, used1, used2) where {T}
+    realX[:, :] = real.((P \ (ifftshift(X[:,:] ./ duals))))[used1, used2]
+end
+
+
+function shearing!(X::AbstractArray{T,N}, neededShear, P, coeffs, padBy, used1,
+                   used2, j) where {N,T}
+    for i in eachindex(view(X, axes(X)[1:end-2]..., 1, 1))
+        Xfreq = fftshift( P * ifftshift(pad(X[i, :, :], padBy)))
+        coeffs[i,:,:,j] = real.(P \ ifftshift(Xfreq .* neededShear))[used1,
+                                                                         used2]
+    end
+end
+
+function shearing!(X::AbstractArray{T,2}, neededShear, P, coeffs, padBy, used1,
                    used2, j) where T
     Xfreq =  fftshift( P * ifftshift(pad(X[:, :], padBy)))
     coeffs[:,:,j] = real.(P \ ifftshift(Xfreq .* neededShear))[used1,
                                                                used2]
 end
-    
 
-sheardec2D(X::Array{T,N}, shearletSystem::Shearlab.Shearletsystem2D{T},
+
+sheardec2D(X::Array{T,2}, shearletSystem::Shearlab.Shearletsystem2D{T},
            P::FFTW.rFFTWPlan{T,B,C,D}, padded::Bool, padBy::Tuple{Int, Int}) where {T<:Real, N, B, C, D} = sheardec2D(view(X,:,:), shearletSystem, P, padded, padBy)
 
 
@@ -478,3 +566,4 @@ end
 function averagingFunction(X, shearletSystem, P::Future, padded, padBy)
     return averagingFunction(X, shearletSystem, fetch(P), padded, padBy)
 end
+

@@ -2,6 +2,7 @@ using Shearlab
 using Plots
 using ScatteringTransform
 using MLDatasets
+pyplot()
 
 # see the error in the bilinear re-interpolation
 k = 1:1/27:4
@@ -37,52 +38,112 @@ heatmap(flipdim(example,1))
 fullySheared.output
 heatmap(real.(fullySheared.output[1][:,:,1]))
 
-function convDualAveragingFilter(coeffs::Array{ComplexF64,2},shearletSystem::Shearlab.Shearletsystem2D)
-    gpu = shearletSystem.gpu
-    if gpu == 1
-        X = AFArray(zeros(Complex{Float32},size(coeffs,1),size(coeffs,2)))
-    else
-        X = zeros(Complex{Float64},size(coeffs,1),size(coeffs,2))
-    end
-    X = fftshift(fft(ifftshift(coeffs))).*shearletSystem.shearlets[:,:,end]
-    return real(fftshift(ifft(ifftshift((1 ./shearletSystem.dualFrameWeights).*X))))
-end
 
 # create an array of the resampled scattering transform outputs
-function pseudoInversion(fullySheared::shattered{T},layers::layeredTransform, X::tanhType) where T
-    # make a storage array where we will estimate the data
-    backShatter = shattered{T}(layers, zeros(size(example)))
-    
-    # upsampled = Array{Array{T,3},1}(length(fullySheared.output))
-    zerothLayerUpsample = upSample(fullySheared.output[1][:,:,1],(28,28))
-    backShatter.output[1] = reshape(zerothLayerUpsample,(size(zerothLayerUpsample)...,1))
-    # start by upsampling all of the outputs
-    for l = layers.m+1:-1:2
-      backShatter.output[l] = Array{T,3}(size(fullySheared.output[l-1][:,:,1])..., size(fullySheared.output[l],3))
-      for i= 1:size(fullySheared.output[l],3)
-        backShatter.output[l][:,:,i] = upSample(fullySheared.output[l][:,:,i], size(backShatter.output[l])[1:2])
-      end
-    end
-    # once that's done, we start at the deepest layers and work our way up. In the deepest layer, we have a lossy estimate of the data, since we have no information about the higher frequencies at this layer
+function pseudoInversion(fullySheared::shattered{T}, layers::layeredTransform, nonlin::S) where {T, S<:nonlinearity}
+    # we're going to assume that fullySheared has nothing meaningful in its data portion
 
-    # once we've upsampled, convolve with the dual frame-- this is not enough for recovery unless the support of the signal is strictly within the support of the averaging filter
-    for i=1:size(backShatter.data[end],3)
-        backShatter.data[end][:,:,i] = convDualAveragingFilter(backShatter.output[end][:,:,i], layers.shears[end])
-    end
+    zerothLayerUpsample = upSample(fullySheared.output[1][:,:,1],(28,28))
+    fullySheared.output[1] = reshape(zerothLayerUpsample,(size(zerothLayerUpsample)...,1))
+    # point of order: we need fft plans
+    fftPlans = createFFTPlans(layers, [size(dat) for dat in fullySheared.data],
+                              iscomplex= (T<:Complex))
+
+    # start by upsampling all of the outputs and storing them in the data in
+    # all but the last layer
+    resampleLayers!(fullySheared.data, fullySheared.output, nonlin)
+
+    # once that's done, we start at the deepest layers and work our way up. In
+    # the deepest layer, we have a lossy estimate of the data, since we have no
+    # information about the higher frequencies at this layer; additionally, we
+    # have a final nonlinearity to undo
+    estimateTheLastLayer!(fullySheared.output[end], layers.shears[end],
+                          fullySheared.data[end], nonlin, fftPlans[end])
+
     for m=layers.m:-1:2
-        skippedThisLayer = numberSkipped(m,m-1,layers)
-        for indexInData=0:(size(backShatter.data[m],3)-1)
-            size(backShatter.output[m-1])[1:2]
-            tmp = cat(3, backShatter.data[m+1], backShatter.output[m+1][:,:,indexInData+1])
-            backShatter.data[m][:,:,indexInData+1] = upSample(aTanh.(shearrec2D(tmp,layers.shears[m+1])), size(backShatter.output[m])[1:2])
-        end
+        estimateMidLayer!(fullySheared.data[m], fullySheared.output,
+                          layers.shears[m], nonlin)
     end
 
     # we've worked backwards through the data; now reconstruct the input
-    reconstruction = shearrec2D(cat(3,[upSample(aTanh.(backShatter.data[2][:,:,i]),size(backShatter.output[1][:,:,1])) for i=1:size(fullySheared.data[2],3)]..., backShatter.output[1][:,:,1]),layers.shears[1])
+    reconstruction =
+        shearrec2D(cat(3,[upSample(aTanh.(backShatter.data[2][:,:,i]),size(backShatter.output[1][:,:,1]))
+    for i=1:size(fullySheared.data[2],3)]...,
+                   backShatter.output[1][:,:,1]),layers.shears[1])
     backShatter.data[1] = reshape(reconstruction,(size(reconstruction)...,1))
     return (reconstruction,backShatter)
 end
+
+function resampleLayers!(layerData, layerOutput, nonlin)
+    for l = layers.m:-1:2
+        innerAxis = axes(layerData[l])[(end-2):(end-1)]
+        outerAxis = axes(layerData[l])[1:(end-2)]
+        for outer in eachindex(view(layerOutput[l], outerAxis, 1, 1,1))
+            for i= 1:size(fullySheared.output[l])[end]
+                layerData[l][outer, innerAxis..., i] =
+                    resample(layerOutput[l][outer, innerAxis..., i], 0.0,
+                             newSize = size(layerData[l])[(end-2):(end-1)])
+            end
+        end 
+    end
+end
+function estimateTheLastLayer!(layerData, layerOutput, shears, nonlin, P)
+    # once we've upsampled, convolve with the dual frame-- this is not enough for recovery unless the support of the signal is strictly within the support of the averaging filter
+    padBy = getPadBy(shears)
+    innerAxis = axes(layerData)[(end-2):(end-1)]
+    innerAxisOut = axes(layerData)[(end-2):(end-1)]
+    outerAxis = axes(layerData)[1:(end-2)]
+    for outer in eachindex(view(layerData, outerAxis, 1, 1,1))
+        for i=1:size(layerData[end])[end]
+            reconstructedData = inverseNonlin.(layerOutput[outer,
+                                                           innerAxisOut..., i],
+                                               nonlin)
+            reconstructedData = resample(reconstructedData, 0.0, newSize =
+                                         size(layerData)[(end-2):(end-1)])
+            layerData[outer, innerAxis...,i] =
+                shearrec(reconstructedData, shears, P, true, padBy,
+                         averaging=true)
+        end
+    end
+end
+
+function estimateMidLayer!(m, layerData, shear, nonlin)
+    innerAxis = axes(layerData[l])[(end-2):(end-1)]
+    outerAxis = axes(layerData[l])[1:(end-2)]
+    for outer in eachindex(view(layerData, outerAxis, 1, 1,1))
+        for indexInData=0:(size(layerData)-1)
+            fromNextLayerSub = inverseNonlin.(layerData[m+1][outer,
+                                                             innerAxis...,
+                                                             getChildren(layers,
+                                                                         m)],
+                                              nonlin)
+            fromNextLayer = zeros(size(layerData[m][outer, innerAxis...])...,
+                                  length(getChildren(layers, m)))
+            for k =1:size(fromNextLayerSub,3)
+                fromNextLayer[:, :, k] = resample(fromNextLayer, 0.0, newSize =
+                                                  size(fromNextLayer)[1:2])
+            end
+            postShearlet = cat(3, fromNextLayer, layerData[m][outer,
+                                                              innerAxis...,
+                                                              indexInData])
+            layerData[m][outer, innerAxis..., indexInData + 1] =
+    shearrec2D(postShearlet, shear, P, true, padBy, averaging=true)
+                resample(inverseNonlin.(shearrec2D(tmp, shear), nonlin), -1.0,
+                         newSize = size(layerData)[end-3:end-2])
+        end
+    end
+end
+
+
+
+using Interpolations
+X = example[10:24,10:24]
+itp = interpolate(X, BSpline(Quadratic(Reflect(OnGrid()))))
+etpf = extrapolate(itp, Line())   # gives 1 on the left edge and 7 on the right edge
+etp0 = extrapolate(itp, 0)        # gives 0 everywhere outside [1,7]
+plot(heatmap(etpf(-10:30, 1:(24-10+1))), heatmap(example), heatmap(X),
+     layout=(1,3))
+
 @time reconstructionSp, backShatter = pseudoInversion(fullySheared,layers,softplusType())
 heatmap(flipdim(reconstructionSp,1))
 heatmap(flipdim(example,1))
