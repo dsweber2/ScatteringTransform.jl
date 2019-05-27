@@ -158,9 +158,10 @@ one dimension at a time
 function calculateSizes(layers::layeredTransform{K,1},
                         outputSubsample, Xsize; totalScales = [-1
                                                                for
-                                                               i=1:layers.m+1]) where {K}
+                                                               i=1:layers.m+1],
+                        percentage = .9) where {K}
     n = Int.(sizes(bsplineType(), layers.subsampling, Xsize[(end):end]))
-    q = getQ(layers,n,totalScales)
+    q = getQ(layers, n, totalScales)
     dataSizes = [Int.([Xsize[1:end-1]..., n[i], q[i]]) for i=1:layers.m+1]
     outputSizes = [Int.([Xsize[1:(end-1)]..., n[i+1], q[i]]) for i=1:layers.m+1]
     if outputSubsample[1] > 1
@@ -178,7 +179,7 @@ function calculateSizes(layers::layeredTransform{K,1},
     elseif outputSubsample[2] > 1
         resultingSize = outputSubsample[2]*ones(Int64,layers.m+1,k)
     else
-        resultingSize = outputSizes
+        resultingSize = [x[end-1] for x in outputSizes]
     end
     return (n, q, dataSizes, outputSizes, resultingSize)
 end
@@ -316,26 +317,60 @@ function outputSize(X, layers)
 end
 
 
-
-
+# λ = 33, j = 2
+# 32*24*13
+# q =  [1, 33, 825], resultingSize = [50, 25, 13], size(d) = (101, 34)
+# q =  [1, 33, 825], resultingSize = [50, 25, 13], size(d) = (51, 26)
+# 34*26
+# 11601
+# concatstartlast = 876
+# size(output) = (1, 50, 26)
 
 """
-    
+    createFFTPlans(layers::layeredTransform{K, 2}, dataSizes; verbose=false, T=Float32, iscomplex::Bool=false)
 
 to be called after distributed. returns a 2D array of futures; the i,jth entry has a future (referenced using fetch) for the fft to be used by worker i in layer j.
 """
-function createFFTPlans(layers, dataSizes; verbose=false, T=Float32, iscomplex::Bool=false)
+function createFFTPlans(layers::layeredTransform, dataSizes; verbose=false,
+                        T=Float32, iscomplex::Bool=false)
     FFTs = Array{Future,2}(undef, nworkers(), layers.m+1)
     for i=1:nworkers(), j=1:layers.m+1
         if verbose
             println("i=$(i), j=$(j)")
         end
-        padBy = getPadBy(layers.shears[j])
-        FFTs[i, j] = remotecall(createRemoteFFTPlan, i, dataSizes[j][(end-2):(end-1)], padBy, T, iscomplex)
+        if length(layers.n) >= 2
+            padBy = getPadBy(layers.shears[j])
+            FFTs[i, j] = remotecall(createRemoteFFTPlan, i,
+                                    dataSizes[j][(end-2):(end-1)], padBy, T,
+                                    iscomplex)
+        else
+            padBy = (0, 0)
+            println(dataSizes)
+            fftPlanSize = (dataSizes[j][1:(end-2)]..., 2*dataSizes[j][end-1])
+
+            FFTs[i, j] = remotecall(createRemoteFFTPlan, i, fftPlanSize,
+                                    T, iscomplex)
+        end
     end
     return FFTs
 end
 
+
+"""
+the 1D version
+"""
+function createRemoteFFTPlan(sizeOfArray, T, iscomplex)
+    if iscomplex
+        return plan_fft!(zeros(T, sizeOfArray...), length(sizeOfArray), flags =
+                         FFTW.PATIENT)
+    else
+        return plan_rfft(zeros(T, sizeOfArray...), length(sizeOfArray), flags =
+                         FFTW.PATIENT)
+    end
+end
+"""
+the 2D version
+"""
 
 function createRemoteFFTPlan(sizeOfArray, padBy, T, iscomplex)
     if iscomplex
@@ -344,6 +379,7 @@ function createRemoteFFTPlan(sizeOfArray, padBy, T, iscomplex)
         return plan_rfft(pad(zeros(T, sizeOfArray...), padBy), flags = FFTW.PATIENT)
     end
 end
+
 function remoteMult(x::Future,y)
     fetch(x)*y
 end

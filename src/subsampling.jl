@@ -19,15 +19,14 @@ maximum(A::Array{Complex{Float64}}) = A[indmax(abs(A))]
 
 Use bilinear interpolation to evaluate the points off-grid. This is linear in x and linear in y, but quadratic in the pair.
 """
-function resample(input::SubArray{T,2}, rate::Float32,
-                  samplingType::bsplineType; newSize::Tuple{Int,Int} =
+function resample(input::AbstractArray{T,2}, rate::Float32,
+                  samplingType::bsplineType; newSize =
                   (-1,-1)) where T<:Number
     Nin = size(input)
     # if the rate results in a non-integer number of samples, round up.
-    if rate!=0.0 || newSize[1]<=0
+    if rate > 0.0 || newSize[1]<=0
         newSize = (Int64(ceil(size(input,1)/rate)),
                    Int64(ceil(size(input,2)/rate)))
-        #println("originalsize=$(size(input)), newSize = $(newSize)")
     end
     if newSize[1]>1
         xInds = range(1, stop = Nin[1], length = newSize[1])
@@ -43,13 +42,15 @@ function resample(input::SubArray{T,2}, rate::Float32,
     output = T.(itp(xInds,yInds))
 end
 
-function resample(input::SubArray{T,1}, rate::Float32,
-                  samplingType::bsplineType; newSize::Tuple{Int} =
-                  (-1,-1)) where T<:Number
+function resample(input::AbstractArray{T,1}, rate::Float32,
+                  samplingType::bsplineType; newSize =
+                  (-1,)) where T<:Number
     Nin = size(input)
     # if the rate results in a non-integer number of samples, round up.
     if rate!=0.0 || newSize[1]<=0
         newSize = Int64(ceil(size(input, 1)/rate))
+    else
+        newSize = newSize[1]
     end
     inds = range(1, stop = Nin[1], length = newSize)
     itp = interpolate(input, BSpline(Cubic(Natural(OnGrid()))))
@@ -57,11 +58,11 @@ function resample(input::SubArray{T,1}, rate::Float32,
 end
 
 """
-        output = resample(input::SubArray{T,{1,2}}, rate::Float32, samplingType::bilinear; newSize::Tuple{Int,Int} = (-1,-1)) where T<:Number
+        output = resample(input::AbstractArray{T,{1,2}}, rate::Float32, samplingType::bilinear; newSize::Tuple{Int,Int} = (-1,-1)) where T<:Number
 
     Use bilinear interpolation to evaluate the points off-grid. This is linear in x and linear in y, but quadratic in the pair.
     """
-function resample(input::SubArray{T,2}, rate::Float32, samplingType::bilinearType; newSize::Tuple{Int,Int} = (-1,-1)) where T<:Number
+function resample(input::AbstractArray{T,2}, rate::Float32, samplingType::bilinearType; newSize = (-1,-1)) where T<:Number
     Nin = size(input)
     # if the rate results in a non-integer number of samples, round up.
     if rate != 0.0 || newSize[1] <= 0
@@ -90,20 +91,12 @@ function resample(input::SubArray{T,2}, rate::Float32, samplingType::bilinearTyp
 end
 
 # provide default behaviour, which is bspline subsampling
-resample(input::SubArray{T,1}, rate::Float32; newSize::Tuple{Int} = 
-         (-1,-1)) where T<:Number = resample(input, rate, bsplineType();
-                                             newSize=newSize)
-resample(input::SubArray{T,2}, rate::Float32; newSize::Tuple{Int,Int} =
-         (-1,-1)) where T<:Number = resample(input, rate, bsplineType();
-                                             newSize=newSize)
-resample(input::Array{T,1}, rate::Float32; newSize::Tuple{Int} = 
-         (-1,-1)) where T<:Number = resample(view(input, :, :), rate,
-                                             bsplineType(); newSize=newSize)
-resample(input::Array{T,2}, rate::Float32; newSize::Tuple{Int,Int} =
-         (-1,-1)) where T<:Number = resample(view(input,:,:), rate,
-                                             bsplineType(); newSize=newSize)
-function resample(input::Array{T,N}, rate::Float32; newSize::Tuple{Int,Int} =
-                  (-1,-1)) where {T<:Number, N}
+function resample(input::AbstractArray{T,1}, rate::Float32; newSize = 
+                  (-1,)) where T<:Number
+    resample(input, rate, bsplineType(); newSize=newSize)
+end
+resample(input::AbstractArray{T,2}, rate::Float32; newSize = (-1,-1)) where T<:Number = resample(input, rate, bsplineType(); newSize=newSize)
+function resample(input::AbstractArray{T,N}, rate::Float32; newSize = (-1,-1)) where {T<:Number, N}
     if rate != 0.0 || newSize[1] <= 0
         newSize = (Int(ceil(size(input)[end-1]/rate)),
                    Int(ceil(size(input)[end]/rate)))

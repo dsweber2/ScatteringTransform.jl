@@ -11,55 +11,62 @@ from sklearn.decomposition   import PCA
 # import the data
 source_file = "/fasterHome/workingDataDir/shattering/shatteredMNISTPiecewise2.h5"
 res_file = "/fasterHome/workingDataDir/shattering/FashionMNIST/piecewiseResults.h5"
+dataSet = "MNIST"
+pithyNames = ["abs", "ReLU", "tanh", "softplus", "piecewise"]
+baseDir = "/fasterHome/workingDataDir/shattering/"
+source_files = [baseDir + "shattered" + dataSet + x + "2.h5" for x in pithyNames]
+res_files = [baseDir + dataSet + "/" + x + "Results.h5" for x in pithyNames]
+
+
+# source_files = source_files[-1:]
+
 # threshold = .99
 # source_file = "/fasterHome/workingDataDir/shattering/kymatioMNIST.h5"
 # load the data
-f = h5py.File(source_file, 'r')
-db = f["data"]
-labels = db["labels"][:]
-stCoeff = db["shattered"][:,:]
-if "shattered" in source_file:
-    stCoeff = stCoeff[:,:].transpose()
-dTrain, dTest, lTrain, lTest = train_test_split(stCoeff, labels,
-                                                random_state=4025)
+for (iFile, source_file) in enumerate(source_files):
+    res_file = res_files[iFile]
+    f = h5py.File(source_file, 'r')
+    db = f["data"]
+    labels = db["labels"][:]
+    stCoeff = db["shattered"][:,:]
+    if "shattered" in source_file:
+        stCoeff = stCoeff[:,:].transpose()
+        dTrain, dTest, lTrain, lTest = train_test_split(stCoeff, labels,
+                                                    random_state=4025)
 
-startPoint = 0
-resultFile = h5py.File(res_file, "a")
-resgrp = resultFile.require_group("linearSVM")
+    startPoint = 0
+    resultFile = h5py.File(res_file, "a")
+    resgrp = resultFile.require_group("linearSVM")
 
-# set the size of the training set via setting the cv number of folds
-N = lTrain.shape[0]
-SizeCV = [int(np.floor(50*5**x)) for x in
-          np.linspace(0,np.log(dTrain.shape[0]/50)/np.log(5),num=10)]
-nRepeats = [int(np.ceil(N/x)) for x in SizeCV[startPoint:-1]]
-nRepeats.reverse()
+    # set the size of the training set via setting the cv number of folds
+    N = lTrain.shape[0]
+    SizeCV = [int(np.floor(50*5**x)) for x in
+              np.linspace(0,np.log(dTrain.shape[0]/50)/np.log(5),num=10)]
+    nRepeats = [int(np.ceil(N/x)) for x in SizeCV[startPoint:-1]]
+    nRepeats.reverse()
+    SizeCV.reverse()
 
-# testing
-x = nRepeats[0]
-repeater = StratifiedKFold(x)
-reRepeater = repeater.split(dTrain, lTrain)
-flippedFolder = ((y[1], y[0]) for y in reRepeater) # a generator with large test sets and small train sets
-classifier = Pipeline(steps = [('pca', PCA(whiten=True, copy=True, n_components=100)), ('svm', svm.SVC(kernel='rbf', gamma='auto', verbose=False))])
-
-classifier.fit(dTrain,lTrain)
-scores = cross_val_score(classifier, dTrain, lTrain, cv=flippedFolder, n_jobs=1)
-pca = PCA(whiten=True, copy=False)
-
-
-classifiers = [svm.SVC(kernel='rbf', verbose=False) for x in nRepeats]
-
-for (i,x) in enumerate(nRepeats):
-    print("On " + str(x) + " i.e. " + str(i) + " out of " + str(len(nRepeats)))
-    repeater = StratifiedKFold(x)
-    reRepeater = repeater.split(dTrain, lTrain)
-    flippedFolder = ((y[1], y[0]) for y in reRepeater) # a generator with large test sets and small train sets
-    classifier = Pipeline(steps = [('pca', PCA(whiten=True, copy=True, n_components=100)), ('svm', svm.SVC(kernel='rbf', gamma='auto', verbose=False))])
-    scores = cross_val_score(classifier, dTrain, lTrain, cv=flippedFolder, n_jobs=1)
-    dset = resultFile.require_dataset("rbfSVM/SampleRate" + str(x), scores.shape,
-                             dtype = scores.dtype)
-    dset[:] = scores
-    resultFile.flush()
-resultFile.close()
+    for (i,x) in enumerate(nRepeats):
+        print("On " + str(x) + " i.e. " + str(i) + " out of " + str(len(nRepeats)))
+        repeater = StratifiedKFold(x)
+        reRepeater = repeater.split(dTrain, lTrain)
+        flippedFolder = ((y[1], y[0]) for y in reRepeater) # a generator with large test sets and small train sets
+        classifier = Pipeline(steps = [('pca', PCA(whiten=True, copy=True,
+                                                   n_components=min(300,
+                                                                    int(np.floor(SizeCV[i]/5))))),
+                                       ('svm', 
+                                        svm.SVC(kernel = 'rbf',
+                                                gamma = 'auto',
+                                                verbose=False))])
+        scores = cross_val_score(classifier, dTrain, lTrain, cv=flippedFolder,
+                                 n_jobs=2)
+        dset = resultFile.require_dataset("pcaRbfSVM/SampleRate" + str(x),
+                                          scores.shape,
+                                          dtype = scores.dtype)
+        dset[:] = scores
+        resultFile.flush()
+    print("finished " + str(iFile))
+    resultFile.close()
 dset = resultFile.create_dataset("rbfSVM/SampleRate" + str(nRepeats[0]), scores.shape,
                              dtype = scores.dtype)
 resultFile["linearSVM/SampleRate" + str(nRepeats[0])]
@@ -95,21 +102,23 @@ nRepeats = [int(np.ceil(52500/x)) for x in SizeCV[0:-1]]
 
 baseDir = "/fasterHome/workingDataDir/shattering/"
 dataSet = "FashionMNIST/"
-validSets = 6
-filenames = [baseDir + dataSet +"kymatResults.h5", baseDir + dataSet +
-             "absResults.h5", baseDir + dataSet +"ReLUResults.h5", baseDir +
-             dataSet +"tanhResults.h5", baseDir + dataSet +
-             "softplusResults.h5",  baseDir + dataSet + "piecewiseResults.h5"]
+validSets = 5
+filenames = [baseDir + dataSet + "absResults.h5", baseDir + dataSet
+             +"ReLUResults.h5", baseDir + dataSet +"tanhResults.h5", baseDir +
+             dataSet + "softplusResults.h5", baseDir + dataSet +
+             "piecewiseResults.h5", baseDir + dataSet +"kymatResults.h5"]
+
 display_names = ["kymatio defaults", "absolute value", "ReLU", "Tanh",
                  "softplus", "Piecewise Linear"]
 filenames = filenames[0:validSets]
 display_names = display_names[0:validSets]
 means = np.zeros((len(filenames), len(nRepeats)))
 stds = np.zeros((len(filenames), len(nRepeats)))
+h5py.File(filenames[0])
 for (i, nam) in enumerate(filenames):
     with h5py.File(nam, "r") as h5File:
         for (j,x) in enumerate(nRepeats):
-            samps = h5File["linearSVM/SampleRate" + str(x)]
+            samps = h5File["rbfSVM/SampleRate" + str(x)]
             means[i, j] = np.mean(samps)
             stds[i, j] = np.std(samps)
 

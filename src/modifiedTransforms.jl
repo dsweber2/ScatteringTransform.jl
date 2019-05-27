@@ -6,21 +6,21 @@ import Shearlab.Shearletsystem2D
 
 # define a type for averaging continuous wavelets
 struct CFWA{T} <: ContinuousWavelet{T}
-  scalingFactor  ::Float64 # the number of wavelets per octave, ie the scaling is s=2^(j/scalingFactor)
-  fourierFactor  ::Float64
-  coi            ::Float64
-  α              ::Int   # the order for a Paul and the number of derivatives for a DOG
-  σ              ::Array{Float64} # the morlet wavelet parameters (σ,κσ,cσ). NaN if not morlet.
-  name           ::String
-  # function CFW{T}(scalingFactor, fourierfactor, coi, daughterfunc, name) where T<: WaveletBoundary
-  # new(scalingFactor, fourierfactor, coi, daughterfunc, name)
-  # end
-  averagingLength::Int # the number of scales to override with averaging
-  averagingType  ::Symbol # either Dirac or mother; the first uniformly represents the lowest frequency information, while the second constructs a wavelet using Daughter that has mean frequency zero, and std equal to the first non-removed wavelet's mean
-  frameBound     ::Float64 # if positive, set the frame bound of the transform to be frameBound. Otherwise leave it so that each wavelet has an L2 norm of 1
+    scalingFactor  ::Float64 # the number of wavelets per octave, ie the scaling is s=2^(j/scalingFactor)
+    fourierFactor  ::Float64
+    coi            ::Float64
+    α              ::Int   # the order for a Paul and the number of derivatives for a DOG
+    σ              ::Array{Float64} # the morlet wavelet parameters (σ,κσ,cσ). NaN if not morlet.
+    name           ::String
+    # function CFW{T}(scalingFactor, fourierfactor, coi, daughterfunc, name) where T<: WaveletBoundary
+    # new(scalingFactor, fourierfactor, coi, daughterfunc, name)
+    # end
+    averagingLength::Int # the number of scales to override with averaging
+    averagingType  ::Symbol # either Dirac or mother; the first uniformly represents the lowest frequency information, while the second constructs a wavelet using Daughter that has mean frequency zero, and std equal to the first non-removed wavelet's mean
+    frameBound     ::Float64 # if positive, set the frame bound of the transform to be frameBound. Otherwise leave it so that each wavelet has an L2 norm of 1
 end
 function eltypes(::CFWA{T}) where T
-  T
+    T
 end
 
 
@@ -163,9 +163,10 @@ end
 
   return the continuous wavelet transform along the final axis with averaging wave, which is (previous dimensions)×(nscales+1)×(signalLength), of type T of Y. The extra parameter averagingLength defines the number of scales of the standard cwt that are replaced by an averaging function. This has form averagingType, which can be one of :Mother or :Dirac- in the :Mother case, it uses the same form as for the daughters, while the dirac uses a constant. J1 is the total number of scales; default (when J1=NaN, or is negative) is just under the maximum possible number, i.e. the log base 2 of the length of the signal, times the number of wavelets per octave. If you have sampling information, you will need to scale wave by δt^(1/2).
   """
-function cwt(Y::AbstractArray{T,N}, c::CFWA{W}, daughters::Array{U,M};
-             nScales::S=NaN, backOffset::Int=0,
-             fftPlan::FFTW.rFFTWPlan{T,A,B,C} = plan_rfft([1])) where {T<:Real, S<:Real, U<:Number, W<:WT.WaveletBoundary, N, M,A,B,C} 
+function cwt(Y::AbstractArray{T,N}, c::CFWA{W}, daughters::Array{T, M},
+             fftPlan::FFTW.rFFTWPlan{T,A,B,C} = plan_rfft([1]); nScales::S =
+             NaN, backOffset::Int=0) where {T<:Real, S<:Real, U<:Number,
+                                            W<:WT.WaveletBoundary, N, M,A,B,C}
     # TODO: complex input version of this
     @assert typeof(N)<:Integer
     @assert typeof(M)<:Integer
@@ -198,35 +199,28 @@ function cwt(Y::AbstractArray{T,N}, c::CFWA{W}, daughters::Array{U,M};
         fftPlan = plan_rfft(x[[1 for i=1:length(size(x))-1]..., :])
     end
     n = size(x)[end]
-    x̂ = zeros(Complex{eltype(x)}, size(x)[1:end-1]..., div(size(x)[end],2) + 1)
-    for i in eachindex(view(x, axes(x)[1:end-1]..., 1))
-        x̂[i, :] = fftPlan * x[i, :];    # [Eqn(3)]
-    end
-
+    x̂ = zeros(Complex{eltype(x)}, size(x)[1:end-1]..., div(size(x)[end],2))
+    x̂ = fftPlan * x    # [Eqn(3)]
+    
+    reshapeSize = (ones(Int, length(size(x))-1)..., size(daughters,1))
     #....construct wavenumber array used in transform [Eqn(5)]
     # If the vector isn't long enough to actually have any other scales, just
     # return the averaging
-    if J1+2-c.averagingLength<=0 || J1==0
+    if J1+1-c.averagingLength<=1
         wave = zeros(T, size(x)..., 1)
-        mother = daughters[1:(div(size(daughters,1),2)+1), 1]
-        for i in eachindex(view(x̂, axes(x̂)[1:end-1]..., 1))
-            wave[i,:]= fftPlan \ (x̂[i,:] .* mother)
-        end
+        mother = reshape(daughters[:, 1], reshapeSize)
+        wave = fftPlan \ (x̂ .* mother)
         return wave
     end
     # TODO: switch J1 and n, and check everywhere this breaks
     wave = zeros(T, size(x)..., size(daughters)[end]);  # define the wavelet
     # array
-
+    outer = axes(x)
     # loop through all scales and compute transform
     for j in 1:size(daughters,2)
-        daughter = daughters[1:(div(size(daughters,1),2)+1), j]
-        # daughter = reshape(daughter, ([1 for i=1:length(size(x))-1]..., length(daughter)))
-        for i in eachindex(view(x̂, axes(x̂)[1:end-1]..., 1))
-            #tmpConv = 
-            wave[i, :, j] = fftPlan \ (x̂[i,:] .* daughter)  # wavelet
-            # transform [Eqn(4)]
-        end
+        daughter = reshape(daughters[:, j], reshapeSize)
+        wave[outer..., j] = fftPlan \ (x̂ .* daughter)  # wavelet transform
+        # [Eqn(4)]
     end
     ax = axes(wave)
     if length(ax)>2
@@ -237,53 +231,73 @@ function cwt(Y::AbstractArray{T,N}, c::CFWA{W}, daughters::Array{U,M};
     end
     return wave
 end
+
+function cwt(Y::AbstractArray{T,N}, c::CFWA{W}, daughters::Array{U,2},
+             fftPlan::Future; nScales::S=NaN, backOffset::Int=0) where {T<:Real,
+                                                                        S<:Real, U<:Number,
+                                                                        W<:WT.WaveletBoundary, N}
+    pl = fetch(fftPlan)
+    return cwt(Y, c, daughters, pl; nScales=nScales, backOffset=backOffset)
+end
+
 #TODO: include some logic about the types checking whether T is complex, and then using that as the base type (for both copies of wave)
 
 
-function cwt(Y::AbstractArray{T}, c::CFWA{W}; nScales::S=NaN, backOffset::Int=0) where {T<:Number, S<:Real, W<:WT.WaveletBoundary}
-  daughters = computeWavelets(Y, c; nScales=nScales, backOffset=backOffset)
-  return cwt(Y, c, daughters; nScales=nScales, backOffset=backOffset)
+function cwt(Y::AbstractArray{T}, c::CFWA{W}; nScales::S=NaN,
+             backOffset::Int=0) where {T<:Number, S<:Real,
+                                       W<:WT.WaveletBoundary}
+    daughters = computeWavelets(Y, c; nScales=nScales, backOffset=backOffset)
+    return cwt(Y, c, daughters; nScales=nScales, backOffset=backOffset)
 end
+
+
+
 
 @doc """
       computeWavelets(Y::AbstractArray{T}, c::CFWA{W}; J1::S=NaN, backOffset::Int=0) where {T<:Number, S<:Real, W<:WT.WaveletBoundary}
   just precomputes the wavelets used by transform c::CFWA{W}. For details, see cwt
   """
-function computeWavelets(n1::T, c::CFWA{W}; nScales::S=NaN, backOffset::Int=0) where {T<:Number, S<:Real, W<:WT.WaveletBoundary}
-  # J1 is the total number of elements
-  J1 = getJ1(c, nScales, backOffset, n1)
-  nScales = numScales(c, n1; backOffset=backOffset,nScales=nScales)
-  #....construct time series to analyze, pad if necessary
-  if eltypes(c)() == WT.padded
-    base2 = round(Int,log(n1)/log(2));   # power of 2 nearest to n1
-    n= 2^(base2+1)
-  elseif eltypes(c)() == WT.DEFAULT_BOUNDARY
-    n = 2*n1
-  else
-    n=n1
-  end
-  ω = [0:ceil(Int, n/2); -floor(Int,n/2)+1:-1]*2π
+function computeWavelets(n1::Integer, c::CFWA{W}; nScales::S=NaN, backOffset::Int=0,T=Float64) where {S<:Real, W<:WT.WaveletBoundary}
+    # J1 is the total number of elements
+    J1 = getJ1(c, nScales, backOffset, n1)
+    nScales = numScales(c, n1; backOffset=backOffset,nScales=nScales)
+    #....construct time series to analyze, pad if necessary
+    if eltypes(c)() == WT.padded
+        base2 = round(Int,log(n1)/log(2));   # power of 2 nearest to n1
+        n= 2^(base2+1)
+    elseif eltypes(c)() == WT.DEFAULT_BOUNDARY
+        n = 2*n1
+    else
+        n=n1
+    end
+    ω = [0:ceil(Int, n/2); -floor(Int,n/2)+1:-1]*2π
+    
+    println(J1)
+    if J1+1-c.averagingLength<=1 || J1==0
+        mother = zeros(T, n1+1, 1)
+        mother[:,1] = findAveraging(c,ω)[1:(n1+1)]
+        return mother
+    end
 
-  if J1+2-c.averagingLength<=0 || J1==0
-    mother = zeros(Complex{Float64}, n, 1)
-    mother[:,1] = findAveraging(c,ω)
-    return mother
-  end
-
-  daughters = zeros(Complex{Float64}, n, nScales+1)
-  for a1 in (c.averagingLength-1):J1
-    daughters[:, a1-c.averagingLength + 2] = Daughter(c, 2.0^(a1/c.scalingFactor), ω)
-  end
-  daughters[:, 1] = findAveraging(c,ω)
-  # normalize so energy is preserved
-  daughters = daughters./sqrt.(sum(abs.(daughters).^2, dims=1))
-  if c.frameBound > 0
-    daughters = daughters.*(c.frameBound/norm(daughters,2))
-  end
-  return daughters
+    daughters = zeros(T, n1+1, nScales+1)
+    for a1 in (c.averagingLength-1):J1
+        # since we use a real fft plan, we only need half of the coefficients
+        daughters[:, a1-c.averagingLength + 2] = Daughter(c, 2.0^(a1/c.scalingFactor), ω)[1:(n1+1)]
+    end
+    daughters[:, 1] = findAveraging(c,ω)[1:(n1+1)]
+    # normalize so energy is preserved
+    daughters = daughters./sqrt.(sum(abs.(daughters).^2, dims=1))
+    if c.frameBound > 0
+        daughters = daughters.*(c.frameBound/norm(daughters,2))
+    end
+    return daughters
 end
-computeWavelets(Y::AbstractArray{T}, c::CFWA{W}; nScales::S=NaN, backOffset::Int=0) where {T<:Number, S<:Real, W<:WT.WaveletBoundary} = computeWavelets(size(Y)[end], c; nScales=nScales, backOffset=backOffset)
-
+function computeWavelets(Y::AbstractArray{<:Integer}, c::CFWA{W}; nScales::S=NaN,
+                backOffset::Int=0, T=Float64) where {S<:Real,
+                                                     W<:WT.WaveletBoundary}
+    return computeWavelets(size(Y)[end], c; nScales=nScales,
+                           backOffset=backOffset, T=T)
+end
 
 
 @doc """
