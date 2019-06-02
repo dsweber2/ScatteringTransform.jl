@@ -79,8 +79,6 @@ function st(X::Array{T, N}, layers::layeredTransform, nonlinear::nl;
     # create list of size references if we're subsampling the output an
     # extra amount
     if dataDim==1
-        println("sum(q .* resultingSize)) = $(sum(q .* resultingSize))), 
-            resultingSize = $(resultingSize), q=$(q)")
         results = SharedArray(zeros(T, outputSizes[1][1:end-dataDim-1]..., 
                                     sum(q .* resultingSize)))
     else
@@ -171,7 +169,6 @@ function iterateOverLayers!(layers, results, nextData, dataSizes, outputSizes,
             padBy = getPadBy(layers.shears[i])
         end
 
-        println("q =  $(q), resultingSize = $(resultingSize), size(d) = $(size(daughters))")
         listOfProcessResults = Array{Future, 1}(undef,
                                                 size(cur[1])[end]*length(cur))
         # parallel processing tools; the results are spread over the previous 2
@@ -187,7 +184,6 @@ function iterateOverLayers!(layers, results, nextData, dataSizes, outputSizes,
                 finalDaughters = computeWavelets(dataSizes[end][end-1],
                                          layers.shears[i+1], nScales=1)
                 concatStartLast = reduce(+, (q .* resultingSize)[1:end-1], init = 0) + 1
-                println("concatStartLast = $(concatStartLast)")
                 padByLast = (1,3)
                 nScalesLastLayer = size(daughters,2)-1
             else
@@ -239,16 +235,10 @@ function spawningJobs!(listOfProcessResults, layers, results, cur, dataSizes,
     cjob = 0;
     for (j,x) in enumerate(cur)
         # iterate over all paths in layer i
-        if verbose
-            #println("On path $j")
-        end 
         for λ = 1:size(x)[end]
             # do the actual transformation; the last layer requires
             # far less saved than the mid-layers. cjob+1 is the worker to
             # assign the task to (+1 since mod is 0...n-1 rather than 1...n
-            if verbose
-                #println("On sub-path $λ, sending to worker $cjob")
-            end
             futureThing = remotecall(midLayer!, cjob+1, layers, results, x,
                                      dataSizes, outerAxes, innerAxes, innerSub,
                                      dataDim, i, daughters, totalScale,
@@ -323,7 +313,6 @@ function midLayer!(layers::layeredTransform{K,1}, results, curPath, dataSizes,
     toBeHandedBack = zeros(T, dataSizes[i+1][1:end-1]..., size(daughters,2)-1)
     # first perform the continuous wavelet transform on the data from the
     # previous layer 
-    println("$(size(curPath)), $((outerAxes)), inner = $(innerAxes), λ = $(λ)")
     output = cwt(view(curPath, outerAxes..., innerAxes..., λ), layers.shears[i],
                  daughters, fftPlan, nScales=nScales)
     innerMostAxes = axes(output)[end:end]
@@ -372,7 +361,6 @@ for nl in functionTypeTuple
                     toBeHandedBack[outer, innerSub..., j-1] =
                         $(nl[1]).(resample(view(output, outer, innerAxes...,
                                                 j), layers.subsampling[i]))
-                    #println("λ=$(λ), tbh")
                 end
                 # actually write to the output
                 if subsam
@@ -431,12 +419,10 @@ function finalLayer!(layers::layeredTransform{K,1}, results, curPath,
     innerAxes = axes(toBeHandedOnwards)[end-1]
     outerAxes = axes(toBeHandedOnwards)[1:end-2]
     # write the output from the mth layer to output
-    println("size(output) = $(size(output))")
     for j = 2:size(output)[end]
         finalOutput = cwt(view(toBeHandedOnwards, outerAxes..., innerAxes, j-1),
                           layers.shears[i+1], finalDaughters, fftPlanFinal,
                           nScales=1)
-        println("λ = $(λ), j = $(j), $(size(finalOutput))")
         for outer in eachindex(view(finalOutput, outerAxes..., [1 for
                                                                 i=1:(dataDim+1)]...))
             tmpFinal = Array{Float64, dataDim}(real.(resample(finalOutput[outer,
@@ -451,7 +437,6 @@ function finalLayer!(layers::layeredTransform{K,1}, results, curPath,
                         resample(tmpFinal, 0f0, newSize = resultingSize[i+1])
             else
                 sizeTmpOut = prod(size(tmpFinal))
-                println("sizeTmp out = $(sizeTmpOut)")
                 results[outer, (concatStartLast +
                                 (λ-1)*nScalesLastLayer*resultingSize[end] +
                                 (j-2)*resultingSize[i+1]).+(0:(sizeTmpOut-1))] = reshape(tmpFinal, (sizeTmpOut))

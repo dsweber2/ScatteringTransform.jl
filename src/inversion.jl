@@ -55,10 +55,12 @@ function estimateLastLayer!(layerData, layerOutput, shear, nonlin, P)
     outerAxis = axes(layerData)[1:(end-3)]
     for outer in eachindex(view(layerData, outerAxis..., 1, 1,1))
         for i=1:size(layerData)[end]
-            reconstructedData = inverseNonlin(layerOutput[outer,
-                                                          innerAxisOut..., i],
-                                              nonlin)
-            reconstructedData = resample(reconstructedData, 0f0, newSize =
+            # reconstructedData = inverseNonlin(layerOutput[outer,
+            #                                               innerAxisOut..., i],
+            #                                   nonlin)
+            reconstructedData = resample(layerOutput[outer,
+                                                     innerAxisOut..., i], 0f0,
+                                         newSize =
                                          size(layerData)[(end-2):(end-1)])
             reconstructedData = reshape(reconstructedData,
                                         (size(reconstructedData)..., 1))

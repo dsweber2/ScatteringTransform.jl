@@ -98,3 +98,87 @@ Pkg.test("ScatteringTransform")
 n
 Pkg.test("ScatteringTransform")
 exit()
+using Pkg
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+(1,)
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+n
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+n
+n
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+25*33
+Pkg.test("ScatteringTransform")
+24*26
+23*25
+33*25
+Pkg.test("ScatteringTransform")
+50 + 33*25 + 25*33*13
+50 + 33*25
+Pkg.test("ScatteringTransform")
+50 + 33*25 + 25*33*13
+50 + 33*25 + 25*33*13
+Pkg.test("ScatteringTransform")
+24*825
+50 + 24*33+13*825
+50 + 33*25 + 25*33*13
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+825*13
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+32*(33*13) + 0*13
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+32*24*13
+32*24*13+876
+32*24*13+876
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+    #cwt#13(::S<:Real, ::Int64, ::FFTW.rFFTWPlan{T<:Real,A,B,C}, ::Any, !Matched::AbstractArray{T<:Real,N}, ::CFWA{W<:Wavelets.WT.WaveletBoundary}, ::Array{U<:Number,M}) where {T<:Real, S<:Real, U<:Number, W<:WaveletBoundary, N, M, A, B, C} at /home/dsweber/.julia/dev/ScatteringTransform/src/modifiedTransforms.jl:170
+exit()

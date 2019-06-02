@@ -3,8 +3,8 @@ import h5py
 import numpy as np
 from kymatio import Scattering2D
 import torchvision
-examples = torchvision.datasets.FashionMNIST("~/allHail/projects/ShatteringTransform.jl/kymatioTests/",download=True)
-testEx = torchvision.datasets.MNIST("~/allHail/projects/ShatteringTransform.jl/kymatioTests/",download=True,train=False)
+examples = torchvision.datasets.FashionMNIST("~/allHail/projects/ShatteringTransform.jl/kymatioTests/", download=True)
+testEx = torchvision.datasets.MNIST("~/allHail/projects/ShatteringTransform.jl/kymatioTests/", download=True, train=False)
 data = torch.cat([examples.data, testEx.data])
 labels =  torch.cat([examples.targets, testEx.targets])
 labels = labels.numpy()

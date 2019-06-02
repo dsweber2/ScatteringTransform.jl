@@ -292,13 +292,6 @@ function pad(x, padBy)
     thirdRow = cat(zeros(T, size(x)[1:end-2]..., padBy...), zeros(T, size(x)[1:end-2]...,
                                                               padBy[1], size(x)[end]),
                    zeros(T, size(x)[1:end-2]..., padBy...), dims = length(size(x)))
-    # if size(x,1)==13
-    #     println("size(firstRow) = $(size(firstRow))")
-    #     println("size(secondRow) = $(size(secondRow))")
-    #     println("size(thirdRow) = $(size(thirdRow))")
-    #     println("catting along $(length(size(x))-1)")
-    #     println("$(size(cat(firstRow, secondRow, thirdRow, dims = length(size(x))-1)))")
-    # end
     return cat(firstRow, secondRow, thirdRow, dims = length(size(x))-1)
 end
 
@@ -317,14 +310,6 @@ function outputSize(X, layers)
 end
 
 
-# λ = 33, j = 2
-# 32*24*13
-# q =  [1, 33, 825], resultingSize = [50, 25, 13], size(d) = (101, 34)
-# q =  [1, 33, 825], resultingSize = [50, 25, 13], size(d) = (51, 26)
-# 34*26
-# 11601
-# concatstartlast = 876
-# size(output) = (1, 50, 26)
 
 """
     createFFTPlans(layers::layeredTransform{K, 2}, dataSizes; verbose=false, T=Float32, iscomplex::Bool=false)
@@ -345,7 +330,6 @@ function createFFTPlans(layers::layeredTransform, dataSizes; verbose=false,
                                     iscomplex)
         else
             padBy = (0, 0)
-            println(dataSizes)
             fftPlanSize = (dataSizes[j][1:(end-2)]..., 2*dataSizes[j][end-1])
 
             FFTs[i, j] = remotecall(createRemoteFFTPlan, i, fftPlanSize,

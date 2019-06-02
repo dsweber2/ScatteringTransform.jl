@@ -272,7 +272,6 @@ function computeWavelets(n1::Integer, c::CFWA{W}; nScales::S=NaN, backOffset::In
     end
     ω = [0:ceil(Int, n/2); -floor(Int,n/2)+1:-1]*2π
     
-    println(J1)
     if J1+1-c.averagingLength<=1 || J1==0
         mother = zeros(T, n1+1, 1)
         mother[:,1] = findAveraging(c,ω)[1:(n1+1)]
@@ -437,11 +436,6 @@ function shearrec2D(coeffs::SubArray{T,N},
     used2 = padBy[2] .+ (1:resultSize[2])
     if averaging
         neededShear = shearletSystem.shearlets[:,:, end]
-        # println("size(X)=$(size(X))")
-        # println("size(coeffs)=$(size(coeffs))")
-        # println("size(P) = $(size(P))")
-        # println("type(X) = $(typeof(X)), type(coeffs) = $(typeof(coeffs))")
-        # println("padBy = $(padBy), size(pad)= $(size(pad(coeffs[:, :, 1], padBy))))")
         unshearing!(X, neededShear, P, coeffs, padBy, 1)
     else
         for j = 1:shearletSystem.nShearlets
@@ -501,7 +495,6 @@ end
 
 
 function realX!(realX, X, duals, P, used1, used2)
-    println("this one")
     for i in eachindex(view(X, axes(X)[1:end-2]..., 1, 1))
         realX[i, :, :] = real.((P \ (ifftshift(X[i,:,:] ./
                                                duals))))[used1, used2]

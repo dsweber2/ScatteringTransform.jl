@@ -103,7 +103,6 @@ function resample(input::AbstractArray{T,N}, rate::Float32; newSize = (-1,-1)) w
     end
     outerAxes = axes(input)[1:end-2]
     newResult = zeros(T,outerAxes..., newSize...)
-    println(size(newResult))
     for outer in eachindex(view(input, outerAxes..., 1, 1))
         newResult[outer, :, :] = resample(view(input, outer, :, :), rate,
                                           bsplineType(); newSize = newSize)
@@ -125,7 +124,6 @@ function maxPooling(input::Array{T,2}, rate::Float64) where T<: Number
   for i=1:rows-1, j=1:cols-1
     rowcoord = Int(floor(rate*(i-1)))+1:Int(floor(rate*i))
     colcoord = Int(floor(rate*(j-1)))+1:Int(floor(rate*j))
-    # println("$rowcoord,         $colcoord")
     output[i,j] = maximum(input[rowcoord,colcoord])
   end
 
