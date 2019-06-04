@@ -17,8 +17,8 @@ baseDir = "/fasterHome/workingDataDir/shattering/"
 source_files = [baseDir + "shattered" + dataSet + x + "2.h5" for x in pithyNames]
 res_files = [baseDir + dataSet + "/" + x + "Results.h5" for x in pithyNames]
 
-# source_files = ["/fasterHome/workingDataDir/shattering/kymatio2FashionMNIST.h5", "/fasterHome/workingDataDir/shattering/kymatio2MNIST.h5"]
-# res_files = ["/fasterHome/workingDataDir/shattering/FashionMNIST/kymatResults.h5", "/fasterHome/workingDataDir/shattering/MNIST/kymatResults.h5"]
+source_files = ["/fasterHome/workingDataDir/shattering/kymatio2FashionMNIST.h5", "/fasterHome/workingDataDir/shattering/kymatio2MNIST.h5"]
+res_files = ["/fasterHome/workingDataDir/shattering/FashionMNIST/kymatResults.h5", "/fasterHome/workingDataDir/shattering/MNIST/kymatResults.h5"]
 #source_files = ["/fasterHome/workingDataDir/shattering/shatteredFashionMNISTpiecewise2.h5", "/fasterHome/workingDataDir/shattering/shatteredMNISTpiecewise2.h5"]
 # res_files = ["/fasterHome/workingDataDir/shattering/FashionMNIST/piecewiseResults.h5", "/fasterHome/workingDataDir/shattering/MNIST/piecewiseResults.h5"]
 

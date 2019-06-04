@@ -5,9 +5,16 @@ using Distributed
 
 @everywhere function reorderCoeff(A::AbstractArray{T,2}) where T
     if size(A,1)==1
-        return reshape(sort(abs.(A), dims = length(size(A)),rev=true), (length(A,)))
+        includingZeros = reshape(sort(abs.(A), dims =
+                                      length(size(A)),rev=true), (length(A,)))
     else
-        return sort(abs.(A), dims = length(size(A)),rev=true)
+        includingZeros = sort(abs.(A), dims = length(size(A)),rev=true)
+    end
+    firstZero = findfirst(includingZeros.==0)
+    if typeof(firstZero)<:Nothing
+        return includingZeros
+    else
+        return includingZeros[1:firstZero]
     end
 end
 @everywhere reorderCoeff(A::AbstractArray{T,1}) where T = sort(abs.(A), rev=true)
@@ -45,22 +52,6 @@ function testWholeMatrix(A; frac=1.0)
     return (conPowers, KStestPValues, αs, θs)
 end
 # load the dataset; row examples (nExamples×dims)
-filename = "/fasterHome/workingDataDir/shattering/shatteredMNISTabs2.h5"
-Atmp = h5open(filename,"r+")
-A = Atmp["data/shattered"]
-conPowers, KStest, αs, θs = testWholeMatrix(A)
-@time testSingleRow(A,105,frac=1.0)
-@time testSingleRow(A,10,frac=1.0)
-@time estimate_xmin((1:.1:100).^(-(5)),con_powerlaw)
-@time estimate_xmin(rand(100),con_powerlaw)
-reorderA = reorderCoeff(A)
-αs = zeros(size(A,1))
-θs = zeros(size(A,1))
-conPowers = Array{con_powerlaw}(undef, size(A,1))
-KStestPValues = zeros(size(A,1))
-for i = 1:size(A,1)
-    conPowers[i], KStestPValues[i] = estimate_xmin(reorderA[i,:], con_powerlaw)
-end
 
 
 using GLM, DataFrames, Distributed, SharedArrays
@@ -84,8 +75,9 @@ function fitPolyDecay(A,transpose=true)
     coeffs = SharedArray{Float64}(zeros(size(A,2), 2))
     stderrs = SharedArray{Float64}(zeros(size(A,2), 2))
     for i=1:size(A,2)
-        df = DataFrame(X=Float64.(log.(1:size(A,1))),
-                       Y=Float64.(log.(reorderCoeff(A[:, i]'))))
+        reorderedData = Float64.(log.(reorderCoeff(A[:, i]')))
+        df = DataFrame(X=Float64.(log.(1:size(reorderedData,1))),
+                       Y=reorderedData)
         ols = lm(@formula(Y~X), df)
         coeffs[i,:] = coef(ols) .*[1, -1]
         stderrs[i,:] = stderror(ols)
@@ -96,33 +88,53 @@ function fitPolyDecay(A,transpose=true)
     return (coeffs, stderrs)
 end
 
-function getAveNonNan(coeffs, i=1)
-    return mean(coeffs[map(x->!(x), isnan.(coeffs[:,i])), i])
+function summarize(coeffs, i=1)
+    nan_i = isnan.(coeffs[:,i])
+    meanValue = mean(coeffs[map(x->!(x), nan_i), i])
+    return 
 end
-pithyNames = ["abs", "ReLU", "tanh", "softplus", "piecewise"]
+pithyNames = ["abs", "ReLU", "tanh", "softplus", "piecewise", "kymat"]
 dataSets = ["FashionMNIST", "MNIST"]
 filenames = ["/fasterHome/workingDataDir/shattering/shattered"*y*x*"2.h5"
              for x in pithyNames for y in dataSets]
 # filename =  "/fasterHome/workingDataDir/shattering/shatteredMNISTpiecewise2.h5"
 # filename = "/fasterHome/workingDataDir/shattering/kymatio2MNIST.h5"
-Atmp = h5open(filename,"r")
-A = Atmp["data/shattered"]
+# Atmp = h5open(filename,"r")
+# A = Atmp["data/shattered"]
+writeTo = h5open("/fasterHome/workingDataDir/shattering/sparsity.h5","w")
+for pith in pithyNames, dat in dataSets
+    if pith=="kymat"
+        filename = "/fasterHome/workingDataDir/shattering/kymatio2"*dat*".h5"
+    else
+        filename = "/fasterHome/workingDataDir/shattering/shattered"*dat*pith*"2.h5"
+    end
+    println("On file $(filename)")
+    Atmp = h5open(filename, "r")
+    A = Atmp["data/shattered"]
+    coeffs, stderrs = fitPolyDecay(A)
+    close(Atmp)
+    try
+        writeTo["$(pith)/$(dat)/coeffs"] = coeffs
+        writeTo["$(pith)/$(dat)/stderrs"] = stderrs
+    catch
+        println("already wrote $pith/$dat")
+    end
+end
+error("All done now")
+for filename in filenames
+    println("On file $(filename)")
+end
 
+Atmp = h5open(filenames[4], "r+")
+sum(isnan.(Atmp["sparsity/coeffs"][:,2]))
+close(Atmp)
 train_x, train_y = MNIST.traindata();
 test_x, test_y = MNIST.testdata();
 dataTot = SharedArray{Float32}(Float32.(cat(permutedims(train_x, (3,2,2)),
                                             permutedims(test_x, (3,1,2)),
                                             dims=1)))
-for filename in filenames
-    Atmp = h5open(filename,"r")
-    A = Atmp["data/shattered"]
-    coeffs, stderrs = fitPolyDecay(A)
-    Atmp["sparsity/coeffs"] = coeffs
-    Atmp["sparsity/stderrs"] = stderrs
-end
-
 A = reshape(dataTot, (size(dataTot, 1), :))
-
+filename = "/fasterHome/workingDataDir/shattering/sparsityMNIST.h5"
 coeffs, stderrs = fitPolyDecay(A)
 getAveNonNan(coeffs,2)
 Atmp = h5open(filename,"w")

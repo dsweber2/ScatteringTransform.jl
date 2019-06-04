@@ -22,7 +22,8 @@ function pseudoInversion!(fullySheared::scattered{T,N},
     # the deepest layer, we have a lossy estimate of the data, since we have no
     # information about the higher frequencies at this layer; additionally, we
     # have a final nonlinearity to undo
-    estimateLastLayer!(fullySheared.data[end], fullySheared.output[end], layers.shears[end], nonlin, fftPlans[end])
+    estimateLastLayer!(fullySheared.data[end], fullySheared.output[end],
+                       layers.shears[end], nonlin, fftPlans[end])
 
     for m=layers.m:-1:1
         estimateMidLayer!(m, fullySheared.data, layers.shears[m], nonlin,
@@ -43,7 +44,6 @@ function resampleLayers!(layerData, layerOutput, nonlin)
                          newSize = size(layerData)[(end-2):(end-1)])
         end
     end 
-    #println("resample Layers, max(layerData) = $(maximum(layerData))")
 end
 
 
@@ -55,11 +55,8 @@ function estimateLastLayer!(layerData, layerOutput, shear, nonlin, P)
     outerAxis = axes(layerData)[1:(end-3)]
     for outer in eachindex(view(layerData, outerAxis..., 1, 1,1))
         for i=1:size(layerData)[end]
-            # reconstructedData = inverseNonlin(layerOutput[outer,
-            #                                               innerAxisOut..., i],
-            #                                   nonlin)
-            reconstructedData = resample(layerOutput[outer,
-                                                     innerAxisOut..., i], 0f0,
+            reconstructedData = layerOutput[outer, innerAxisOut..., i]
+            reconstructedData = resample(reconstructedData, 0f0,
                                          newSize =
                                          size(layerData)[(end-2):(end-1)])
             reconstructedData = reshape(reconstructedData,
@@ -82,24 +79,24 @@ function estimateMidLayer!(m, layerData, shear, nonlin, P, T)
         for indexInData=1:size(layerData[m])[end]
             #println("m = $(m)")
             fromNextLayerSub = inverseNonlin(layerData[m+1][outer,
-                                                             innerNextAxis...,
-                                                             getChildren(shear,
-                                                                         m,
-                                                                         indexInData)],
-                                              nonlin)
+                                                            innerNextAxis...,
+                                                            getChildren(shear,
+                                                                        m,
+                                                                        indexInData)],
+                                             nonlin) 
             fromNextLayer = zeros(T, innerAxis..., length(getChildren(shear,
-                                                                   m,
-                                                                   indexInData)))
+                                                                      m,
+                                                                      indexInData)))
             for k =1:size(fromNextLayerSub,3)
-                fromNextLayer[:, :, k] = resample(fromNextLayerSub[:,:,1], 0f0, newSize =
+                fromNextLayer[:, :, k] = resample(fromNextLayerSub[:,:,1], 0f0,
+                                                  newSize =
                                                   size(fromNextLayer)[1:2])
             end
             postShearlet = cat(fromNextLayer, layerData[m][outer, innerAxis...,
                                                            indexInData], dims=3)
             layerData[m][outer, innerAxis..., indexInData] =
                 shearrec2D(postShearlet, shear, P, true, padBy,
-                           size(layerData[m][outer, innerAxis..., indexInData]),
-                           averaging=true)
+                           size(layerData[m][outer, innerAxis..., indexInData]))
         end
     end
     # println("estimate mid layer, m=$(m), max(layerData) = $(maximum(layerData[m]))")

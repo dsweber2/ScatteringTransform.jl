@@ -446,17 +446,20 @@ function finalLayer!(layers::layeredTransform{K,1}, results, curPath,
 end
 end
 end
+
+
 @doc """
         finalLayer!(layers, results, curPath, outerAxes, innerAxes, innerSub, dataDim, i, daughters, nScales, nonlinear, subsam, outputSubsample, λ, resultingSize, concatStart, λ)
 
     Do the transformation of the m-1 to mth layer, the output of the m-1st layer, and the output of the mth layer. These are glued together for mostly for computational reasons. There is currently no decreasing paths version, so it should end up throwing errors
     """
+
 function finalLayer!(layers::layeredTransform{K, 2}, results, curPath,
                      outerAxes, innerAxes, innerSub, dataSizes, dataDim, i,
-                     daughters, nScales, nonlinear, subsam, outputSubsample,
-                     outputSizes, λ, resultingSize, concatStart,
-                     concatStartLast, padBy, padByLast, nScalesLastLayer,
-                     fftPlan, fftPlanFinal, T) where {K} 
+                     daughters, finalDaughters, nScales, nonlinear, subsam,
+                     outputSubsample, outputSizes, λ, resultingSize,
+                     concatStart, concatStartLast, padBy, padByLast,
+                     nScalesLastLayer, fftPlan, fftPlanFinal, T) where {K}
     localIndex = 0
     # iterate over the outerAxes
     # first perform the continuous wavelet transform on the data from the

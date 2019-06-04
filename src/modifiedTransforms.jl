@@ -428,7 +428,8 @@ function shearrec2D(coeffs::SubArray{T,N},
     if N==3
         X = zeros(Complex{T}, size(shearletSystem.shearlets)[1:2])
     else
-        X = zeros(Complex{T}, size(coeffs)[1:end-3]..., size(shearletSystem.shearlets)[1:2])
+        X = zeros(Complex{T}, size(coeffs)[1:end-3]...,
+                  size(shearletSystem.shearlets)[1:2]...)
     end
     
     # sum X in the Fourier domain over the coefficients at each scale/shearing
@@ -436,7 +437,8 @@ function shearrec2D(coeffs::SubArray{T,N},
     used2 = padBy[2] .+ (1:resultSize[2])
     if averaging
         neededShear = shearletSystem.shearlets[:,:, end]
-        unshearing!(X, neededShear, P, coeffs, padBy, 1)
+        println("size of coeffs is $(size(coeffs))")
+        unshearing!(X, neededShear, P, coeffs, padBy, size(coeffs,3))
     else
         for j = 1:shearletSystem.nShearlets
             # The fourier transform of X
@@ -450,8 +452,10 @@ function shearrec2D(coeffs::SubArray{T,N},
 end
 
 
-function shearrec2D(coeffs, shearletSystem, P::Future, padded, padBy, resultSize; averaging=false)
-    shearrec2D(coeffs, shearletSystem, fetch(P), padded, padBy, resultSize, averaging=averaging)
+function shearrec2D(coeffs, shearletSystem, P::Future, padded, padBy,
+                    resultSize; averaging=false)
+    shearrec2D(coeffs, shearletSystem, fetch(P), padded, padBy, resultSize,
+               averaging=averaging)
 end
     
 function shearrec2D(coeffs::Array{T,N},
@@ -471,37 +475,28 @@ end
 
 function unshearing!(X, neededShear, P, coeffs, padBy, j) where {N,T}
     for i in eachindex(view(X, axes(X)[1:end-2]..., 1, 1))
-        cFreq = fftshift( P * ifftshift(pad(coeffs[i, :, :, j], padBy)))
+        cFreq = fftshift( P * (pad(coeffs[i, :, :, j], padBy)))
         X[i, :, :] = X[i, :, :] + cFreq .* neededShear
     end
 end
 
-function unshearing!(X::Array{Complex{T},2}, neededShear, P,
-                     coeffs::Array{T,3}, padBy, j) where {N,T}
-    cFreq = fftshift( P * ifftshift(pad(coeffs[:, :, j], padBy)))
-    X[:, :] = X[:, :] + cFreq .* neededShear
-end
-
-function unshearing!(X::SubArray{Complex{T},2}, neededShear, P,
-                     coeffs::SubArray{T,3}, padBy, j) where {N,T}
-    cFreq = fftshift( P * ifftshift(pad(coeffs[:, :, j], padBy)))
-    X[:, :] = X[:, :] + cFreq .* neededShear
-end
-function unshearing!(X::Array{Complex{T},2}, neededShear, P,
-                     coeffs::SubArray{T,3}, padBy, j) where {N,T}
-    cFreq = fftshift( P * ifftshift(pad(coeffs[:, :, j], padBy)))
+function unshearing!(X::AbstractArray{Complex{T},2}, neededShear, P,
+                     coeffs::AbstractArray{T,3}, padBy, j) where {N,T}
+    cFreq = fftshift( P * (pad(coeffs[:, :, j], padBy)))
     X[:, :] = X[:, :] + cFreq .* neededShear
 end
 
 
 function realX!(realX, X, duals, P, used1, used2)
     for i in eachindex(view(X, axes(X)[1:end-2]..., 1, 1))
-        realX[i, :, :] = real.((P \ (ifftshift(X[i,:,:] ./
-                                               duals))))[used1, used2]
+        realX[i, :, :] = real.(fftshift((P \ (ifftshift(X[i,:,:] ./
+                                                        (duals))))))[used1,
+                                                                     used2]
     end
 end
 function realX!(realX, X::AbstractArray{T,2}, duals, P, used1, used2) where {T}
-    realX[:, :] = real.((P \ (ifftshift(X[:,:] ./ duals))))[used1, used2]
+    realX[:, :] = real.(fftshift(P \ (ifftshift(X[:,:] ./ (duals)))))[used1,
+                                                                      used2]
 end
 
 

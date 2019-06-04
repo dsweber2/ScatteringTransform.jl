@@ -112,7 +112,7 @@ numChildren(keeperOriginal::Array{Int}, layers::layeredTransform, nScalesLayers:
 given an index in a layer, determine the indices in the next layer that correspond to the children of that index
 """
 function getChildren(layers::layeredTransform, m, parent)
-    return getChildren(shear, m, parent)
+    return getChildren(layers.shears[m], m, parent)
 end
 function getChildren(shear, m, parent)
     nChildrenPerParent = shear.nShearlets-1
