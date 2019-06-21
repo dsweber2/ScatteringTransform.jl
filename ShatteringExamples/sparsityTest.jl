@@ -88,11 +88,6 @@ function fitPolyDecay(A,transpose=true)
     return (coeffs, stderrs)
 end
 
-function summarize(coeffs, i=1)
-    nan_i = isnan.(coeffs[:,i])
-    meanValue = mean(coeffs[map(x->!(x), nan_i), i])
-    return 
-end
 pithyNames = ["abs", "ReLU", "tanh", "softplus", "piecewise", "kymat"]
 dataSets = ["FashionMNIST", "MNIST"]
 filenames = ["/fasterHome/workingDataDir/shattering/shattered"*y*x*"2.h5"
@@ -143,15 +138,25 @@ Atmp["sparsity/stderrs"] = stderrs
 close(Atmp)
 plot(reorderA)
 
-fDat = [i.^(-j) for i=1:10000, j=.5:.125:5]'
-tmpcoeff, tmpstd = fitPolyDecay(fDat)
-df = DataFrame(Y=log.(reorderCoeff(fDat[1,:])), X=log.(1:size(fDat,2)))
-ols = lm(@formula(Y~X), df)
+# tmp
+filename = "/fasterHome/workingDataDir/shattering/kymatio2MNIST.h5"
+println("On file $(filename)")
+Atmp = h5open(filename, "r")
+A = Atmp["data/shattered"]
+size(A)
+coeffs, stderrs = fitPolyDecay(A[:,4])
+sort(abs.(A[:,4]'), dims = length(size(A[:,4])),rev=true)
+reorderCoeff(A[:,4])
+plot(log.(1:size(A,1)), sort(logg.(abs.(A[:,1]')), dims = length(size(A[:,4])),rev=true)')
+savefig("tmp.pdf")
+close(Atmp)
 
-
+logg(x) = x==0 ? 0 : log(x)
+# tmp end
 
 reorderCoeff(A::AbstratctArray{T,2}) where T = sort(abs.(A), dims = length(size(A)),rev=true)
 reorderCoeff(A::AbstratctArray{T,1}) where T = sort(abs.(A), rev=true)
+
 """
 do a log-log fit of a matrix along the second dimension
 """
@@ -160,3 +165,101 @@ function logFit(A)
     xAxis = 1:size(logCoeff, 2)
     
 end
+
+
+"""
+map NaNs onto zero
+"""
+function getNonNans(A)
+    nan_i = isnan.(A)
+    return [A[map(x->!(x), nan_i)]; zeros(sum(nan_i))]
+end
+function summarize(coeffs)
+    nan_i = isnan.(coeffs)
+    meanValue = mean(coeffs[map(x->!(x), nan_i)])
+    return (meanValue, sum(nan_i))
+end
+
+results = Dict((x*" "*y,summarize(Atmp[x][y]["coeffs"][:, 2])) for x in pithyNames for y in dataSets)
+
+
+Atmp = h5open("/fasterHome/workingDataDir/shattering/sparsity.h5","r")
+
+
+h1 = histogram(getNonNans(Atmp["ReLU/FashionMNIST/coeffs"][:,2]), norm=true,
+               label="ReLU",alpha=.5, xlabel="Decay Rate",
+               ylabel="Number Of Examples")
+vline!((results["ReLU FashionMNIST"][1], results["ReLU FashionMNIST"][1]), label="ave")
+h2 = histogram(getNonNans(Atmp["abs/FashionMNIST/coeffs"][:,2]), norm=true,
+               label="abs",alpha=.5, xlabel="Decay Rate",
+               ylabel="Number Of Examples")
+vline!((results["abs FashionMNIST"][1], results["abs FashionMNIST"][1]), label="ave")
+h3 = histogram(getNonNans(Atmp["tanh/FashionMNIST/coeffs"][:,2]), norm=true,
+               label="tanh",alpha=.5, xlabel="Decay Rate",
+               ylabel="Number Of Examples")
+vline!((results["tanh FashionMNIST"][1], results["tanh FashionMNIST"][1]), label="ave")
+
+h4 = histogram(getNonNans(Atmp["kymat/FashionMNIST/coeffs"][:,2]), norm=true,
+               label="kymat",alpha=.5, xlabel="Decay Rate",
+               ylabel="Number Of Examples")
+vline!((results["kymat FashionMNIST"][1], results["kymat FashionMNIST"][1]), label="ave")
+
+h5 = histogram(getNonNans(Atmp["piecewise/FashionMNIST/coeffs"][:,2]), norm=true,
+               label="tanh",alpha=.5, xlabel="Decay Rate",
+               ylabel="Number Of Examples")
+vline!((results["piecewise FashionMNIST"][1], results["piecewise FashionMNIST"][1]), label="ave")
+h6 = histogram(getNonNans(Atmp["softplus/FashionMNIST/coeffs"][:,2]), norm=true,
+               label="softplus",alpha=.5, xlabel="Decay Rate",
+               ylabel="Number Of Examples") 
+vline!((results["softplus FashionMNIST"][1], results["softplus FashionMNIST"][1]), label="ave")
+plot(h1, h2,h3,h4,h5,h6, layout=(2,3))
+savefig("sparsityFashionMNIST.pdf")
+
+
+
+
+h1 = histogram(getNonNans(Atmp["ReLU/MNIST/coeffs"][:,2]), norm=true,
+               label="ReLU",alpha=.5, xlabel="Decay Rate",
+               ylabel="Number Of Examples")
+vline!((results["ReLU MNIST"][1], results["ReLU MNIST"][1]), label="ave")
+h2 = histogram(getNonNans(Atmp["abs/MNIST/coeffs"][:,2]), norm=true,
+               label="abs",alpha=.5, xlabel="Decay Rate",
+               ylabel="Number Of Examples")
+vline!((results["abs MNIST"][1], results["abs MNIST"][1]), label="ave")
+h3 = histogram(getNonNans(Atmp["tanh/MNIST/coeffs"][:,2]), norm=true,
+               label="tanh",alpha=.5, xlabel="Decay Rate",
+               ylabel="Number Of Examples")
+vline!((results["tanh MNIST"][1], results["tanh MNIST"][1]), label="ave")
+
+h4 = histogram(getNonNans(Atmp["kymat/MNIST/coeffs"][:,2]), norm=true,
+               label="kymat",alpha=.5, xlabel="Decay Rate",
+               ylabel="Number Of Examples")
+vline!((results["kymat MNIST"][1], results["kymat MNIST"][1]), label="ave")
+
+h5 = histogram(getNonNans(Atmp["piecewise/MNIST/coeffs"][:,2]), norm=true,
+               label="tanh",alpha=.5, xlabel="Decay Rate",
+               ylabel="Number Of Examples")
+vline!((results["piecewise MNIST"][1], results["piecewise MNIST"][1]), label="ave")
+h6 = histogram(getNonNans(Atmp["softplus/MNIST/coeffs"][:,2]), norm=true,
+               label="softplus",alpha=.5, xlabel="Decay Rate",
+               ylabel="Number Of Examples") 
+vline!((results["softplus MNIST"][1], results["softplus MNIST"][1]), label="ave")
+plot(h1, h2,h3,h4,h5,h6, layout=(2,3))
+
+savefig("sparsityMNIST.pdf")
+
+
+
+
+# What does a n^(-3/2) fit give?
+fDat = [i.^(-j) for i=1:10000, j=.5:.125:5]';
+tmpcoeff, tmpstd = fitPolyDecay(fDat',true)
+df = DataFrame(Y=log.(reorderCoeff(fDat[1,:])), X=log.(1:size(fDat,2)))
+ols = lm(@formula(Y~X), df)
+
+
+# What does a log(n)^2/n^(-3/2) graph give?
+fDat = [(log(i)/i).^(j) for i=2:10000, j=.5:.125:5]
+tmpcoeff, tmpstd = fitPolyDecay(fDat)
+df = DataFrame(Y=log.(reorderCoeff(fDat[1,:])), X=log.(1:size(fDat, 2)))
+ols = lm(@formula(Y~X), df)

@@ -177,7 +177,7 @@ function calculateSizes(layers::layeredTransform{K,1},
             resultingSize[i] = Int(proposedLevel)
         end
     elseif outputSubsample[2] > 1
-        resultingSize = outputSubsample[2]*ones(Int64,layers.m+1,k)
+        resultingSize = outputSubsample[2]*ones(Int64,layers.m+1)
     else
         resultingSize = [x[end-1] for x in outputSizes]
     end

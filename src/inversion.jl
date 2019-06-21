@@ -88,7 +88,7 @@ function estimateMidLayer!(m, layerData, shear, nonlin, P, T)
                                                                       m,
                                                                       indexInData)))
             for k =1:size(fromNextLayerSub,3)
-                fromNextLayer[:, :, k] = resample(fromNextLayerSub[:,:,1], 0f0,
+                fromNextLayer[:, :, k] = resample(fromNextLayerSub[:, :, k], 0f0,
                                                   newSize =
                                                   size(fromNextLayer)[1:2])
             end

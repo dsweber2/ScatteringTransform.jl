@@ -31,27 +31,14 @@ nTot = 70000; m =2
 layers = layeredTransform(m, (28, 28), subsamples=[28/19, 19/13, 13/8], shearLevel=Int.(ceil.((1:4)/4)), typeBecomes = Float32);
 println("successfully formed some layers")
 
-#@everywhere n, q, dataSizes, outputSizes, resultingSize = ScatteringTransform.calculateSizes(layers,
-#                                                                                  (-1,-1),
-#                                                                                  (70000,28,28))
 n, q, dataSizes, outputSizes, resultingSize = ScatteringTransform.calculateSizes(layers,
                                                                                  (-1,-1),
                                                                                  (70000,28,28))
-# @everywhere const fftPlansGlobal = [plan_rfft(ScatteringTransform.pad(zeros(Float32,
-#                                                                             dataSizes[i][end-2:end-1]...),
-#                                                                       getPadBy(layers.shears[i])), 
-#                                               flags =  FFTW.PATIENT) for  i=1:m+1];
-
-#println("made some fftPlans")
-# layers = layeredTransform(2, 28, 28, subsamples=[28/19, 19/13, 13/8], shearLevel=Int.(ceil.((1:4)/4)), typeBecomes = Float16)
-# println("successfully formed some layers")
 save("/fasterHome/workingDataDir/shattering/shatteredMNISTabs2_4shearLevels.jld",
      "layers", layers)
-# println("successfully saved layers")
 # COLUMN-MAJOR
 dimension = sum(prod(x[2:end]) for x in outputSizes)
 typeBase = Float32
-#s = open("/fasterHome/workingDataDir/shattering/shatteredMNISTabs2_4shearLevels.bin", "w+")
 s = open("/fasterHome/workingDataDir/shattering/shatteredMNISTabs2_4shearLevels.bin", "w+")
 # We'll write the dimensions of the array as the first two Ints in the file
 write(s, dimension)

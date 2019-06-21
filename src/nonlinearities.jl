@@ -35,13 +35,29 @@ aTanh(x::T) where T<:Real = abs.(x)<1 ? atanh(real(x)) : sign(x)*10
 aTanh(x::Complex) = aTanh(real(x)) + im*aTanh(imag(x))
 plInverse(x::Real) = (x> 0 ? x : 2*x)
 
+nonParamTypeTuple = [(abs,absType,(x)->x),(ReLU,ReLUType, (x)->x), (Tanh,tanhType, aTanh), (softplus, softplusType, spInverse)]
+paramTypeTuple = [(piecewiseLinear, piecewiseType, plInverse)]
 functionTypeTuple = [(abs,absType,(x)->x),(ReLU,ReLUType, (x)->x), (Tanh,tanhType, aTanh), (softplus, softplusType, spInverse), (piecewiseLinear, piecewiseType, plInverse)]
 
 
 for nl in functionTypeTuple
     @eval begin
+        function nonLin(X, nonlin::$(nl[2]))
+            $(nl[1]).(X)
+        end
         function inverseNonlin(X, nonlin::$(nl[2]))
             $(nl[3]).(X)
         end
     end
 end
+
+# for nl in paramTypeTuple
+#     @eval begin
+#         function nonLin(X, nonlin::$(nl[2]))
+#             $(nl[1]).(X)
+#         end
+#         function inverseNonlin(X, nonlin::$(nl[2]))
+#             $(nl[3]).(X)
+#         end
+#     end
+# end

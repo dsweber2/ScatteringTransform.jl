@@ -437,7 +437,6 @@ function shearrec2D(coeffs::SubArray{T,N},
     used2 = padBy[2] .+ (1:resultSize[2])
     if averaging
         neededShear = shearletSystem.shearlets[:,:, end]
-        println("size of coeffs is $(size(coeffs))")
         unshearing!(X, neededShear, P, coeffs, padBy, size(coeffs,3))
     else
         for j = 1:shearletSystem.nShearlets
