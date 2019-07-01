@@ -36,7 +36,7 @@ end
 # the fully specified version
 # TODO: use a layered transform parameter to determine if we're returning a st or thinst instead
 @doc """
-        layers = layeredTransform(m::S, Xlength::S, nScales::Array{T,1},
+    layers = layeredTransform(m::S, Xlength::S, nScales::Array{T,1},
                                   subsampling::Array{T,1},
                                   CWTType::WT.ContinuousWaveletClass,
                                   averagingLength::Array{S,1} = ceil.(S,nScales*2),
@@ -47,14 +47,14 @@ end
                                                                              Integer, 
                                                                              T <: Real,
                                                                              W <: WT.WaveletBoundary}
-      layers = layeredTransform(m::S, Xsizes::Tuple{<:Integer,<:Integer},
-                                nScales::Array{T,1}, subsampling::Array{T,1},
-                                shearlets<:W,
-                                shearLevels::Array{<:Array{<:Integer,1}},
-                                gpu::Bool=false, percentage,
-                                typeBecomes::DataType=Float32) where {S<:Integer,
-                                                                      T<:Real,
-                                                                      W<:Shearlab.Shearletsystem2D}
+    layers = layeredTransform(m::S, Xsizes::Tuple{<:Integer,<:Integer},
+                              nScales::Array{T,1}, subsampling::Array{T,1},
+                              shearlets<:W,
+                              shearLevels::Array{<:Array{<:Integer,1}},
+                              gpu::Bool=false, percentage,
+                              typeBecomes::DataType=Float32) where {S<:Integer,
+                                                                    T<:Real,
+                                                                    W<:Shearlab.Shearletsystem2D}
 whether the second argument is a single number or a tuple determines whether
 you get a 1D wavelet transform or 2D shearlet transform
  """
@@ -80,6 +80,7 @@ function layeredTransform(m::S, Xlength::S, nScales::Array{S,1},
     shears = [wavelet(CWTType, nScales[i], averagingLength[i],
                       averagingType[i], boundary[i]) for (i,x) in
               enumerate(subsampling)]
+    
     layeredTransform{typeof(shears[1]), 1}(m, (Xlength,), shears,
                                            Float32.(subsampling), [1 1])
 end

@@ -28,7 +28,7 @@ end
 
 
 
-function CFWA(wave::WC, scalingFactor::S=8.0, averagingType::Symbol=:Mother, boundary::T=WT.DEFAULT_BOUNDARY, averagingLength::Int=floor(Int,scalingFactor/2), frameBound::Float64=-1.0) where {WC<:WT.WaveletClass, T<:WT.WaveletBoundary, S<:Real}
+function CFWA(wave::WC, scalingFactor::S=8.0, averagingType::Symbol=:Mother, boundary::T=WT.DEFAULT_BOUNDARY, averagingLength::Int=floor(Int,scalingFactor/2), frameBound::Float64=1.0) where {WC<:WT.WaveletClass, T<:WT.WaveletBoundary, S<:Real}
   @assert scalingFactor > 0
   @assert (averagingType==:Mother ||averagingType==:Dirac)
   namee = WT.name(wave)[1:3]
