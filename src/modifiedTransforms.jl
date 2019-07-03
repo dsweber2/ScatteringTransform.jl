@@ -24,11 +24,15 @@ function eltypes(::CFWA{T}) where T
 end
 
 
+    
 
 
+function CFWA(wave::WC, scalingFactor::S=8.0, averagingType::Symbol=:Mother,
+              boundary::T=WT.DEFAULT_BOUNDARY,
+              averagingLength::Int=floor(Int,2*scalingFactor),
+              frameBound::Float64=1.0, normalization::Symbol=:Equal) where
+    {WC<:WT.WaveletClass, T<:WT.WaveletBoundary, S<:Real}
 
-
-function CFWA(wave::WC, scalingFactor::S=8.0, averagingType::Symbol=:Mother, boundary::T=WT.DEFAULT_BOUNDARY, averagingLength::Int=floor(Int,scalingFactor/2), frameBound::Float64=1.0) where {WC<:WT.WaveletClass, T<:WT.WaveletBoundary, S<:Real}
   @assert scalingFactor > 0
   @assert (averagingType==:Mother ||averagingType==:Dirac)
   namee = WT.name(wave)[1:3]
@@ -42,7 +46,7 @@ function CFWA(wave::WC, scalingFactor::S=8.0, averagingType::Symbol=:Mother, bou
   else
     error("I'm not sure how you got here. Apparently the WaveletClass you gave doesn't have a name. Sorry about that")
   end
-  return CFWA{T}(Float64(scalingFactor), tdef...,averagingLength, averagingType, frameBound)
+  return CFWA{T}(Float64(scalingFactor), tdef..., averagingLength, averagingType, frameBound)
 end
 
 # If you know the averaging length
@@ -50,7 +54,7 @@ function wavelet(c::W, s::S, averagingLength::T, averagingType::Symbol=:Mother, 
   CFWA(c, s, averagingType, boundary, averagingLength)
 end
 # If you want a default averaging length, just input the type
-function wavelet(c::W, s::S, averagingType::Symbol, boundary::WT.WaveletBoundary=WT.DEFAULT_BOUNDARY, frameBound::Float64=-1.0) where {W<:WT.ContinuousWaveletClass, S<:Real}
+function wavelet(c::W, s::S, averagingType::Symbol, boundary::WT.WaveletBoundary=WT.DEFAULT_BOUNDARY, frameBound::Float64=1.0) where {W<:WT.ContinuousWaveletClass, S<:Real}
   CFWA(c, s, averagingType, boundary; frameBound=frameBound)
 end
 
@@ -69,7 +73,7 @@ end
   """
 function numScales(c::CFWA, n::S; backOffset=0,nScales=-1) where S<:Integer
     if isnan(nScales) || nScales<0
-        nScales=floor(Int,(log2(max(n,1))-2)*c.scalingFactor)-backOffset-c.averagingLength
+        nScales = floor(Int,(log2(max(n,1))-2)*c.scalingFactor)-backOffset-c.averagingLength
     end
     return nScales
 end
@@ -97,15 +101,30 @@ name(s::CFW) = s.name
 
   given a CFW object, return a rescaled version of the mother wavelet, in the fourier domain. ω is the frequency, which is fftshift-ed. s is the scale variable. This extension just allows us to use a ::CFWA type instead of a CFW type.
   """
-function Daughter(this::CFWA, s::Real, ω::Array{Float64,1})
+function Daughter(this::CFWA, s::Real, ω::Array{Float64,1},normType=:none)
+    if normType == :none
+        normTerm = 1
+    elseif normType == :sqrtScaling
+        normTerm = 1/sqrt(s)
+    elseif normType == :absScaling
+        normTerm = 1/abs(s)
+    elseif normType == :maxOne
+        normTerm = -1
+    end
     if this.name=="morl"
-      daughter = this.σ[3]*(π)^(1/4)*(exp.(-(this.σ[1].-ω/s).^2/2).-this.σ[2]*exp.(-1/2*(ω/s).^2))
+        daughter = this.σ[3]*(π)^(1/4)*(exp.(-(this.σ[1].-ω/s).^2/2) .-
+        this.σ[2]*exp.(-1/2*(ω/s).^2)) 
     elseif this.name[1:3]=="dog"
-      daughter = normalize(im^(this.α)*sqrt(gamma((this.α)+1/2))*(ω/s).^(this.α).*exp.(-(ω/s).^2/2))
+      daughter =  normalize(im^(this.α)*sqrt(gamma((this.α)+1/2))*(ω/s).^(this.α).*exp.(-(ω/s).^2/2))
     elseif this.name[1:4]=="paul"
       daughter = zeros(length(ω))
-      daughter[ω.>=0]=(2^this.α)/sqrt((this.α)*gamma(2*(this.α)))*((ω[ω.>=0]/s).^(this.α).*exp.(-(ω[ω.>=0]/s)))
+      daughter[ω.>=0]= (2^this.α)/sqrt((this.α)*gamma(2*(this.α)))*((ω[ω.>=0]/s).^(this.α).*exp.(-(ω[ω.>=0]/s)))
     end
+    if normTerm == -1
+        normTerm = 1/maximum(daughter)
+    end
+    daughter = normTerm .* daughter
+
     return daughter
 end
 
@@ -257,10 +276,12 @@ end
       computeWavelets(Y::AbstractArray{T}, c::CFWA{W}; J1::S=NaN, backOffset::Int=0) where {T<:Number, S<:Real, W<:WT.WaveletBoundary}
   just precomputes the wavelets used by transform c::CFWA{W}. For details, see cwt
   """
-function computeWavelets(n1::Integer, c::CFWA{W}; nScales::S=NaN, backOffset::Int=0,T=Float64) where {S<:Real, W<:WT.WaveletBoundary}
+function computeWavelets(n1::Integer, c::CFWA{W}; nScales::S=NaN,
+                         backOffset::Int=0, T=Float64) where {S<:Real,
+                                                              W<:WT.WaveletBoundary}
     # J1 is the total number of elements
     J1 = getJ1(c, nScales, backOffset, n1)
-    nScales = numScales(c, n1; backOffset=backOffset,nScales=nScales)
+    nScales = numScales(c, n1; backOffset=backOffset, nScales=nScales)
     #....construct time series to analyze, pad if necessary
     if eltypes(c)() == WT.padded
         base2 = round(Int,log(n1)/log(2));   # power of 2 nearest to n1
@@ -281,13 +302,15 @@ function computeWavelets(n1::Integer, c::CFWA{W}; nScales::S=NaN, backOffset::In
     daughters = zeros(T, n1+1, nScales+1)
     for a1 in (c.averagingLength-1):J1
         # since we use a real fft plan, we only need half of the coefficients
-        daughters[:, a1-c.averagingLength + 2] = Daughter(c, 2.0^(a1/c.scalingFactor), ω)[1:(n1+1)]
+        daughters[:, a1 - c.averagingLength + 2] = Daughter(c,
+                                                            2.0^(a1/c.scalingFactor),
+                                                            ω)[1:(n1+1)]
     end
-    daughters[:, 1] = findAveraging(c,ω)[1:(n1+1)]
+    daughters[:, 1] = findAveraging(c, ω)[1:(n1+1)]
     # normalize so energy is preserved
-    daughters = daughters./sqrt.(sum(abs.(daughters).^2, dims=1))
+    #daughters = daughters./sqrt.(sum(abs.(daughters).^2, dims=1))
     if c.frameBound > 0
-        daughters = daughters.*(c.frameBound/norm(daughters,2))
+        daughters = daughters.*(c.frameBound/norm(daughters, 2))
     end
     return daughters
 end
