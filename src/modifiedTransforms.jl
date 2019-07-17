@@ -5,7 +5,7 @@ import Wavelets.WT
 import Shearlab.Shearletsystem2D
 
 # define a type for averaging continuous wavelets
-struct CFWA{T} <: ContinuousWavelet{T}
+struct CFW{T} <: ContinuousWavelet{T}
     scalingFactor  ::Float64 # the number of wavelets per octave, ie the scaling is s=2^(j/scalingFactor)
     fourierFactor  ::Float64
     coi            ::Float64
@@ -15,47 +15,94 @@ struct CFWA{T} <: ContinuousWavelet{T}
     # function CFW{T}(scalingFactor, fourierfactor, coi, daughterfunc, name) where T<: WaveletBoundary
     # new(scalingFactor, fourierfactor, coi, daughterfunc, name)
     # end
-    averagingLength::Int # the number of scales to override with averaging
-    averagingType  ::Symbol # either Dirac or mother; the first uniformly represents the lowest frequency information, while the second constructs a wavelet using Daughter that has mean frequency zero, and std equal to the first non-removed wavelet's mean
-    frameBound     ::Float64 # if positive, set the frame bound of the transform to be frameBound. Otherwise leave it so that each wavelet has an L2 norm of 1
+    averagingLength::Int # the number of scales to override with averaging. If
+                         # you want no averaging set it to zero
+    averagingType  ::Average # either Dirac or mother; the first uniformly
+                             # represents the lowest frequency information,
+                             # while the second constructs 
+                             # a wavelet using Daughter that has mean frequency
+                             # zero, and std equal to 
+                             # the first non-removed wavelet's mean
+    frameBound     ::Float64 # if positive, set the frame bound of the
+                             # transform to be frameBound. Otherwise leave it
+                             # so that each wavelet has an L2 norm of 1 
+    normalization  ::Float64 # the normalization that is preserved for the
+                             # wavelets as the scale changes. The conjugate
+                             # p-norm is preserved for the  signal. Should be
+                             # larger than 1, can be Infinity, meaning the
+                             # wavelets are all the same height
 end
-function eltypes(::CFWA{T}) where T
+
+abstract type Average end
+struct Dirac <: Average end
+struct Mother <: Average end
+
+
+function eltypes(::CFW{T}) where T
     T
 end
 
+struct CFW{T} <: ContinuousWavelet{T}
+    scalingFactor::Float64 # the number of wavelets per octave, ie the scaling
+                           # is s=2^(j/scalingfactor)
+    decreasing::Float64 # the amount that scalingFactor decreases per octave,
+                        # to a minimum of 1
+    fourierFactor::Float64
+    coi          ::Float64
+    α            ::Int   # the order for a Paul and the number of derivatives
+                         # for a DOG
+    σ            ::Array{Float64} # the morlet wavelet parameters
+                                  # (σ,κσ,cσ). NaN if not morlet.
+    name         ::String
+    averagingLength::Int # the number of scales to override with averaging. If
+                         # you want no averaging set it to zero
+    averagingType  ::Average # either Dirac or mother; the first uniformly
+                             # represents the lowest frequency information,
+                             # while the second constructs 
+                             # a wavelet using Daughter that has mean frequency
+                             # zero, and std equal to 
+                             # the first non-removed wavelet's mean
+    frameBound     ::Float64 # if positive, set the frame bound of the
+                             # transform to be frameBound. Otherwise leave it
+                             # so that each wavelet has an L2 norm of 1 
+    normalization  ::Float64 # the normalization that is preserved for the
+                             # wavelets as the scale changes. The conjugate
+                             # p-norm is preserved for the  signal. Should be
+                             # larger than 1, can be Infinity, meaning the
+                             # wavelets are all the same height
+end
 
-    
 
 
-function CFWA(wave::WC, scalingFactor::S=8.0, averagingType::Symbol=:Mother,
+function CFW(wave::WC, scalingFactor::S=8.0, averagingType::Symbol=:Mother,
               boundary::T=WT.DEFAULT_BOUNDARY,
-              averagingLength::Int=floor(Int,2*scalingFactor),
-              frameBound::Float64=1.0, normalization::Symbol=:Equal) where
+              averagingLength::Int = floor(Int,2*scalingFactor),
+              frameBound::Float64=1.0, normalization::Float=Inf) where
     {WC<:WT.WaveletClass, T<:WT.WaveletBoundary, S<:Real}
-
-  @assert scalingFactor > 0
-  @assert (averagingType==:Mother ||averagingType==:Dirac)
-  namee = WT.name(wave)[1:3]
-  tdef = get(WT.CONT_DEFS, namee, nothing)
-  tdef == nothing && error("transform definition not found; you gave $(namee)")
-  # do some substitution of model parameters
-  if namee=="mor"
-    tdef = [eval(Meta.parse(replace(tdef[1],"σ" => wave.σ))), eval(Meta.parse(tdef[2])), -1, [wave.σ,wave.κσ,wave.cσ], WT.name(wave)]
-  elseif namee[1:3]=="dog" || namee[1:3]=="pau"
-    tdef = [eval(Meta.parse(replace(tdef[1], "α" => WT.order(wave)))), eval(Meta.parse(replace(tdef[2], "α"=> WT.order(wave)))), WT.order(wave), [NaN], WT.name(wave)]
-  else
-    error("I'm not sure how you got here. Apparently the WaveletClass you gave doesn't have a name. Sorry about that")
-  end
-  return CFWA{T}(Float64(scalingFactor), tdef..., averagingLength, averagingType, frameBound)
+    @assert scalingFactor > 0
+    @assert (averagingType==:Mother ||averagingType==:Dirac)
+    @assert normalization >= 1.0
+    nameWavelet = WT.name(wave)[1:3]
+    tdef = get(WT.CONT_DEFS, nameWavelet, nothing)
+    tdef == nothing && error("transform definition not found; you gave $(nameWavelet)")
+    # do some substitution of model parameters
+    if nameWavelet=="mor"
+        tdef = [eval(Meta.parse(replace(tdef[1],"σ" => wave.σ))), eval(Meta.parse(tdef[2])), -1, [wave.σ,wave.κσ,wave.cσ], WT.name(wave)]
+    elseif nameWavelet[1:3]=="dog" || nameWavelet[1:3]=="pau"
+        tdef = [eval(Meta.parse(replace(tdef[1], "α" => WT.order(wave)))), eval(Meta.parse(replace(tdef[2], "α"=> WT.order(wave)))), WT.order(wave), [NaN], WT.name(wave)]
+    else
+        error("I'm not sure how you got here. Apparently the WaveletClass you gave doesn't have a name. Sorry about that")
+    end
+    return CFW{T}(Float64(scalingFactor), tdef..., averagingLength, averagingType, frameBound)
 end
 
 # If you know the averaging length
 function wavelet(c::W, s::S, averagingLength::T, averagingType::Symbol=:Mother, boundary::WT.WaveletBoundary=WT.DEFAULT_BOUNDARY, frameBound::Float64=-1.0) where {W<:WT.ContinuousWaveletClass, S<:Real,T<:Real}
-  CFWA(c, s, averagingType, boundary, averagingLength)
+  CFW(c, s, averagingType, boundary, averagingLength)
 end
 # If you want a default averaging length, just input the type
 function wavelet(c::W, s::S, averagingType::Symbol, boundary::WT.WaveletBoundary=WT.DEFAULT_BOUNDARY, frameBound::Float64=1.0) where {W<:WT.ContinuousWaveletClass, S<:Real}
-  CFWA(c, s, averagingType, boundary; frameBound=frameBound)
+  CFW(c, s, averagingType, boundary; frameBound=frameBound)
 end
 
 
@@ -63,20 +110,25 @@ end
 
 
 @doc """
-      totalN = numScales(c::CFWA,n::S; backOffset=0,nScales=-1) where S<:Integer
+      totalN = numScales(c::CFW,n::S; backOffset=0,nScales=-1) where S<:Integer
       totalN = numScales(c::Shearletsystem2D) where S<:Integer
-  given a CFWA structure and the size of a vector it is acting on,
+  given a CFW structure and the size of a vector it is acting on,
       return the number of transformed elements, including the
       averaging layer.
   alternatively, given a Shearletsystem2D structure, return the number
       of shearlets, including the averaging layer.
   """
-function numScales(c::CFWA, n::S; backOffset=0,nScales=-1) where S<:Integer
+function numScales(c::CFW, n::S; backOffset=0,nScales=-1) where S<:Integer
     if isnan(nScales) || nScales<0
         nScales = floor(Int,(log2(max(n,1))-2)*c.scalingFactor)-backOffset-c.averagingLength
     end
     return nScales
 end
+# averagingLength = 1; scalingFactor = 8; n=100; decreases = .5
+# nOctaves = log2(max(n,2)) - averag
+# nWaveletsInOctave = reverse([max(1, round(Int, scalingFactor/x^decreases)) for x=1:round(Int,nOctaves)])
+
+# nScales = sum(nWaveletsInOctave)
 
 function numScales(c::Shearletsystem2D) where S<:Integer
     return size(c.shearletIdxs,1)
@@ -99,9 +151,9 @@ name(s::CFW) = s.name
 @doc """
       daughter = Daughter(this::CFW, s::Real, ω::Array{Float64,1})
 
-  given a CFW object, return a rescaled version of the mother wavelet, in the fourier domain. ω is the frequency, which is fftshift-ed. s is the scale variable. This extension just allows us to use a ::CFWA type instead of a CFW type.
+  given a CFW object, return a rescaled version of the mother wavelet, in the fourier domain. ω is the frequency, which is fftshift-ed. s is the scale variable. This extension just allows us to use a ::CFW type instead of a CFW type.
   """
-function Daughter(this::CFWA, s::Real, ω::Array{Float64,1},normType=:none)
+function Daughter(this::CFW, s::Real, ω::Array{Float64,1},normType=:none)
     if normType == :none
         normTerm = 1
     elseif normType == :sqrtScaling
@@ -113,12 +165,12 @@ function Daughter(this::CFWA, s::Real, ω::Array{Float64,1},normType=:none)
     end
     if this.name=="morl"
         daughter = this.σ[3]*(π)^(1/4)*(exp.(-(this.σ[1].-ω/s).^2/2) .-
-        this.σ[2]*exp.(-1/2*(ω/s).^2)) 
+                                        this.σ[2]*exp.(-1/2*(ω/s).^2)) 
     elseif this.name[1:3]=="dog"
-      daughter =  normalize(im^(this.α)*sqrt(gamma((this.α)+1/2))*(ω/s).^(this.α).*exp.(-(ω/s).^2/2))
+        daughter =  normalize(im^(this.α)*sqrt(gamma((this.α)+1/2))*(ω/s).^(this.α).*exp.(-(ω/s).^2/2))
     elseif this.name[1:4]=="paul"
-      daughter = zeros(length(ω))
-      daughter[ω.>=0]= (2^this.α)/sqrt((this.α)*gamma(2*(this.α)))*((ω[ω.>=0]/s).^(this.α).*exp.(-(ω[ω.>=0]/s)))
+        daughter = zeros(length(ω))
+        daughter[ω.>=0]= (2^this.α)/sqrt((this.α)*gamma(2*(this.α)))*((ω[ω.>=0]/s).^(this.α).*exp.(-(ω[ω.>=0]/s)))
     end
     if normTerm == -1
         normTerm = 1/maximum(daughter)
@@ -131,7 +183,7 @@ end
 
 
 
-function findAveraging(c::CFWA{W}, ω::Vector{Float64}) where W<:WT.WaveletBoundary
+function findAveraging(c::CFW{W}, ω::Vector{Float64}) where W<:WT.WaveletBoundary
   s = 2^(c.averagingLength/c.scalingFactor)
   if c.name=="morl"
     # for the Morlet wavelet, the distribution is just a Gaussian, so it has variance 1/s^2 and mean σ[1]*s
@@ -178,11 +230,11 @@ end
 
 
 @doc """
-     wave = cwt(Y::AbstractArray{T}, c::CFWA{W}, averagingLength::Int; J1::S=NaN, averagingType::Symbol=:Mother) where {T<:Number, S<:Real, W<:WT.WaveletBoundary}
+     wave = cwt(Y::AbstractArray{T}, c::CFW{W}, averagingLength::Int; J1::S=NaN, averagingType::Symbol=:Mother) where {T<:Number, S<:Real, W<:WT.WaveletBoundary}
 
   return the continuous wavelet transform along the final axis with averaging wave, which is (previous dimensions)×(nscales+1)×(signalLength), of type T of Y. The extra parameter averagingLength defines the number of scales of the standard cwt that are replaced by an averaging function. This has form averagingType, which can be one of :Mother or :Dirac- in the :Mother case, it uses the same form as for the daughters, while the dirac uses a constant. J1 is the total number of scales; default (when J1=NaN, or is negative) is just under the maximum possible number, i.e. the log base 2 of the length of the signal, times the number of wavelets per octave. If you have sampling information, you will need to scale wave by δt^(1/2).
   """
-function cwt(Y::AbstractArray{T,N}, c::CFWA{W}, daughters::Array{T, M},
+function cwt(Y::AbstractArray{T,N}, c::CFW{W}, daughters::Array{T, M},
              fftPlan::FFTW.rFFTWPlan{T,A,B,C} = plan_rfft([1]); nScales::S =
              NaN, backOffset::Int=0) where {T<:Real, S<:Real, U<:Number,
                                             W<:WT.WaveletBoundary, N, M,A,B,C}
@@ -251,7 +303,7 @@ function cwt(Y::AbstractArray{T,N}, c::CFWA{W}, daughters::Array{T, M},
     return wave
 end
 
-function cwt(Y::AbstractArray{T,N}, c::CFWA{W}, daughters::Array{U,2},
+function cwt(Y::AbstractArray{T,N}, c::CFW{W}, daughters::Array{U,2},
              fftPlan::Future; nScales::S=NaN, backOffset::Int=0) where {T<:Real,
                                                                         S<:Real, U<:Number,
                                                                         W<:WT.WaveletBoundary, N}
@@ -262,7 +314,7 @@ end
 #TODO: include some logic about the types checking whether T is complex, and then using that as the base type (for both copies of wave)
 
 
-function cwt(Y::AbstractArray{T}, c::CFWA{W}; nScales::S=NaN,
+function cwt(Y::AbstractArray{T}, c::CFW{W}; nScales::S=NaN,
              backOffset::Int=0) where {T<:Number, S<:Real,
                                        W<:WT.WaveletBoundary}
     daughters = computeWavelets(Y, c; nScales=nScales, backOffset=backOffset)
@@ -273,10 +325,10 @@ end
 
 
 @doc """
-      computeWavelets(Y::AbstractArray{T}, c::CFWA{W}; J1::S=NaN, backOffset::Int=0) where {T<:Number, S<:Real, W<:WT.WaveletBoundary}
-  just precomputes the wavelets used by transform c::CFWA{W}. For details, see cwt
+      computeWavelets(Y::AbstractArray{T}, c::CFW{W}; J1::S=NaN, backOffset::Int=0) where {T<:Number, S<:Real, W<:WT.WaveletBoundary}
+  just precomputes the wavelets used by transform c::CFW{W}. For details, see cwt
   """
-function computeWavelets(n1::Integer, c::CFWA{W}; nScales::S=NaN,
+function computeWavelets(n1::Integer, c::CFW{W}; nScales::S=NaN,
                          backOffset::Int=0, T=Float64) where {S<:Real,
                                                               W<:WT.WaveletBoundary}
     # J1 is the total number of elements
@@ -314,7 +366,7 @@ function computeWavelets(n1::Integer, c::CFWA{W}; nScales::S=NaN,
     end
     return daughters
 end
-function computeWavelets(Y::AbstractArray{<:Integer}, c::CFWA{W}; nScales::S=NaN,
+function computeWavelets(Y::AbstractArray{<:Integer}, c::CFW{W}; nScales::S=NaN,
                 backOffset::Int=0, T=Float64) where {S<:Real,
                                                      W<:WT.WaveletBoundary}
     return computeWavelets(size(Y)[end], c; nScales=nScales,
@@ -330,7 +382,7 @@ end
   the frequency variable is returned as ω. n1 is the length of the
   input
       """
-function getScales(n1::Int, c::CFWA{W}; J1::S=NaN) where {S<:Real, W<:WT.WaveletBoundary}
+function getScales(n1::Int, c::CFW{W}; J1::S=NaN) where {S<:Real, W<:WT.WaveletBoundary}
     # J1 is the total number of elements
     if (isnan(J1) || (J1<0)) && c.name!="morl"
         J1=floor(Int,(log2(n1))*c.scalingFactor);
@@ -361,7 +413,7 @@ function getScales(n1::Int, c::CFWA{W}; J1::S=NaN) where {S<:Real, W<:WT.Wavelet
     return (daughters,ω)
 end
 
-function getScales(c::CFWA{W}, n1::Int; J1::S=NaN) where {S<:Real,
+function getScales(c::CFW{W}, n1::Int; J1::S=NaN) where {S<:Real,
                                                           W<:WT.WaveletBoundary}
     getScales(n1, c; J1=J1)
 end
@@ -379,7 +431,7 @@ function sheardec2D(X, shearletSystem, P::Future, padded, padBy)
     sheardec2D(X,shearletSystem, fetch(P), padded, padBy)
 end
 
-function sheardec2D(X::SubArray{Complex{T}, N},
+function sheardec2D(X::AbstractArray{Complex{T}, N},
                     shearletSystem::Shearlab.Shearletsystem2D{T},
                     P::FFTW.cFFTWPlan{Complex{T}, A, B, C},
                     padded::Bool, padBy::Tuple{Int, Int}) where {T <: Real, A,
@@ -406,7 +458,7 @@ function sheardec2D(X::SubArray{Complex{T}, N},
     return coeffs
 end # sheardec2D
 
-function sheardec2D(X::Array{Complex{T}, 2},
+function sheardec2D(X::AbstractArray{Complex{T}, 2},
            shearletSystem::Shearlab.Shearletsystem2D{T},
            P::FFTW.cFFTWPlan{Complex{T}, A, B, C}, padded::Bool,
            padBy::Tuple{Int, Int}) where {T <: Real, A,
@@ -415,7 +467,7 @@ function sheardec2D(X::Array{Complex{T}, 2},
 end
 
 
-function sheardec2D(X::SubArray{T,N},
+function sheardec2D(X::AbstractArray{T,N},
                     shearletSystem::Shearlab.Shearletsystem2D{T},
                     P::FFTW.rFFTWPlan{T,B,C,D}, padded::Bool,
                     padBy::Tuple{Int, Int}) where {T<:Real, N, B, C, D}
@@ -438,6 +490,14 @@ function sheardec2D(X::SubArray{T,N},
     end
     return coeffs
 end # sheardec2D
+
+function sheardec2D(X::AbstractArray{T,N},
+                    shearletSystem::Shearlab.Shearletsystem2D{T}) where {T<:Real, N, B, C, D}
+    padBy = getPadBy(shearletSystem)
+    fftPlan = createRemoteFFTPlan(size(X)[end-1:end], padBy, T, !(eltype(X)<:Real))
+    return sheardec2D(X, shearletSystem, fftPlan, true, padBy)
+end
+
 
 
 #################### Reconstruction main functions ##############################
@@ -539,8 +599,6 @@ function shearing!(X::AbstractArray{T,2}, neededShear, P, coeffs, padBy, used1,
 end
 
 
-sheardec2D(X::Array{T,2}, shearletSystem::Shearlab.Shearletsystem2D{T},
-           P::FFTW.rFFTWPlan{T,B,C,D}, padded::Bool, padBy::Tuple{Int, Int}) where {T<:Real, N, B, C, D} = sheardec2D(view(X,:,:), shearletSystem, P, padded, padBy)
 
 
 function getPadBy(shearletSystem::Shearlab.Shearletsystem2D{T}) where {T<:Number}

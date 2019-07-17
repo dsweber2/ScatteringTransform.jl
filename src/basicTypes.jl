@@ -65,25 +65,47 @@ function layeredTransform(m::S, Xlength::S, nScales::Array{S,1},
                           averagingType::Array{Symbol,1} = [:Mother for
                                                             i=1:(m+1)],
                           boundary::Array{W,1} = [WT.DEFAULT_BOUNDARY for
-                                                  i=1:(m+1)]) where {S <:
-                                                                     Integer, 
-                                                                     T <: Real,
-                                                                     W <:
-                                                                     WT.WaveletBoundary,
-                                                                     V <:
-                                                                     WT.ContinuousWaveletClass}
-    @assert m+1==size(subsampling,1)
-    @assert m+1==size(nScales,1)
+                                                  i=1:(m+1)],
+                          frameBounds=[1.0 for i=1:(m+1)]) where {S <:
+                                                                  Integer, 
+                                                                  T <: Real,
+                                                                  W <:
+                                                                  WT.WaveletBoundary,
+                                                                  V <:
+                                                                  WT.ContinuousWaveletClass}
+    @assert m+1 == size(subsampling, 1)
+    @assert m+1 == size(nScales, 1)
     
     println("Treating as a 1D Signal. Vector Lengths: $Xlength nScales:" *
             "$nScales subsampling: $subsampling")
     shears = [wavelet(CWTType, nScales[i], averagingLength[i],
-                      averagingType[i], boundary[i]) for (i,x) in
+                      averagingType[i], boundary[i], frameBounds[i]) for (i,x) in
               enumerate(subsampling)]
     
     layeredTransform{typeof(shears[1]), 1}(m, (Xlength,), shears,
                                            Float32.(subsampling), [1 1])
 end
+
+
+
+
+# version with explicit name calling
+function layeredTransform(m::S, Xlength::S; nScales::Array{S,1} = [8 for
+                                                                   i=1:(m+1)],
+                          subsampling::Array{T,1} = [2 for i=1:(m+1)],
+                          CWTType::WT.ContinuousWaveletClass=WT.morl,
+                          averagingLength::Array{S,1} = ceil.(S, 2*nScales),
+                          averagingType::Array{Symbol,1} = [:Mother for
+                                                                   i=1:(m+1)],
+                          boundary::Array{W,1} = [WT.DEFAULT_BOUNDARY for
+                                                  i=1:(m+1)],
+                          frameBounds=[1.0 for i=1:(m+1)]) where {S <: Integer,
+                                                     T <: Real,
+                                                     W <: WT.WaveletBoundary}
+    layeredTransform(m, Xlength, nScales, subsampling, CWTType,
+                     averagingLength, averagingType, boundary, frameBounds)
+end
+
 
 
 ################################################################################
@@ -149,23 +171,8 @@ function layeredTransform(m::S, Xsizes::Tuple{<:Integer, <:Integer},
 end
 
 
-# versions with explicit name calling
-function layeredTransform(m::S, Xlength::S; nScales::Array{S,1} = [8 for
-                                                                   i=1:(m+1)],
-                          subsampling::Array{T,1} = [2 for i=1:(m+1)],
-                          CWTType::WT.ContinuousWaveletClass=WT.morl,
-                          averagingLength::Array{S,1} = ceil.(S, nScales/2),
-                          averagingType::Array{Symbol,1} = [:Mother for
-                                                                   i=1:(m+1)],
-                          boundary::Array{W,1} = [WT.DEFAULT_BOUNDARY for
-                                                  i=1:(m+1)]) where {S <: Integer,
-                                                                     T <: Real,
-                                                                     W <: WT.WaveletBoundary}
-    layeredTransform(m, Xlength, nScales, subsampling, CWTType,
-                     averagingLength, averagingType, boundary)
-end
 
-# the same for shearlets
+# version with explicit name calling
 function layeredTransform(m::Int, Xsizes::Tuple{<:Integer, <:Integer};
                           nScale::Int=2, nScales::Array{<:Integer,1} = [nScale for
                                                                         i=1:(m+1)],
