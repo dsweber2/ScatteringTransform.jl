@@ -9,7 +9,7 @@ using HDF5, Plots, JLD
 include("subsampling.jl")
 export resample, sizes, bsplineType, bilinearType, autocorrType
 include("modifiedTransforms.jl")
-export CFWA, WT, wavelet, cwt, getScales, computeWavelets
+export WT, wavelet, cwt, getScales, computeWavelets
 include("basicTypes.jl")
 export layeredTransform, scattered
 include("Utils.jl")

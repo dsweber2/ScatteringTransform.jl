@@ -23,7 +23,9 @@ layer2 = layeredTransform(m2, size(X2); subsample = subsamp, nScale = nScales,
 m3=2
 X3 = zeros(Float32, 1, 50, 50)
 X3[1, 13:37, 13:37] = ones(Float32, 25, 25)
-layer3 = layeredTransform(m3, size(X3)[end-1:end], typeBecomes=eltype(X3))
+layer3 = layeredTransform(m3, size(X3)[end-1:end], typeBecomes=eltype(
+
+    X3))
 asdf = st(X3, layer3, absType())
 results = ScatteringTransform.wrap(layer3, asdf, X3)
 @testset "layer construction" begin

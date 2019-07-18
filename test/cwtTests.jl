@@ -48,7 +48,7 @@ end
             for sb in scalingfactors
                 for ave in averagingTypes
                     for comp in precomputed
-                        waveConst = CFWA(wave, sb, ave)
+                        waveConst = CFW(wave, sb, ave)
                         println("$(wave), $(sb), $(ave), $(size(inn))")
                         if comp
                             daughters = computeWavelets(size(inn,1), waveConst)
