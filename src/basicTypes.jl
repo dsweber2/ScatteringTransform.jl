@@ -115,9 +115,10 @@ function layeredTransform(m::S, Xsizes::Tuple{<:Integer, <:Integer},
                           nScales::Array{<:Integer, 1}, subsampling::Array{T, 1},
                           shearLevels::Array{<:Array{<:Integer, 1}},
                           padding::Bool, gpu::Bool=false, percentage=.9,
-                          typeBecomes::DataType=Float32, frameBound=typeBecomes(-1.0)) where {S<:Integer,
-                                                                                              T<:Real,
-                                                                                              W<:Shearlab.Shearletsystem2D}
+                          typeBecomes::DataType=Float32,
+                          frameBound=typeBecomes(-1.0)) where {S<:Integer,
+                                                               T<:Real,
+                                                               W<:Shearlab.Shearletsystem2D}
     @assert m+1==size(subsampling, 1)
     @assert m+1==size(nScales, 1)
 
@@ -128,44 +129,10 @@ function layeredTransform(m::S, Xsizes::Tuple{<:Integer, <:Integer},
             "$nScales subsampling: $subsampling")
     shears =  [Shearlab.getshearletsystem2D(rows[i], cols[i], nScales[i],
                                             shearLevels[i];
-                                            typeBecomes=typeBecomes) for (i,x) in
+                                            typeBecomes=typeBecomes,
+                                            upperFrameBound = frameBound,
+                                            padded = padding) for (i,x) in
                enumerate(subsampling)]
-    outputSizes = getResizingRates(shears, length(shears)-1, percentage=percentage)
-    # adjust the shearlets to handle the padding
-    for (i, shear) in enumerate(shears)
-        padBy = getPadBy(shears[i])
-        shearlets = real.(fftshift(ifft(ifftshift(shear.shearlets, (1, 2)), (1, 2)), (1, 2)))
-        newShears = zeros(eltype(shearlets), (size(shear.shearlets)[1:2]
-                                              .+ 2 .* padBy)...,
-                          size(shear.shearlets, 3))
-        if typeBecomes<:Real
-            P = plan_rfft(view(newShears, :, :, 1))
-            newShears = zeros(Complex{eltype(shearlets)}, div(size(newShears,1), 2)+1,
-                              size(newShears)[2:3]...)
-        else
-            P = plan_fft(view(newShears, :, :, 1))
-            newShears = zeros(eltype(shearlets), div(size(newShears,1), 2)+1,
-                              size(newShears)[2:3]...)
-        end
-        for j=1:size(shear.shearlets, 3)
-            newShears[:, :, j] = fftshift(P * pad(shearlets[:,:,j], padBy))
-        end
-        dualFrameWeights = sum(real.(abs.(newShears).^2), dims=3)[:,:]
-        if frameBound > 0
-            totalMass = norm(dualFrameWeights, Inf)
-            normalize = typeBecomes(frameBound)/totalMass
-            newShears = newShears .* normalize
-            dualFrameWeights
-        end
-
-        shears[i] = Shearletsystem2D{typeBecomes}(newShears, shear.size,
-                                                  shear.shearLevels,
-                                                  shear.full, shear.nShearlets,
-                                                  shear.shearletIdxs,
-                                                  dualFrameWeights, shear.RMS,
-                                                  shear.isComplex, shear.gpu,
-                                                  shear.support)
-    end
     return layeredTransform{typeof(shears[1]), 2}(m, Xsizes, shears,
                                                   Float32.(subsampling), outputSizes)
 end

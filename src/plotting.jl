@@ -38,19 +38,19 @@ function comparePathsChildren(thinResult::Array{<:Real,N}, layers::layeredTransf
 end
 
 # TODO figure out which plotter is the more useful of the two
-function comparePathsChildren(thickResult::scattered{T,N}, path::pathType, layers::layeredTransform; outputSubsample=(-1,3), names=["" for i=1:size(thickResult.output,1)], colorScheme=:curl, scale::Symbol=:log, title="",titleSize=12) where {N,T}
-    toPlot = thickResult.output[path.m+2]
-    accessDims = getPathsChildren(path, layers, size(thickResult.data[1])[1:end-1])
-    toPlot = permutedims(toPlot[axes(toPlot)[1:end-1]..., accessDims],(1, 3, 2))
-    ranges = (minimum(toPlot), maximum(toPlot))
-    colorMeMine = cgrad(colorScheme,scale=scale)
-    if title==""
-        return plot([heatmap(toPlot[i,:,:], xticks=1:size(toPlot)[end], xlabel="space", ylabel="frequency", clims=ranges, fillcolor=colorMeMine,title=names[i]) for i=1:size(toPlot,1)]...)
-    else
-        return plot([heatmap(toPlot[i,:,:], xticks=1:size(toPlot)[end], clims=ranges, fillcolor=colorMeMine, title=names[i]) for i=1:size(toPlot, 1)]..., plot(annotations = (.5,.5,text(title, :center, titleSize)), axis=false, xticks=[], yticks=[]))
-    end
-end
+# function comparePathsChildren(thickResult::scattered{T,N}, path::pathType, layers::layeredTransform; outputSubsample=(-1,3), names=["" for i=1:size(thickResult.output,1)], colorScheme=:curl, scale::Symbol=:log, title="",titleSize=12) where {N,T}
+#     toPlot = thickResult.output[path.m+2]
+#     accessDims = getPathsChildren(path, layers, size(thickResult.data[1])[1:end-1])
+#     toPlot = permutedims(toPlot[axes(toPlot)[1:end-1]..., accessDims],(1, 3, 2))
+#     ranges = (minimum(toPlot), maximum(toPlot))
+#     colorMeMine = cgrad(colorScheme,scale=scale)
+#     if title==""
+#         return plot([heatmap(toPlot[i,:,:], xticks=1:size(toPlot)[end], xlabel="space", ylabel="frequency", clims=ranges, fillcolor=colorMeMine,title=names[i]) for i=1:size(toPlot,1)]...)
+#     else
+#         return plot([heatmap(toPlot[i,:,:], xticks=1:size(toPlot)[end], clims=ranges, fillcolor=colorMeMine, title=names[i]) for i=1:size(toPlot, 1)]..., plot(annotations = (.5,.5,text(title, :center, titleSize)), axis=false, xticks=[], yticks=[]))
+#     end
+# end
 
-function comparePathsChildren(thickResult::scattered{T,N}, path::pathType, layers::layeredTransform; outputSubsample=(-1,3), saveDirectory="", names=["" for i=1:size(thickResult.output,1)], colorScheme=:curl, scale::Symbol=:log, title="",titleSize=12) where {N,T}
-    return comparePathsChildren(flatten(thickResult), path, layers; outputSubsample=outputSubsample, names=names, colorScheme=colorScheme, scale=scale, title=title, titleSize=titleSize, saveDirectory=saveDirectory)
-end
+# function comparePathsChildren(thickResult::scattered{T,N}, path::pathType, layers::layeredTransform; outputSubsample=(-1,3), saveDirectory="", names=["" for i=1:size(thickResult.output,1)], colorScheme=:curl, scale::Symbol=:log, title="",titleSize=12) where {N,T}
+#     return comparePathsChildren(flatten(thickResult), path, layers; outputSubsample=outputSubsample, names=names, colorScheme=colorScheme, scale=scale, title=title, titleSize=titleSize, saveDirectory=saveDirectory)
+# end
