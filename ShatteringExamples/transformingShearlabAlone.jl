@@ -14,11 +14,11 @@ using FFTW
 
 
 println("using statements done")
-train_x, train_y = MNIST.traindata();
-test_x, test_y = MNIST.testdata();
+train_x, train_y = FashionMNIST.traindata();
+test_x, test_y = FashionMNIST.testdata();
 dataTot = SharedArray{Float32}(Float32.(cat(train_x, test_x, dims=3)));
 labelTot = [train_y; test_y];
-file = open("/fasterHome/workingDataDir/shattering/ShearLab_MNIST_labels_juliaOrdered.bin", "w+")
+file = open("/fasterHome/workingDataDir/shattering/ShearLab_FashionMNIST_labels_juliaOrdered.bin", "w+")
 write(file, length(labelTot))
 write(file, labelTot)
 close(file)
@@ -34,9 +34,13 @@ function compareShearLoc(shears, transformed, original, shearNum, nExample)
     plot(heatmap(transformed[:,:,shearNum,nExample],title="Sheared"), heatmap(baseDomainShearlet, title="Shearlet"), heatmap(original[:,:,nExample], title="Original"))
 end
 netResults = Shearlab.sheardec2D(dataTot, shears);
-s = h5open("/fasterHome/workingDataDir/shattering/shearlab_MNIST_2shearLevels.h5", "cw")
+s = h5open("/fasterHome/workingDataDir/shattering/shearlab_FashionMNIST_2shearLevels.h5", "cw")
+A = reshape(tmp[:,:,:,:], (prod(size(tmp)[1:3]), size(tmp,4)))
+(prod(size(tmp)[1:3]), size(tmp,4))
+tmp = s["data/shattered"]
 s["data/shattered"] = netResults
-s = open("/fasterHome/workingDataDir/shattering/shearlab_MNIST_2shearLevels.bin", "w")
+close(s)
+s = open("/fasterHome/workingDataDir/shattering/shearlab_FashionMNIST_2shearLevels.bin", "w")
 # We'll write the dimensions of the array as the first two Ints in the file
 write(s, 28*28*size(shears.shearlets, 3))
 write(s, nTot)

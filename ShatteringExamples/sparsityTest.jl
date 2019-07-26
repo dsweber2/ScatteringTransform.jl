@@ -1,9 +1,8 @@
-# using ScatteringTransform 
+using ScatteringTransform 
 using Plots, Statistics, PowerLaws, MLDatasets
-using Distributed
-@everywhere using HDF5
+using HDF5
 
-@everywhere function reorderCoeff(A::AbstractArray{T,2}) where T
+function reorderCoeff(A::AbstractArray{T,2}) where T
     if size(A,1)==1
         includingZeros = reshape(sort(abs.(A), dims =
                                       length(size(A)),rev=true), (length(A,)))
@@ -17,7 +16,7 @@ using Distributed
         return includingZeros[1:firstZero]
     end
 end
-@everywhere reorderCoeff(A::AbstractArray{T,1}) where T = sort(abs.(A), rev=true)
+reorderCoeff(A::AbstractArray{T,1}) where T = sort(abs.(A), rev=true)
 
 """
     conPowerFit, KSstatistic = testSingleRow(A, i)
@@ -54,33 +53,40 @@ end
 # load the dataset; row examples (nExamples×dims)
 
 
-using GLM, DataFrames, Distributed, SharedArrays
+using GLM, DataFrames, Distributed, SharedArrays, Plots
 addprocs(10)
 @everywhere using GLM, DataFrames, SharedArrays
 function fitPolyDecay(A)
-    coeffs = SharedArray{Float64}(zeros(size(A,1), 2))
-    stderrs = SharedArray{Float64}(zeros(size(A,1), 2))
-    for i=1:size(A,1)
-        df = DataFrame(X=Float64.(log.(1:size(A,2))), Y=Float64.(log.(reorderCoeff(A[i,:]))))
+    println(size(A))
+    coeffs = zeros(2, size(A,2))
+    stderrs = zeros(2, size(A,2))
+    plts = Array{Any}(undef, ceil(Int,size(A,2)/100))
+    for i=1:size(A,2)
+        df = DataFrame(X=Float64.(log.(1:size(A,1))),
+                       Y=Float64.(log.(reorderCoeff(A[:, i]))))
         ols = lm(@formula(Y~X), df)
-        coeffs[i,:] = coef(ols) .*[1, -1]
-        stderrs[i,:] = stderror(ols)
+        coeffs[:, i] = coef(ols) .*[1, -1]
+        stderrs[:, i] = stderror(ols)
         if i%100==0
-            println("On $(i)")
+            println("On $(i), $(floor(Int, i/100))")
+            plts[floor(Int, i/100)] = plot(df[:X], df[:Y])
         end
     end
-    return (coeffs, stderrs)
+    return (coeffs, stderrs, plts)
 end
+coeffs, stderrs, plts = fitPolyDecay(A[:,1:1000])
+plts[5]
+coeffs
 function fitPolyDecay(A,transpose=true)
-    coeffs = SharedArray{Float64}(zeros(size(A,2), 2))
-    stderrs = SharedArray{Float64}(zeros(size(A,2), 2))
-    for i=1:size(A,2)
-        reorderedData = Float64.(log.(reorderCoeff(A[:, i]')))
+    coeffs = SharedArray{Float64}(zeros(2, size(A,1)))
+    stderrs = SharedArray{Float64}(zeros(2, size(A,1)))
+    for i=1:size(A,1)
+        reorderedData = Float64.(log.(reorderCoeff(A[i, :]')))
         df = DataFrame(X=Float64.(log.(1:size(reorderedData,1))),
                        Y=reorderedData)
         ols = lm(@formula(Y~X), df)
-        coeffs[i,:] = coef(ols) .*[1, -1]
-        stderrs[i,:] = stderror(ols)
+        coeffs[:, i] = coef(ols) .*[1, -1]
+        stderrs[:, i] = stderror(ols)
         if i%100==0
             println("On $(i)")
         end
@@ -88,24 +94,113 @@ function fitPolyDecay(A,transpose=true)
     return (coeffs, stderrs)
 end
 
-pithyNames = ["abs", "ReLU", "tanh", "softplus", "piecewise", "kymat"]
+
+#########################################################################################################
+# comparing the actual decay paths of Kymat and shearlets
+pithyNames = ["shearlab"]
 dataSets = ["FashionMNIST", "MNIST"]
-filenames = ["/fasterHome/workingDataDir/shattering/shattered"*y*x*"2.h5"
+filenames = ["/fasterHome/workingDataDir/shattering/"*x*"_"*y*"_2shearLevels.h5"
              for x in pithyNames for y in dataSets]
-# filename =  "/fasterHome/workingDataDir/shattering/shatteredMNISTpiecewise2.h5"
-# filename = "/fasterHome/workingDataDir/shattering/kymatio2MNIST.h5"
-# Atmp = h5open(filename,"r")
-# A = Atmp["data/shattered"]
-writeTo = h5open("/fasterHome/workingDataDir/shattering/sparsity.h5","w")
+Atmp = h5open(filenames[1], "r")
+A = Atmp["data/shattered"][:,:,:,:];
+A = reshape(A, (prod(size(A)[1:3]), size(A,4)));
+Btmp = h5open("/fasterHome/workingDataDir/shattering/kymatio2FashionMNIST.h5")
+B = Btmp["data/shattered"][:,:];
+Ctmp = h5open("/fasterHome/workingDataDir/shattering/shatteredFashionMNISTabs2.h5")
+C = Ctmp["data/shattered"][:,:];
+coeffsA, stderrsA, pltsA = fitPolyDecay(A[:,1:1000])
+coeffsB, stderrsB, pltsB = fitPolyDecay(A[:,1:1000])
+coeffsC, stderrsC, pltsC = fitPolyDecay(C[:,1:1000])
+using Statistics, Plots
+reordA = cat([reorderCoeff(A[:,i]) for i=1:1000]..., dims=2);
+shearAve = mean(reordA, dims=2);
+shearstd = std(reordA, dims=2);
+reordB = cat([reorderCoeff(B[:,i]) for i=1:1000]..., dims=2);
+kymatAve = mean(reordB,dims=2);
+kymatstd = std(reordB, dims=2);
+reordC = cat([reorderCoeff(C[:,i]) for i=1:1000]..., dims=2);
+shatterAve = mean(reordC, dims=2);
+shatterstd = std(reordC, dims=2);
+∇choice = ColorGradient(:dense)
+
+function linearEstimator(y, X)
+    intercept = mean(X)
+    X = X .- intercept
+    slope = (X'*X) \(X'*y)
+    return (slope[1], intercept)
+end
+function linEst(y, X)
+    slope,inter = linearEstimator(y, X)
+    return X*slope .+ inter
+end
+linEst(log.(kymatAve), log.(1:size(B,1)))
+linearEstimator(log.(kymatAve), log.(1:size(B,1)))
+coeffs, stderrs, plts = fitPolyDecay(kymatAve)
+coeffs, stderrs, plts = fitPolyDecay(shearAve)
+coeffs, stderrs, plts = fitPolyDecay(shatterAve)
+
+c = .3; plot(log.(1:size(B,1)), log.(kymatAve), color=∇choice[c],
+             label="kymat first 1000 ave")
+plot!(log.(1:size(B,1)), log.(kymatAve)-log.(kymatstd), alpha=.5,
+      color=∇choice[c], fillcolor=∇choice[c],
+      fillrange=log.(kymatAve)+log.(kymatstd),
+      label="kymat first 1000 std Dev", legend=:bottomleft)
+plot!(log.(1:size(B,1)), linEst(log.(kymatAve), log.(1:size(B,1))),
+      color=∇choice[c])
+
+c = .7; plot!(log.(1:size(A,1)), log.(shearAve), color=∇choice[c],
+              label="shear ave")
+plot!(log.(1:size(A,1)), log.(shearAve)-log.(shearstd), alpha=.5,
+      color=∇choice[c], fillcolor=∇choice[c],
+      fillrange=log.(shearAve)+log.(shearstd),
+      label="shear std Dev",legend=:bottomleft) 
+plot!(log.(1:size(A,1)), linEst(log.(shearAve), log.(1:size(A,1))),
+      color=∇choice[c])
+plot!(log.(1:size(A,1)), linEst(log.(shearAve), log.(1:size(A,1))),
+      color=∇choice[c])
+linearEstimator(log.(shearAve), log.(1:size(A,1)))
+
+
+c = .9; plot!(log.(1:size(C,1)), log.(shatterAve), color=∇choice[c],
+              label="shatter ave")
+plot!(log.(1:size(C,1)), log.(shatterAve)-log.(shatterstd), alpha=.5,
+      color=∇choice[c], fillcolor=∇choice[c],
+      fillrange=log.(shatterAve)+log.(shatterstd),
+      label="shatter std Dev",legend=:bottomleft) 
+plot!(log.(1:size(C,1)), linEst(log.(shearAve), log.(1:size(C,1))),
+      color=∇choice[c], label="linear fit shatter")
+ylims!((-15,10))
+title!("Comparison of decay rates for the first 1000 images:\n Kymatio, Shearlab, and shattering")
+xlabel!("log(index)")
+ylabel!("log(value)")
+
+plot(log.(1:size(B,1)), log.(reorderCoeff(B[:,1])),label="prototypical")
+plot!(log.(1:size(A,1)), log.(reorderCoeff(A[:,1])))
+plot(log.(1:size(A,1)), max.(-22, [log.(reorderCoeff(A[:,1])) log.(reorderCoeff(A[:,2])) -coeffsA[2,2]*log.(1:size(A,1)) .+ coeffsA[1,2]]), labels = ["example with Inf slope", "ex with given fit", "fit"], xlabel ="log(index)", ylabel="log(value)")
+plot(log.(1:size(A,1)),log.(reorderCoeff(A[:,2])))
+
+#########################################################################################################
+#########################################################################################################
+
+
+
+
+pithyNames = ["shearlab"]
+dataSets = ["FashionMNIST", "MNIST"]
+filenames = ["/fasterHome/workingDataDir/shattering/"*x*"_"*y*"_2shearLevels.h5"
+             for x in pithyNames for y in dataSets]
+writeTo = h5open("/fasterHome/workingDataDir/shattering/sparsity.h5","cw")
+names(writeTo)
 for pith in pithyNames, dat in dataSets
     if pith=="kymat"
         filename = "/fasterHome/workingDataDir/shattering/kymatio2"*dat*".h5"
     else
-        filename = "/fasterHome/workingDataDir/shattering/shattered"*dat*pith*"2.h5"
+        filename = "/fasterHome/workingDataDir/shattering/"*pith*"_"*dat*"_2shearLevels.h5"
     end
     println("On file $(filename)")
     Atmp = h5open(filename, "r")
-    A = Atmp["data/shattered"]
+    A = Atmp["data/shattered"][:,:,:,:]
+    A = reshape(A, (prod(size(A)[1:3]), size(A,4)))
     coeffs, stderrs = fitPolyDecay(A)
     close(Atmp)
     try
@@ -181,11 +276,23 @@ function summarize(coeffs)
 end
 
 results = Dict((x*" "*y,summarize(Atmp[x][y]["coeffs"][:, 2])) for x in pithyNames for y in dataSets)
+results = Dict((x*" "*y,summarize(Atmp[x][y]["coeffs"][2, :])) for x in pithyNames for y in dataSets)
 
+# Atmp = h5open("/fasterHome/workingDataDir/shattering/sparsity.h5","cw")
+# names(Atmp)
 
-Atmp = h5open("/fasterHome/workingDataDir/shattering/sparsity.h5","r")
-
-
+# Atmp2 = h5open("/VastExpanse/data/shattering/sparsity.h5","r")
+# for folder in names(Atmp2)
+#     for dataset in names(Atmp2[folder])
+#         for dType in names(Atmp2[joinpath(folder, dataset)])
+#             #println(Atmp2[joinpath(folder, dataName)])
+#             println(size(Atmp2[joinpath(folder, dataset, dType)]))
+#         end
+#     end
+# end
+# Atmp[]
+Atmp = writeTo
+using Plots
 h1 = histogram(getNonNans(Atmp["ReLU/FashionMNIST/coeffs"][:,2]), norm=true,
                label="ReLU",alpha=.5, xlabel="Decay Rate",
                ylabel="Number Of Examples")
@@ -205,13 +312,18 @@ h4 = histogram(getNonNans(Atmp["kymat/FashionMNIST/coeffs"][:,2]), norm=true,
 vline!((results["kymat FashionMNIST"][1], results["kymat FashionMNIST"][1]), label="ave")
 
 h5 = histogram(getNonNans(Atmp["piecewise/FashionMNIST/coeffs"][:,2]), norm=true,
-               label="tanh",alpha=.5, xlabel="Decay Rate",
+               label="piecewise",alpha=.5, xlabel="Decay Rate",
                ylabel="Number Of Examples")
 vline!((results["piecewise FashionMNIST"][1], results["piecewise FashionMNIST"][1]), label="ave")
 h6 = histogram(getNonNans(Atmp["softplus/FashionMNIST/coeffs"][:,2]), norm=true,
                label="softplus",alpha=.5, xlabel="Decay Rate",
                ylabel="Number Of Examples") 
-vline!((results["softplus FashionMNIST"][1], results["softplus FashionMNIST"][1]), label="ave")
+vline!((results["softplus FashionMNIST"][1], results["softplus
+               FashionMNIST"][1]), label="ave")
+h7 = histogram!(getNonNans(Atmp["shearlab/FashionMNIST/coeffs"][2,:]), norm=true,
+               label="shearlab",alpha=.5, xlabel="Decay Rate",
+               ylabel="Number Of Examples")
+vline!((results["shearlab FashionMNIST"][1], results["shearlab FashionMNIST"][1]), label="ave")
 plot(h1, h2,h3,h4,h5,h6, layout=(2,3))
 savefig("sparsityFashionMNIST.pdf")
 
