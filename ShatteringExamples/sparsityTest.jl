@@ -58,14 +58,15 @@ addprocs(10)
 @everywhere using GLM, DataFrames, SharedArrays
 function fitPolyDecay(A)
     println(size(A))
-    coeffs = zeros(2, size(A,2))
-    stderrs = zeros(2, size(A,2))
+    coeffs = zeros(3, size(A,2))
+    stderrs = zeros(3, size(A,2))
     plts = Array{Any}(undef, ceil(Int,size(A,2)/100))
     for i=1:size(A,2)
-        df = DataFrame(X=Float64.(log.(1:size(A,1))),
+        X = Float64.(log.(1 .+(1:size(A,1))))
+        df = DataFrame(X=X, lnX=log.(X),
                        Y=Float64.(log.(reorderCoeff(A[:, i]))))
-        ols = lm(@formula(Y~X), df)
-        coeffs[:, i] = coef(ols) .*[1, -1]
+        ols = lm(@formula(Y~ X + lnX), df)
+        coeffs[:, i] = coef(ols) .*[1, -1, -1]
         stderrs[:, i] = stderror(ols)
         if i%100==0
             println("On $(i), $(floor(Int, i/100))")
@@ -74,6 +75,7 @@ function fitPolyDecay(A)
     end
     return (coeffs, stderrs, plts)
 end
+
 coeffs, stderrs, plts = fitPolyDecay(A[:,1:1000])
 plts[5]
 coeffs
@@ -97,16 +99,17 @@ end
 
 #########################################################################################################
 # comparing the actual decay paths of Kymat and shearlets
+dataset = 2
 pithyNames = ["shearlab"]
 dataSets = ["FashionMNIST", "MNIST"]
 filenames = ["/fasterHome/workingDataDir/shattering/"*x*"_"*y*"_2shearLevels.h5"
              for x in pithyNames for y in dataSets]
-Atmp = h5open(filenames[1], "r")
+Atmp = h5open(filenames[dataset], "r")
 A = Atmp["data/shattered"][:,:,:,:];
 A = reshape(A, (prod(size(A)[1:3]), size(A,4)));
-Btmp = h5open("/fasterHome/workingDataDir/shattering/kymatio2FashionMNIST.h5")
+Btmp = h5open("/fasterHome/workingDataDir/shattering/kymatio2$(dataSets[dataset]).h5")
 B = Btmp["data/shattered"][:,:];
-Ctmp = h5open("/fasterHome/workingDataDir/shattering/shatteredFashionMNISTabs2.h5")
+Ctmp = h5open("/fasterHome/workingDataDir/shattering/shattered$(dataSets[dataset])abs2.h5")
 C = Ctmp["data/shattered"][:,:];
 coeffsA, stderrsA, pltsA = fitPolyDecay(A[:,1:1000])
 coeffsB, stderrsB, pltsB = fitPolyDecay(A[:,1:1000])
@@ -133,9 +136,14 @@ function linEst(y, X)
     slope,inter = linearEstimator(y, X)
     return X*slope .+ inter
 end
+function genloglin(coeffs,X)
+    coeffs[1] .- (X .* coeffs[2] + log.(X) .* coeffs[3])
+end
 linEst(log.(kymatAve), log.(1:size(B,1)))
 linearEstimator(log.(kymatAve), log.(1:size(B,1)))
-coeffs, stderrs, plts = fitPolyDecay(kymatAve)
+coeffsB, stderrsB, plts = fitPolyDecay(kymatAve)
+plot(Xloc(B), genloglin(coeffsB,Xloc(B)))
+plot(Xloc(B), [genloglin(coeffsB,Xloc(B)) log.(kymatAve)])
 coeffs, stderrs, plts = fitPolyDecay(shearAve)
 coeffs, stderrs, plts = fitPolyDecay(shatterAve)
 
@@ -145,8 +153,8 @@ plot!(log.(1:size(B,1)), log.(kymatAve)-log.(kymatstd), alpha=.5,
       color=∇choice[c], fillcolor=∇choice[c],
       fillrange=log.(kymatAve)+log.(kymatstd),
       label="kymat first 1000 std Dev", legend=:bottomleft)
-plot!(log.(1:size(B,1)), linEst(log.(kymatAve), log.(1:size(B,1))),
-      color=∇choice[c])
+# plot!(log.(1:size(B,1)), linEst(log.(kymatAve), log.(1:size(B,1))),
+#       color=∇choice[c])
 
 c = .7; plot!(log.(1:size(A,1)), log.(shearAve), color=∇choice[c],
               label="shear ave")
@@ -154,12 +162,8 @@ plot!(log.(1:size(A,1)), log.(shearAve)-log.(shearstd), alpha=.5,
       color=∇choice[c], fillcolor=∇choice[c],
       fillrange=log.(shearAve)+log.(shearstd),
       label="shear std Dev",legend=:bottomleft) 
-plot!(log.(1:size(A,1)), linEst(log.(shearAve), log.(1:size(A,1))),
-      color=∇choice[c])
-plot!(log.(1:size(A,1)), linEst(log.(shearAve), log.(1:size(A,1))),
-      color=∇choice[c])
-linearEstimator(log.(shearAve), log.(1:size(A,1)))
-
+# plot!(log.(1:size(A,1)), linEst(log.(shearAve), log.(1:size(A,1))),
+#       color=∇choice[c])
 
 c = .9; plot!(log.(1:size(C,1)), log.(shatterAve), color=∇choice[c],
               label="shatter ave")
@@ -167,12 +171,13 @@ plot!(log.(1:size(C,1)), log.(shatterAve)-log.(shatterstd), alpha=.5,
       color=∇choice[c], fillcolor=∇choice[c],
       fillrange=log.(shatterAve)+log.(shatterstd),
       label="shatter std Dev",legend=:bottomleft) 
-plot!(log.(1:size(C,1)), linEst(log.(shearAve), log.(1:size(C,1))),
-      color=∇choice[c], label="linear fit shatter")
+# plot!(log.(1:size(C,1)), linEst(log.(shatterAve), log.(1:size(C,1))),
+#       color=∇choice[c], label="linear fit shatter")
 ylims!((-15,10))
-title!("Comparison of decay rates for the first 1000 images:\n Kymatio, Shearlab, and shattering")
+title!("Comparison of decay rates for the first 1000 MNIST images:\n Kymatio, Shearlab, and shattering")
 xlabel!("log(index)")
 ylabel!("log(value)")
+savefig("DecayRatesPlotMNIST.pdf")
 
 plot(log.(1:size(B,1)), log.(reorderCoeff(B[:,1])),label="prototypical")
 plot!(log.(1:size(A,1)), log.(reorderCoeff(A[:,1])))
