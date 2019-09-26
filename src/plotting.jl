@@ -25,7 +25,7 @@ If pathType is ommitted, it will make a plot for each and save those plots in a 
 #     end
 # end
 # TODO: only works for depth of 2 at the moment
-function comparePathsChildren(thinResult::Array{<:Real,N}, layers::layeredTransform; outputSubsample=(-1,3), saveDirectory="", names=["" for i=1:size(thinResult,1)], colorScheme=:curl, scale::Symbol=:log, title="",titleSize=12) where {N,T}
+function comparePathsChildren(thinResult::AbstractArray{<:Real,N}, layers::layeredTransform; outputSubsample=(-1,3), saveDirectory="", names=["" for i=1:size(thinResult,1)], colorScheme=:curl, scale::Symbol=:log, title="",titleSize=12) where {N,T}
     mkpath(saveDirectory)
     listOfPaths = [pathType(0,[])]
     n = sizes(bspline, layers.subsampling, layers.n)
