@@ -5,9 +5,9 @@ using ScatteringTransform
 using Shearlab, FFTW
 # MNIST examples
 train_x, train_y = MNIST.traindata()
-Y0 = Float32.(reshape(train_x[:, :, 2],(28,28))); Y0 = Y0 ./norm(Y0);
-Y1 = Float32.(reshape(train_x[:, :, 4],(28,28))); Y1 = Y1 ./norm(Y1);
-Y2 = Float32.(reshape(train_x[:, :, 6],(28,28))); Y2 = Y2 ./norm(Y2);
+Y0 = Float32.(dropdims(train_x[:, :, 2],dims=3)); Y0 = Y0 ./norm(Y0);
+Y1 = Float32.(dropdims(train_x[:, :, 4],dims=3)); Y1 = Y1 ./norm(Y1);
+Y2 = Float32.(dropdims(train_x[:, :, 6],dims=3)); Y2 = Y2 ./norm(Y2);
 heatmap(Y0)
 heatmap(randn(100,100))
 heatmap(Float64.(reverse(Y0', dims=1))) # a zero

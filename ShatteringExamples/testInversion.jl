@@ -83,7 +83,7 @@ norm(XM-resultM.data[1][1, :, :, 1])/norm(XM)
 norm(X-result.data[1][1, :, :, 1])/norm(X)
 
 using HDF5
-fn = "/fasterHome/workingDataDir/shattering/MNIST/finalCoeffs.h5"
+fn = "/VastExpanse/workingDataDir/shattering/MNIST/finalCoeffs.h5"
 h5file = h5open(fn, "r")
 coeffs = Float32.(h5file["piecewise"][:,:]')
 close(h5file)

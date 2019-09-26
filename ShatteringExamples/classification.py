@@ -49,7 +49,7 @@ for (iFile, source_file) in enumerate(source_files):
     SizeCV.reverse()
 
     if final:
-        print("On " + pithyNames[iFile] + " i.e. " + str(iFile))
+        print("Running Final, On " + pithyNames[iFile] + " i.e. " + str(iFile))
         classifier = svm.SVC(kernel='linear', verbose = False)
         classifier.fit(dTrain, lTrain)
         dset = resultFile.require_dataset("linearSVM/SampleRate52500",
