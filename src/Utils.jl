@@ -1,18 +1,26 @@
+import Shearlab.pad
 abstract type stType end
 struct fullType <: stType end
 struct decreasingType <: stType end
 
+(::Colon)(a::Tuple, b::Tuple) = (:).(a,b)
+(::Colon)(a::Tuple, b::Tuple, c::Tuple) = (:).(a,b,c)
 
 """
     resized = getResizingRates(shears::Array{Shearlab.Shearletsystem2D{T}, 1}, M::Integer; percentage::Real=.9) where T<:Real
     getResizingRates(shears::layeredTransform; percentage::Real=.9)
 2×(length of x) array of sizes the output should be to retain percentage of the mass of the averaging function.
   """
-function getResizingRates(shears::Array{Shearlab.Shearletsystem2D{T}, 1},
-                          M::Int; percentage=.9) where {T <: Real}
+function getResizingRates(shears::Array{<:Shearlab.Shearletsystem2D, 1},
+                          M::Int; percentage=.9)
     newRates =zeros(Int64,M+1,2)
     for m=1:M+1
-        tmpAveraging = abs.(ifftshift(shears[m].shearlets[:,:,end]))
+        # it's easier to count how much mass we need in the Fourier domain, and
+        # accounting for the padding is much easier in the space domain
+        sizeForRfft = shears[m].size[1] + 2*shears[m].padBy[1]
+        padBy = shears[m].padBy
+        tmpAveraging = irfft(shears[m].shearlets[:,:,end], sizeForRfft)[padBy:(padBy .+ shears[m].size)...]
+        tmpAveraging = abs.(fft(tmpAveraging))
         # since it's a product, we want to find when they're separately 90% their
         # total masses
         tmpAveragingx = tmpAveraging[:,1]/sum(tmpAveraging[:,1])
@@ -45,7 +53,6 @@ getResizingRates(shears::layeredTransform{T}; percentage::Real=.9) where {T<:Rea
 
 
 
-
 @doc """
       n, q, dataSizes, outputSizes, resultingSize = calculateSizes(layers::layeredTransform{K,1}, outputSubsample, Xsize; totalScales = [-1 for i=1:layers.m+1]) where {K}
 
@@ -61,16 +68,16 @@ function calculateSizes(layers::layeredTransform{K,1},
                                                                for
                                                                i=1:layers.m+1],
                         percentage = .9) where {K}
-    n = Int.(sizes(bsplineType(), layers.subsampling, Xsize[(end):end]))
+    n = Int.(sizes(bsplineType(), layers.subsampling, Xsize[1:1]))
     q = getQ(layers, n, totalScales)
-    dataSizes = [Int.([Xsize[1:end-1]..., n[i], q[i]]) for i=1:layers.m+1]
-    outputSizes = [Int.([Xsize[1:(end-1)]..., n[i+1], q[i]]) for i=1:layers.m+1]
+    dataSizes = [Int.([n[i], q[i], Xsize[2:end]...]) for i=1:layers.m+1]
+    outputSizes = [Int.([n[i+1], q[i], Xsize[2:end]...]) for i=1:layers.m+1]
     if outputSubsample[1] > 1
         resultingSize = zeros(Int, layers.m+1)
         resultingSubsampling = zeros(layers.m+1)
         # subsampling limited by the second entry
         for (i,x) in enumerate(outputSizes)
-            proposedLevel = floor(Int, x[end-1]/outputSubsample[1])
+            proposedLevel = floor(Int, x[1]/outputSubsample[1])
             if proposedLevel < outputSubsample[2]
                 # the result is smaller than the floor
                 proposedLevel = outputSubsample[2]
@@ -80,7 +87,7 @@ function calculateSizes(layers::layeredTransform{K,1},
     elseif outputSubsample[2] > 1
         resultingSize = outputSubsample[2]*ones(Int64,layers.m+1)
     else
-        resultingSize = [x[end-1] for x in outputSizes]
+        resultingSize = [x[1] for x in outputSizes]
     end
     return (n, q, dataSizes, outputSizes, resultingSize)
 end
@@ -98,8 +105,8 @@ function calculateSizes(layers::layeredTransform{K,2},
                                                              i=1:layers.m+1],
                         subsam=true, percentage = .9) where {K}
     dataXSizes = sizes(bsplineType(), layers.subsampling,
-                       Xsize[(end-1):(end-1)])
-    dataYSizes = sizes(bsplineType(), layers.subsampling, Xsize[(end):(end)])
+                       Xsize[1:1])
+    dataYSizes = sizes(bsplineType(), layers.subsampling, Xsize[2:2])
     n = [reshape(dataXSizes, (layers.m+2, 1)) reshape(dataYSizes, (layers.m+2,
                                                                    1))]
     if subsam == true
@@ -109,14 +116,13 @@ function calculateSizes(layers::layeredTransform{K,2},
         XOutputSizes = dataXSizes
         YOutputSizes = dataYSizes
     end
-    outputSizes = [(Int.(Xsize[1:end-2])..., Int.(XOutputSizes[m])...,
-                    Int.(YOutputSizes[m])..., Int.(numInLayer(m-1,
-                                                              layers)))
+    outputSizes = [(Int.(XOutputSizes[m])..., Int.(YOutputSizes[m])...,
+                    Int.(numInLayer(m-1, layers)), Int.(Xsize[3:end])...)
                    for m=1:layers.m+1]
     resultingSize = [XOutputSizes[m] *YOutputSizes[m] for m = 1:layers.m+1]
-    q = getQ(layers, totalScales, product = false) .- 1
-    dataSizes = [Int.([Xsize[1:end-2]..., dataXSizes[i],
-                       dataYSizes[i], q[i]]) for i=1:layers.m+1]
+    q = getQ(layers, totalScales, product = false)
+    dataSizes = [Int.([dataXSizes[i],
+                       dataYSizes[i], q[i], Xsize[3:end]...]) for i=1:layers.m+1]
     return (n, q, dataSizes, outputSizes, resultingSize)
 end
 
@@ -128,7 +134,7 @@ end
 calculate the total number of entries in each layer
 """
 function getQ(layers::layeredTransform{K,1}, n, totalScales; product=true) where {K}
-    q = [numScales(layers.shears[i],n[i]) for i=1:layers.m+1]
+    q = [numScales(layers.shears[i],n[i])-1 for i=1:layers.m+1]
     q = [(isnan(totalScales[i]) || totalScales[i]<=0) ? q[i] : totalScales[i] for i=1:layers.m+1]
     if product
         q = [prod(q[1:i-1]) for i=1:layers.m+1]
@@ -139,7 +145,7 @@ function getQ(layers::layeredTransform{K,1}, n, totalScales; product=true) where
 end
 @doc """
   q = getQ(layers, n, totalScales; product=true)
-calculate the total number of shearlets/wavelets in each layer
+calculate the total number of shearlets/wavelets in each layer, not counting the averaging
 """
 function getQ(layers::layeredTransform{K, 2}, totalScales; product=true) where {K}
     q = [numScales(layers.shears[i]) for i=1:layers.m+1]
@@ -158,16 +164,16 @@ getQ(layers, Xsize; product=true) = getQ(layers, Int.(sizes(bspline, layers.subs
 
 
 
-
-
-
+function getLastScales(dataDim,daughters, shears)
+    if dataDim==1
+        size(daughters,2)
+    elseif dataDim==2
+        size(shears.shearlets)[end] - 1
+    end
+end
 
 function getPadBy(shearletSystem::Shearlab.Shearletsystem2D{T}) where T
-    padBy = (0,0)
-    for sysPad in shearletSystem.support
-        padBy = (max(sysPad[1][2]-sysPad[1][1], padBy[1]), max(padBy[2], sysPad[2][2]-sysPad[2][1]))
-    end
-    return padBy
+    return shearletSystem.padBy
 end
 
 
@@ -191,20 +197,6 @@ function norm(scattered::scattered{T,N}, p) where {T<:Number, N}
 end
 
 
-function pad(x, padBy)
-    T = eltype(x)
-    firstRow = cat(zeros(T, size(x)[1:end-2]..., padBy...),
-                   zeros(T, size(x)[1:end-2]..., padBy[1], size(x)[end]),
-                   zeros(T, size(x)[1:end-2]..., padBy...), dims = length(size(x)))
-    secondRow = cat(zeros(T, size(x)[1:end-1]..., padBy[2]), x,
-                    zeros(T, size(x)[1:end-1]..., padBy[2]), dims=length(size(x)))
-    thirdRow = cat(zeros(T, size(x)[1:end-2]..., padBy...), zeros(T, size(x)[1:end-2]...,
-                                                              padBy[1], size(x)[end]),
-                   zeros(T, size(x)[1:end-2]..., padBy...), dims = length(size(x)))
-    return cat(firstRow, secondRow, thirdRow, dims = length(size(x))-1)
-end
-
-
 
 # TODO maybe fold this in?
 """
@@ -221,55 +213,86 @@ end
 
 
 """
-    createFFTPlans(layers::layeredTransform{K, 2}, dataSizes; verbose=false, T=Float32, iscomplex::Bool=false)
+    createFFTPlans(layers::layeredTransform{K, N}, dataSizes; verbose=false, T=Float32, iscomplex::Bool=false)
 
 to be called after distributed. returns a 2D array of futures; the i,jth entry has a future (referenced using fetch) for the fft to be used by worker i in layer j.
 """
-function createFFTPlans(layers::layeredTransform, dataSizes; verbose=false,
-                        T=Float32, iscomplex::Bool=false)
+function createFFTPlans(layers::layeredTransform{<:Any, N}, dataSizes;
+                        verbose=false, T=Float32,
+                        iscomplex::Bool=false) where {N}
+    nPlans = getNumPlans(layers)
     FFTs = Array{Future,2}(undef, nworkers(), layers.m+1)
     for i=1:nworkers(), j=1:layers.m+1
         if verbose
             println("i=$(i), j=$(j)")
         end
-        if length(layers.n) >= 2
-            padBy = getPadBy(layers.shears[j])
+        if N==1
+            if length(layers.n) >= 2
+                FFTs[i, j] = remotecall(createRemoteFFTPlan, i,
+                                        dataSizes[j][[1 3:end]], T,
+                                        iscomplex, nPlans)
+            else
+                fftPlanSize = (dataSizes[j][1]*2, dataSizes[j][3:end]...)
+                # in the last layer
+                # println("plans are going to be size $(fftPlanSize)")
+                FFTs[i, j] = remotecall(createRemoteFFTPlan, i, fftPlanSize,
+                                        T, iscomplex, nPlans)
+            end
+        elseif N==2
+            padBy = layers.shears[j].padBy
             FFTs[i, j] = remotecall(createRemoteFFTPlan, i,
-                                    dataSizes[j][(end-2):(end-1)], padBy, T,
-                                    iscomplex)
-        else
-            padBy = (0, 0)
-            fftPlanSize = (dataSizes[j][1:(end-2)]..., 2*dataSizes[j][end-1])
-
-            FFTs[i, j] = remotecall(createRemoteFFTPlan, i, fftPlanSize,
-                                    T, iscomplex)
+                                    dataSizes[j][1:2], T,
+                                    iscomplex, padBy)
         end
     end
+
     return FFTs
 end
 
+# only in the 1D case where we're using either Morlet or Paul wavelets do we
+# need both a rfft and an fft
+function getNumPlans(layers::layeredTransform{<:Any,1})
+    if typeof(layers.shears[1]) <: Shearlab.Shearletsystem2D
+        return 1
+    elseif typeof(layers.shears[1].waveType) <: Union{WT.Morlet, WT.Paul}
+        return 2
+    elseif  typeof(layers.shears[1].waveType) <: WT.Dog
+        return 1
+    end
+end
+
+function getNumPlans(layers::layeredTransform{<:Any, 2})
+    1
+end
+
+"""
+the 2D version
+"""
+function createRemoteFFTPlan(sizeOfArray, T, iscomplex, padBy::Tuple{Int,Int})
+    if iscomplex
+        return plan_fft!(pad(zeros(Complex{T}, sizeOfArray...), padBy), (1,2),
+                         flags = FFTW.PATIENT)
+    else    
+        return plan_rfft(pad(zeros(T, sizeOfArray...), padBy), (1,2), flags =
+                         FFTW.PATIENT)
+    end
+end
 
 """
 the 1D version
 """
-function createRemoteFFTPlan(sizeOfArray, T, iscomplex)
+function createRemoteFFTPlan(sizeOfArray, T, iscomplex, nPlans::Int)
     if iscomplex
-        return plan_fft!(zeros(T, sizeOfArray...), length(sizeOfArray), flags =
+        return plan_fft!(zeros(Complex{T}, sizeOfArray...), (1,), flags =
                          FFTW.PATIENT)
-    else
-        return plan_rfft(zeros(T, sizeOfArray...), length(sizeOfArray), flags =
+    elseif nPlans==1
+        return plan_rfft(zeros(T, sizeOfArray...), (1,), flags =
                          FFTW.PATIENT)
-    end
-end
-"""
-the 2D version
-"""
-
-function createRemoteFFTPlan(sizeOfArray, padBy, T, iscomplex)
-    if iscomplex
-        return plan_fft!(pad(zeros(T, sizeOfArray...), padBy), flags = FFTW.PATIENT)
-    else
-        return plan_rfft(pad(zeros(T, sizeOfArray...), padBy), flags = FFTW.PATIENT)
+    elseif nPlans==2
+        return (plan_rfft(zeros(T, sizeOfArray...), (1,), flags =
+                          FFTW.PATIENT),
+                plan_fft!(zeros(Complex{T}, sizeOfArray...), (1,), flags =
+                         FFTW.PATIENT))
     end
 end
 

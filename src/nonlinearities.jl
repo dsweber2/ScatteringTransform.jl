@@ -51,6 +51,9 @@ for nl in functionTypeTuple
     end
 end
 
+# TODO make a macro to make new function tuples
+#macro newFunctionTuple          
+
 # for nl in paramTypeTuple
 #     @eval begin
 #         function nonLin(X, nonlin::$(nl[2]))

@@ -98,13 +98,13 @@ end
 resample(input::AbstractArray{T,2}, rate::Float32; newSize = (-1,-1)) where T<:Number = resample(input, rate, bsplineType(); newSize=newSize)
 function resample(input::AbstractArray{T,N}, rate::Float32; newSize = (-1,-1)) where {T<:Number, N}
     if rate != 0.0 || newSize[1] <= 0
-        newSize = (Int(ceil(size(input)[end-1]/rate)),
-                   Int(ceil(size(input)[end]/rate)))
+        newSize = (Int(ceil(size(input,1)/rate)),
+                   Int(ceil(size(input,2)/rate)))
     end
-    outerAxes = axes(input)[1:end-2]
-    newResult = zeros(T,outerAxes..., newSize...)
-    for outer in eachindex(view(input, outerAxes..., 1, 1))
-        newResult[outer, :, :] = resample(view(input, outer, :, :), rate,
+    outerAxes = axes(input)[3:end]
+    newResult = zeros(T, newSize..., outerAxes...)
+    for outer in eachindex(view(input, 1, 1, outerAxes...))
+        newResult[:, :, outer] = resample(view(input, :, :, outer), rate,
                                           bsplineType(); newSize = newSize)
     end
     return newResult
@@ -188,9 +188,9 @@ function bspline(input::Array{S,1}, rate::T; absolute::Bool=false) where {S<:Num
   @assert rate>=1
   itp = interpolate(input,BSpline(Quadratic(Reflect(OnGrid()))))
   if absolute
-    return itp(range(1, stop = size(input)[end], length = rate))
+    return itp(range(1, stop = size(input,1), length = rate))
   else
-    return itp(range(1, stop = size(input)[end], length = floor(Int,length(input) ./rate)))
+    return itp(range(1, stop = size(input,1), length = floor(Int,length(input) ./rate)))
   end
 end
 # TODO: figure out what's wrong with Quadratic(Reflect() and re-implement it
@@ -204,7 +204,7 @@ constructors
 """
 function sizes(func::S, rate::Array{T}, sizeX) where {T<:Real, S<:resamplingMethod}
     if typeof(sizeX)<:Tuple
-        sizeX = sizeX[end]
+        sizeX = sizeX[1]
     end
     if typeof(func) <: bsplineType
         subsamp = zeros(Int,length(rate)+1); subsamp[1] = sizeX[1]

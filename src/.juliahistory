@@ -182,3 +182,228 @@ Pkg.test("ScatteringTransform")
 Pkg.test("ScatteringTransform")
     #cwt#13(::S<:Real, ::Int64, ::FFTW.rFFTWPlan{T<:Real,A,B,C}, ::Any, !Matched::AbstractArray{T<:Real,N}, ::CFWA{W<:Wavelets.WT.WaveletBoundary}, ::Array{U<:Number,M}) where {T<:Real, S<:Real, U<:Number, W<:WaveletBoundary, N, M, A, B, C} at /home/dsweber/.julia/dev/ScatteringTransform/src/modifiedTransforms.jl:170
 exit()
+using Revise
+using FFTW, Plots
+xhat = zeros(100,100); xhat[20:30,20:30] .= 1; heatmap(xhat)
+heatmap(real.(ifft(xhat)))
+heatmap(ifftshift(real.(ifft(xhat))))
+heatmap(rfft(real.(ifft(xhat))))
+heatmap(abs.(rfft(real.(ifft(xhat)))))
+heatmap(irfft(rfft(real.(ifft(xhat)))))
+heatmap(irfft(rfft(real.(ifft(xhat))),100))
+heatmap(real(fft(irfft(rfft(real.(ifft(xhat))),100))))
+24*26
+layeredTransform(2)
+using ScatteringTransform
+layeredTransform(2)
+layeredTransform(2,100)
+WT.Morlet
+WT.Morlet <: WT.ContinuousWaveletClass
+Average
+layeredTransform(2,100)
+WT.Father<:WT.Average
+layeredTransform(2,100)
+wavelet(WT.morl, 8, WT.DEFAULT_BOUNDARY, Father())
+wavelet(WT.morl, 8, WT.DEFAULT_BOUNDARY, Father())
+layeredTransform(2,100)
+wavelet(WT.morl, 8, WT.DEFAULT_BOUNDARY, WT.Father())
+using Wavelets
+wavelet(WT.morl, 8, WT.DEFAULT_BOUNDARY, WT.Father())
+wavelet(WT.morl, 8, WT.DEFAULT_BOUNDARY)
+wavelet(WT.morl, 8, WT.DEFAULT_BOUNDARY, WT.Father())
+WT.Father<:WT.Average
+wavelet(WT.morl, 8, WT.DEFAULT_BOUNDARY, WT.Father())
+wavelet(WT.morl, 8, WT.DEFAULT_BOUNDARY, WT.Father())
+wavelet(WT.morl, 8, WT.DEFAULT_BOUNDARY, WT.Father())
+wavelet(WT.morl, 8, WT.DEFAULT_BOUNDARY, WT.Father())
+layeredTransform(2,100)
+wavelet(WT.morl, s=8, boundary = WT.DEFAULT_BOUNDARY, averagingType = WT.Father())
+wavelet(WT.morl, s=8, boundary = WT.DEFAULT_BOUNDARY, averagingType = WT.Father(), averagingLength = 4)
+layeredTransform(2,100)
+layeredTransform(2,100)
+layeredTransform(2,100)
+layeredTransform(2,100)
+layers = layeredTransform(2,100)
+Pkg.test("ScatteringTransform")
+using Pkg
+Pkg.test("ScatteringTransform")
+using Test
+Pkg.test("ScatteringTransform")
+Pkg.add("Test")
+Pkg.add("Test")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+layers
+x = randn(100,3);
+st(x,layers,absType())
+st(x,layers,absType())
+st(x,layers,absType())
+st(x,layers,absType())
+st(x,layers,absType())
+st(x,layers,absType())
+st(x,layers,absType())
+st(x,layers,absType())
+st(x,layers,absType())
+using FFTW
+wef = plan_rfft(randn(10));
+typeof(wef)
+supertype(typeof(wef))
+supertype∘typeof(wef)
+supertype∘typeof∘wef
+typeof(supertype)
+supertype(typeof)
+supertype(Typeof)
+supertype(typeof(wef))
+supertype(supertype(typeof(wef)))
+? supertype
+st(x,layers,absType())
+typeof(layers)
+st(x,layers,absType())
+st(x,layers,absType())
+st(x,layers,absType())
+wef = randn(10,10);
+wef[:,1:1]
+wef = randn(10,10);
+st(x,layers,absType())
+st(x,layers,absType())
+exit()
+using Pkg
+using Revise
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+using Revise; using ScatteringTransform
+WT.NoAve
+layeredTransform(2,(100,2))
+layeredTransform(2,100)
+l = layeredTransform(2,100)
+l.shears[1]
+using Revise; using ScatteringTransform
+l = layeredTransform(2,100)
+l.shears[1]
+l.shears[1].averagingType
+typeof(l.shears[1].averagingType)
+using Pkg
+Pkg.tes("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+l
+l.averagingType
+l.shears[1].averagingType
+(l.averagingLength > 0 && !(typeof(l.averagingType) <: WT.NoAve)) ? 1 : 0
+c = l.shears[1]
+(c.averagingLength > 0 && !(typeof(c.averagingType) <: WT.NoAve)) ? 1 : 0
+DataType
+WT
+Pkg.test("ScatteringTransform")
+l
+c
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+ScatteringTransform.calculateSizes(l,(-1,-1),(100,2,1))
+n, q, dataSizes, outputSizes, resultingSize = ScatteringTransform.calculateSizes(l,(-1,-1),(100,2,1))
+outputSizes
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+using Pkg
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+using SharedArray
+using Pkg
+Pkg.add("SharedArray")
+using SharedArrays
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+procnum
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+using ScatteringTransform
+l = layeredTransform(2,100)
+st(rand(100,2), l)
+st(rand(100,2), l, absType())
+Pkg.build("ScatteringTransform")
+exit()
+using Pkg
+Pkg.build("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+using Wavelets
+wavelet(WT.morl)
+wavelet(WT.morl)
+computeWavelets([25,180,2], wavelet(WT.morl))
+wav,ω = computeWavelets([25,180,2], wavelet(WT.morl))
+wav
+wav,ω = computeWavelets(25, wavelet(WT.morl))
+wave
+wav 
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+180/15
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+Pkg.test("ScatteringTransform")
+wef = randn(10,3)
+wef[:,1:1]
+exit()

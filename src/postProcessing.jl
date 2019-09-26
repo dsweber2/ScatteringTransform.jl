@@ -8,9 +8,7 @@
 
 
 @doc """
-    scattered = wrap(layers::layeredTransform{K, 2}, results::Array{T,N}, X) where {K, N,
-                                                                          T<:
-                                                                          Number}
+    scattered = wrap(layers::layeredTransform{K, M}, results::Array{T,N}, X) where {K, N, M, T<:Number}
 
 given a layeredTransform and an array as produced by the thin ST, wrap the
 results in the easier to process scattered type. note that the data is zero
@@ -27,12 +25,13 @@ function wrap(layers::layeredTransform{K, 2}, results::AbstractArray{T,N}, X;
     for (i,layer) in enumerate(layers.shears[1:layers.m+1])
         concatStart = sum([prod(oneLayer) for oneLayer in
                            outputSizes[1:i-1]]) + 1
-        outerAxes = axes(wrapped.output[i])[1:end-3]
+        outerAxes = axes(wrapped.output[i])[4:end]
         for j = 1:size(wrapped.output[i])[end]
-            wrapped.output[i][outerAxes..., :,:,j] = results[outerAxes...,
-                                                             concatStart .+
-                                                             (j-1)*resultingSize[i] .+
-                                                             (0:(resultingSize[i]-1))]
+            thingToWrite = reshape(results[concatStart .+
+                                           (j-1)*resultingSize[i] .+
+                                           (0:(resultingSize[i]-1)),
+                                           outerAxes...], outputSizes[i][[1:2; 4:end]])
+            wrapped.output[i][:,:,j, outerAxes...] = thingToWrite
         end
     end
     return wrapped
@@ -43,6 +42,28 @@ end
 
 
 
+function wrap(layers::layeredTransform{K, 1}, results::AbstractArray{T,N}, X;
+              percentage=.9) where {K, N, T<: Number}
+    wrapped = scattered(layers, X)
+    n, q, dataSizes, outputSizes, resultingSize = calculateSizes(layers,
+                                                                 (-1,-1),
+                                                                 size(X),
+                                                                 percentage =
+                                                                 percentage)
+    for (i,layer) in enumerate(layers.shears[1:layers.m+1])
+        concatStart = sum([prod(oneLayer) for oneLayer in
+                           outputSizes[1:i-1]]) + 1
+        outerAxes = axes(wrapped.output[i])[3:end]
+        for j = 1:size(wrapped.output[i])[2]
+            thingToWrite = reshape(results[concatStart .+
+                                           (j-1)*resultingSize[i] .+
+                                           (0:(resultingSize[i]-1)),
+                                           outerAxes...], (outputSizes[i][[1; 3:end]]...,))
+            wrapped.output[i][:,j, outerAxes...] = thingToWrite
+        end
+    end
+    return wrapped
+end
 
 
 

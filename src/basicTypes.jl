@@ -20,9 +20,13 @@ struct layeredTransform{T, D}
                                    shears::Array{T,1},
                                    subsampling::Array{Float32, 1},
                                    outputSize::Array{Int, 2}) where {T,D}
-        @assert (D==2 && T<:Shearletsystem2D)  || (D==1 && T<:CFWA)
+        @assert (D==2 && T<:Shearletsystem2D)  || (D==1 && T<:CFW)
         return new(m, n, shears, subsampling, outputSize)
     end
+end
+
+function Base.show(io::IO, l::layeredTransform{T,D}) where {T,D}
+    print(io, "layeredTransform{$T,$D} depth $(l.m), input size $(l.n), subsampling rates $(l.subsampling), outputsizes = $(l.outputSize)")
 end
 
 
@@ -36,11 +40,23 @@ end
 # the fully specified version
 # TODO: use a layered transform parameter to determine if we're returning a st or thinst instead
 @doc """
-    layers = layeredTransform(m::S, Xlength::S, nScales::Array{T,1},
+    layers = layeredTransform(m::S, Xlength::S; nScales::Array{S,1} = [8 for
+                                                                   i=1:(m+1)],
+                          subsampling::Array{T,1} = [2 for i=1:(m+1)],
+                          CWTType::WT.ContinuousWaveletClass=WT.morl,
+                          averagingLength::Array{S,1} = [S(4) for i=1:(m+1)],
+                          averagingType::Array{<:WT.Average,1} = [WT.Father() for
+                                                                   i=1:(m+1)],
+                          boundary::Array{W,1} = [WT.DEFAULT_BOUNDARY for
+                                                  i=1:(m+1)],
+                          frameBounds=[1 for i=1:(m+1)]) where {S <: Integer,
+                                                     T <: Real,
+                                                     W <: WT.WaveletBoundary}
+            layeredTransform(m::S, Xlength::S, nScales::Array{T,1},
                                   subsampling::Array{T,1},
                                   CWTType::WT.ContinuousWaveletClass,
                                   averagingLength::Array{S,1} = ceil.(S,nScales*2),
-                                  averagingType::Array{Symbol,1} = [:Mother for
+                                  averagingType::Array{Symbol,1} = [Father() for
                                                                     i=1:(m+1)],
                                   boundary::Array{W,1} = [WT.DEFAULT_BOUNDARY for
                                                           i=1:(m+1)]) where {S <:
@@ -60,26 +76,29 @@ you get a 1D wavelet transform or 2D shearlet transform
  """
 function layeredTransform(m::S, Xlength::S, nScales::Array{S,1},
                           subsampling::Array{T,1},
-                          CWTType::V,
-                          averagingLength::Array{S,1} = ceil.(S,nScales*2),
-                          averagingType::Array{Symbol,1} = [:Mother for
+                          CWTType::WT.ContinuousWaveletClass,
+                          averagingLength::Array{S,1} = ceil.(S,4),
+                          averagingType::Array{<:WT.Average,1} = [WT.Father() for
                                                             i=1:(m+1)],
-                          boundary::Array{W,1} = [WT.DEFAULT_BOUNDARY for
-                                                  i=1:(m+1)],
-                          frameBounds=[1.0 for i=1:(m+1)]) where {S <:
-                                                                  Integer, 
-                                                                  T <: Real,
-                                                                  W <:
-                                                                  WT.WaveletBoundary,
-                                                                  V <:
-                                                                  WT.ContinuousWaveletClass}
+                          boundary::Array{<:WT.WaveletBoundary,1} =
+                          [WT.DEFAULT_BOUNDARY for i=1:(m+1)],
+                          frameBounds=[1 for i=1:(m+1)], normalization = [Inf
+                                                                          for
+                                                                          i=1:(m+1)],
+                          decreasing = [1 for i=1:(m+1)]) where {S <: Integer, 
+                                                                 T <: Real}
     @assert m+1 == size(subsampling, 1)
     @assert m+1 == size(nScales, 1)
     
     println("Treating as a 1D Signal. Vector Lengths: $Xlength nScales:" *
             "$nScales subsampling: $subsampling")
-    shears = [wavelet(CWTType, nScales[i], averagingLength[i],
-                      averagingType[i], boundary[i], frameBounds[i]) for (i,x) in
+    shears = [wavelet(CWTType; s = nScales[i],
+                      boundary = boundary[i], 
+                      averagingType = averagingType[i],
+                      averagingLength = averagingLength[i],
+                      frameBound = frameBounds[i],
+                      normalization = normalization[i],
+                      decreasing = decreasing[i]) for (i,x) in
               enumerate(subsampling)]
     
     layeredTransform{typeof(shears[1]), 1}(m, (Xlength,), shears,
@@ -94,12 +113,12 @@ function layeredTransform(m::S, Xlength::S; nScales::Array{S,1} = [8 for
                                                                    i=1:(m+1)],
                           subsampling::Array{T,1} = [2 for i=1:(m+1)],
                           CWTType::WT.ContinuousWaveletClass=WT.morl,
-                          averagingLength::Array{S,1} = ceil.(S, 2*nScales),
-                          averagingType::Array{Symbol,1} = [:Mother for
+                          averagingLength::Array{S,1} = [S(4) for i=1:(m+1)],
+                          averagingType::Array{<:WT.Average,1} = [WT.Father() for
                                                                    i=1:(m+1)],
                           boundary::Array{W,1} = [WT.DEFAULT_BOUNDARY for
                                                   i=1:(m+1)],
-                          frameBounds=[1.0 for i=1:(m+1)]) where {S <: Integer,
+                          frameBounds=[1 for i=1:(m+1)]) where {S <: Integer,
                                                      T <: Real,
                                                      W <: WT.WaveletBoundary}
     layeredTransform(m, Xlength, nScales, subsampling, CWTType,
@@ -129,10 +148,12 @@ function layeredTransform(m::S, Xsizes::Tuple{<:Integer, <:Integer},
             "$nScales subsampling: $subsampling")
     shears =  [Shearlab.getshearletsystem2D(rows[i], cols[i], nScales[i],
                                             shearLevels[i];
-                                            typeBecomes=typeBecomes,
+                                            typeBecomes = typeBecomes,
                                             upperFrameBound = frameBound,
                                             padded = padding) for (i,x) in
                enumerate(subsampling)]
+    outputSizes = getResizingRates(shears, length(shears)-1, percentage=percentage)
+
     return layeredTransform{typeof(shears[1]), 2}(m, Xsizes, shears,
                                                   Float32.(subsampling), outputSizes)
 end
@@ -189,13 +210,60 @@ struct scattered{T,N}
         # check output
         singlentry = eltype(output[1])
         arrayType = eltype(output)
-        println("arrayType = $(arrayType)")
-        println("AbstractArray = $(AbstractArray{singlentry, N})")
-        println("N=$(N)")
         @assert arrayType <: AbstractArray{singlentry, N}
         @assert size(output,1)==m+1
         new(m, k, data, output)
     end
+end
+
+function Base.show(io::IO, sc::scattered{T,D}) where {T,D}
+    print(io, "scattered{$T,$D} depth $(sc.m)")
+end
+
+
+import Base:getindex
+Base.getindex(X::scattered, i::Union{AbstractArray, <:Integer}) = X.output[i]
+# function Base.getindex(X::scattered, p::pathType{<:Integer})
+#     k = X.k
+#     from = X.output[p.m+1]
+#     ax = axes(from)
+#     nShears = [size(x,k+1) for x in X.output[1:p.m+1]]
+#     nShears = [floor(Int, x/prod(nShears[1:i-1])) for (i,x) in enumerate(nShears)]
+#     nShears = [nShears... 1]
+#     relIndex = 1+sum([(px-1)*prod(nShears[i+2:end]) for (i,px) in enumerate(p.Idxs)])
+#     println("relIndex = $(relIndex)")
+#     return from[ax[1:k]..., relIndex, ax[k+2:end]...]
+# end
+
+function Base.getindex(X::scattered, p::pathType)
+    # if it's not an integer type, then the last index is the only weird one
+    k = X.k
+    from = X.output[p.m+1]
+    ax = axes(from)
+
+    lastInd = p.Idxs[end]
+    if typeof(lastInd) <: Integer
+        (relIndex, nShears) = relativeIndex(X.output, k, p, p.Idxs[1:end-1])
+    else
+        (relIndex, nShears) = relativeIndex(X.output, k, p, p.Idxs[1:end-1])
+    end
+    if typeof(lastInd) <: Colon
+        relIndex = relIndex .+ (1:nShears[end-1])
+    else
+        relIndex =  relIndex .+ (lastInd)
+    end
+    return from[ax[1:k]..., relIndex, ax[k+2:end]...]
+end
+function relativeIndex(output, k, p, idxs)
+        nShears = [size(x,k+1) for x in output[1:p.m+1]]
+        nShears = [floor(Int, x/prod(nShears[1:i-1])) for (i,x) in enumerate(nShears)]
+        nShears = [nShears... 1]
+    if length(idxs)> 0
+        relIndex = sum([(px-1)*prod(nShears[i+2:end]) for (i,px) in enumerate(idxs)])
+    else
+        relIndex = 0
+    end
+    return (relIndex, nShears)
 end
 
 @doc """
@@ -212,9 +280,9 @@ function scattered(m, k, fixDim::Array{<:Real, 1}, n::Array{<:Real, 2},
     n = Int.(n)
     q = Int.(q)
     N = k + length(fixDim)+1
-    data = [zeros(T, fixDim..., n[i,:]..., prod(q[1:i].-1)) for
+    data = [zeros(T, n[i,:]..., prod(q[1:i].-1), fixDim...) for
             i=1:m+1]
-    output = [zeros(T, fixDim...,  n[i,:]..., prod(q[1:(i-1)].-1)) for i=1:m+1]
+    output = [zeros(T,  n[i,:]..., prod(q[1:(i-1)].-1), fixDim...) for i=1:m+1]
     return scattered{T,N}(m, k, data, output)
 end
 
@@ -224,25 +292,25 @@ function scattered(layers::layeredTransform{S,1}, X::Array{T,N};
                    totalScales=[-1 for i=1:layers.m +1]) where {T <: Real, N,
                                                                 S}
     if length(size(X)) == 1
-        X = reshape(X, (1,size(X)...));
+        X = reshape(X, (size(X)..., 1));
     end
 
     n, q, dataSizes, outputSizes, resultingSize = calculateSizes(layers,
-                                                                    (-1,-1),
-                                                                    size(X),
-                                                                    totalScales
-                                                                    =
-                                                                    totalScales)
+                                                                 (-1,-1),
+                                                                 size(X),
+                                                                 totalScales
+                                                                 =
+                                                                 totalScales)
     if 1==N
-        zerr=[zeros(T, n[i], q[i]) for i=1:layers.m+1]
+        zerr = [zeros(T, n[i], q[i]) for i=1:layers.m+1]
         output = [zeros(T, n[i+1], q[i]) for i=1:layers.m+1]
     else
-        zerr=[zeros(T, size(X)[1:end-1]..., n[i], prod(q[1:i-1].-1)) for
+        zerr=[zeros(T, n[i], q[i], size(X)[2:end]...) for
               i=1:layers.m+1]
-        output = [zeros(T, size(X)[1:(end-1)]..., n[i+1], prod(q[1:i-1].-1))
+        output = [zeros(T, n[i+1], q[i], size(X)[2:end]...)
                   for i=1:layers.m+1]
     end
-    zerr[1][:,:] = copy(X)
+    zerr[1][:, axes(X)[2:end]...] = copy(X)
     return scattered{T,N+1}(layers.m, 1, zerr, output)
 end
 
@@ -253,13 +321,12 @@ function scattered(layers::layeredTransform{U,2}, X::Array{T, N};
     n, q, dataSizes, outputSizes, resultingSize = calculateSizes(layers,
                                                                     true,
                                                                     size(X))
-    zerr = [zeros(T, size(X)[1:end-2]..., n[i,:]..., prod(q[1:i-1])) for i=1:layers.m+1] 
+    zerr = [zeros(T, n[i,:]..., prod(q[1:i-1]), size(X)[3:end]...) for i=1:layers.m+1] 
     zerr[1] = reshape(copy(X), (size(X)..., 1))
     if subsample
         output = [zeros(T, outputSizes[i]...) for i=1:layers.m+1]
     else
-        output = [zeros(T, size(X)[1:end-2]..., n[i+1,:]...,
-                        prod(q[1:i-1])) for i=1:layers.m+1]
+        output = [zeros(T, n[i+1,:]..., prod(q[1:i-1]), size(X)[3:end]...) for i=1:layers.m+1]
     end
     return scattered{T, N+1}(layers.m, 2, zerr, output)
 end
