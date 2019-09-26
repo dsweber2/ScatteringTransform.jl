@@ -13,33 +13,23 @@
 
 
 # TODO: make a function which determines the breakpoints given the layers function and the size of the input
+# TODO: non-thin is currently not outputing values in the data section
 @doc """
         st(X::Array{T, N}, layers::layeredTransform, nonlinear::nl; fullOr::fullType=fullType(),# subsam::Sub = bspline(), thin::Bool=true, outputSubsample::Tuple{Int, Int}=(-1,-1), subsam::Bool=true, totalScales = [-1 for i=1:layers.m+1], percentage = .9, fftPlans = -1, verbose::Bool=false) where {T <: Real, S <: Union, N, nl <: nonlinearity, Sub <: resamplingMethod}
-
-      See the main st for a description of the options. This is a version of the 1D st that only returns a concatinated vector for output. It is most useful for classification applications.
-
-    outputSubsample is a tuple, with the first number indicating a rate, and the second number giving the minimum allowed size. If some of the entries are less than 1, it has different behaviour:
-    (<1, x): subsample to x elements for each path.
-    (<1, <1): no ssubsampling
-    (x, <1) subsample at a rate of x, with at least one element kept in each path
-
-    totalScales, if positive, gives the number of non-averaging wavelets.
-TODO: non-thin is currently broken
-  1D scattering transform using the layeredTransform layers. you can switch out the nonlinearity as well as the method of subsampling. Finally, the stType is a string. If it is "full", it will produce all paths. If it is "decreasing", it will only keep paths of increasing scale. If it is "collating", you must also include a vector of matrices.
+1D scattering transform using the layeredTransform layers. you can switch out the nonlinearity as well as the method of subsampling. Finally, the stType is a string. If it is "full", it will produce all paths. If it is "decreasing", it will only keep paths of increasing scale. If it is "collating", you must also include a vector of matrices.
 # Arguments
+- `nonlinear` : a type of nonlinearity. Should be one of `absType()`, `ReLUType()`, `tanhType()`, or `softplusType()`.
+- `thin` : determines whether to wrap the output into a format that can be indexed using paths. `thin` cannot.
+- `totalScales`, if positive, gives the number of non-averaging wavelets.
+- `outputSubsample` is a tuple, with the first number indicating a rate, and the second number giving the minimum allowed size. If some of the entries are less than 1, it has different behaviour:
+    + `(<1, x)` : subsample to x elements for each path.
+    + `(<1, <1)` : no ssubsampling
+    + `(x, <1)` : subsample at a rate of x, with at least one element kept in each path
 - `fullOr::fullType=fullType()` : the structure of the transform either
        `fullType()`, `collatingType()` or `decreasingType()`. At the moment,
        only `fullType()` is functional.
-- `fftPlans = false` if not `false`, it should be a 2D array of `Future`s,
-where the x index gives the
-
- st(X::Array{T, N}, layers::layeredTransform,
-            nonlinear::nl, fullOr::fullType=fullType();
-            thin::Bool=false, subsam::Bool=true,
-            totalScales = [-1 for i=1:layers.m+1]) where {T<:Real,
-                                                          S<:Union, N, nl <:
-                                                          nonlinearity}
-    """
+- `fftPlans = false` if not `false`, it should be a 2D array of `Future`s, where the first index is the layer, and the second index the core. See `createFFTPlans` if you want to do this.
+"""
 function st(X::Array{T, N}, layers::layeredTransform, nonlinear::nl;
             fullOr::fullType=fullType(),# subsam::Sub = bspline(), #TODO
             # allow for variation in subsamping method again

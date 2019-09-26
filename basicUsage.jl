@@ -66,10 +66,17 @@ heatmap(output[p][:,:,1]', xlabel="space", ylabel="Frequency", title="15th frequ
 # An example from a sonar dataset
 using JLD2
 @load "examples/resp1999.0_10.2.jld2"
-resp = permutedims(resp, (1,3,2))
+resp = permutedims(resp, (1,3,2))[:,:,1:45]
 # this example is the reflection off of a sharkfin whose interior liquid has speed 1999.0 at distance 10.2 meters
 # it is now ordered as (range)×(cross-range)×(angle)
 
 layers = layeredTransform(2, size(resp,1))
 size(resp)
-@time output = st(resp, layers, absType()) # run twice to get the time. The first is compile time
+# since this is going to be pretty large, we should subsample heavily (see the docs via ?st for options)
+@time tmpOutput = st(resp[:,:,1], layers, absType(), outputSubsample=(-1,5))
+output = zeros(size(tmpOutput)..., size(resp,3))
+for i=1:size(resp,3)
+    @time output[:,:,i] = st(resp[:,:,i], layers, absType(), outputSubsample=(-1,5))
+end
+output
+# output is now prepared. At this point, the preprocessing is done, and you could do regression, clustering, etc.
