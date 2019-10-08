@@ -2,3 +2,12 @@
 symmetryTesting.jl
 boundaryConditions.jl
 *~
+*.dir-locals.el
+.juliahistory
+*#*#
+ShatteringExamples/__pycache__/
+ShatteringExamples/coeffPlots
+ShatteringExamples/*pdf
+debugging.jl
+*tmp*
+test/reconstructSquareAbs.pdf
