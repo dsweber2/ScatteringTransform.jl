@@ -2,23 +2,14 @@ import Wavelets.cwt
 import Wavelets.wavelet
 import Wavelets.eltypes
 import Wavelets.WT
-import Shearlab.Shearletsystem2D
 # so we can write a method that can use either cwt or shearing
 function dispatch(dim, toTransform, shear, daughters, fftPlan)
-    if dim==1
-        return cwt(toTransform, shear, daughters, fftPlan)
-    elseif dim==2
-        return output = sheardec2D(toTransform, shear, fftPlan)
-    end
+    return cwt(toTransform, shear, daughters, fftPlan)
 end
 
 function averaging(dim, toTransform, shear, daughters, fftPlan)
-    if dim==1
-        finalOutput = cwt(toTransform, shear, daughters, fftPlan)
-        return dropdims(finalOutput, dims=2)
-    elseif dim==2
-        return averagingFunction(toTransform, shear, fftPlan)
-    end
+    finalOutput = cwt(toTransform, shear, daughters, fftPlan)
+    return dropdims(finalOutput, dims=2)
 end
 
 
@@ -55,18 +46,6 @@ function numScales(c::CFW, n, i)
     return nnn[i]
 end
 
-function numScales(shearletSystem::Shearlab.Shearletsystem2D)
-    return size(shearletSystem.shearlets)[end]-1
-end
-
-function numScales(shearletSystem::Shearlab.Shearletsystem2D, n)
-    return size(shearletSystem[i].shearlets)[end]-1
-end
-
-function numScales(shearletSystem::Shearlab.Shearletsystem2D, n, i)
-    return size(shearletSystem[i].shearlets)[end]-1
-end
-
 function computeWavelets(n1, c; T=Float64, nScales=-1)
     #println("n1 = $(n1), T = $(T), nScales = $(nScales)")
     #println("$(c)")
@@ -81,67 +60,3 @@ function computeWavelets(n1, c; T=Float64, nScales=-1)
         return (SharedArray(daughters), ω)
     end
 end
-###################################################################################
-#################### Shattering methods ###########################################
-###################################################################################
-
-function sheardec2D(X, shearletSystem, P::Future)
-    Shearlab.sheardec2D(X, shearletSystem, P = fetch(P))
-end
-
-
-
-
-#################### Reconstruction main functions ##############################
-
-
-function shearrec2D(coeffs, shearletSystem, P::Future,
-                    resultSize; averaging=false)
-    Shearlab.shearrec2D(coeffs, shearletSystem, P=fetch(P))
-end
-    
- 
-#################### Compute just the Averaging function  ######################
-
-"""
-    coeffs = averagingFunction(X,shearletSystem)
-
-compute just the averaging coefficient matrix of the Shearlet transform of the array X. If preFFT is true, then it assumes that you have already taken the fft of X.
-
-general is a dummy variable used to make the more specific versions call the less specific one, since they are used primarily for uniform type checking
-...
-"""
-function averagingFunction(X, shearletSystem, P, general)
-    padBy = shearletSystem.padBy
-    coeffs = zeros(eltype(X), size(X)..., 1)
-    nScale = size(shearletSystem.shearlets,3)
-    neededShear = conj(shearletSystem.shearlets[:, :, end])
-    used1 = padBy[1] .+ (1:size(X, 1))
-    used2 = padBy[2] .+ (1:size(X, 2))
-    Shearlab.shearing!(X, neededShear, P,  coeffs, padBy, used1, used2, 1) # the one is just for accessing coeffs
-    return coeffs[:, :]
-end # averagingFunction
-
-
-# make sure the types are done correctly
-function averagingFunction(X::AbstractArray{Complex{T}, N},
-                           shearletSystem::Shearlab.Shearletsystem2D{T},
-                           P::FFTW.cFFTWPlan{Complex{T},A,B,C}) where {T <:
-                                                                       Real, A,
-                                                                       B, C, N}  
-    averagingFunction(X, shearletSystem, P, true)
-end
-function averagingFunction(X::AbstractArray{T, N},
-                           shearletSystem::Shearlab.Shearletsystem2D{T},
-                           P::FFTW.rFFTWPlan{T,A,B,C}) where {T <: Real, A, B,
-                                                             C, N} 
-    averagingFunction(X, shearletSystem, P, true)
-end
-
-
-
-function averagingFunction(X, shearletSystem, P::Future)
-    return averagingFunction(X, shearletSystem, fetch(P))
-end
-
-

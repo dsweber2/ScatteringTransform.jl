@@ -64,21 +64,6 @@ function numChildren(keeperOriginal::Array{Int}, scalingFactors::Array{Float64},
 end
 numChildren(keeperOriginal::Array{Int}, layers::layeredTransform, nScalesLayers::Array{Int}) = numChildren(keeperOriginal::Array{Int}, [shear.scalingFactor for shear in layers.shears], nScalesLayers::Array{Int})
 
-"""
-    getChildren()
-
-given an index in a layer, determine the indices in the next layer that correspond to the children of that index
-"""
-function getChildren(layers::layeredTransform, m, parent)
-    return getChildren(layers.shears[m], m, parent)
-end
-
-function getChildren(shear, m, parent)
-    nChildrenPerParent = shear.nShearlets-1
-    firstChild= (parent-1)*nChildrenPerParent+1
-    lastChild = parent*nChildrenPerParent
-    return firstChild:lastChild
-end
 
 @doc """
 numInLayer(m::Int, layers::layeredTransform, nScalesLayers::Array{Int})
@@ -101,6 +86,7 @@ function numInLayer(m::Int, scalingFactors::Array{Float64}, nScalesLayers::Array
   end
   numThisLayer
 end
+
 numInLayer(m::Int, layers::layeredTransform, nScalesLayers::Array{Int}) = numInLayer(m, [shear.scalingFactor for shear in layers.shears], nScalesLayers)
 
 

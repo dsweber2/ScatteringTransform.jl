@@ -20,7 +20,7 @@ struct layeredTransform{T, D}
                                    shears::Array{T,1},
                                    subsampling::Array{Float32, 1},
                                    outputSize::Array{Int, 2}) where {T,D}
-        @assert (D==2 && T<:Shearletsystem2D)  || (D==1 && T<:CFW)
+        @assert (D==1 && T<:CFW)
         return new(m, n, shears, subsampling, outputSize)
     end
 end
@@ -63,16 +63,8 @@ end
                                                                              Integer, 
                                                                              T <: Real,
                                                                              W <: WT.WaveletBoundary}
-    layers = layeredTransform(m::S, Xsizes::Tuple{<:Integer,<:Integer},
-                              nScales::Array{T,1}, subsampling::Array{T,1},
-                              shearlets<:W,
-                              shearLevels::Array{<:Array{<:Integer,1}},
-                              gpu::Bool=false, percentage,
-                              typeBecomes::DataType=Float32) where {S<:Integer,
-                                                                    T<:Real,
-                                                                    W<:Shearlab.Shearletsystem2D}
 whether the second argument is a single number or a tuple determines whether
-you get a 1D wavelet transform or 2D shearlet transform
+you get a 1D wavelet transform
  """
 function layeredTransform(m::S, Xlength::S, nScales::Array{S,1},
                           subsampling::Array{T,1},
@@ -127,59 +119,6 @@ end
 
 
 
-################################################################################
-######################### Shearlet Transform  ##################################
-################################################################################
-function layeredTransform(m::S, Xsizes::Tuple{<:Integer, <:Integer},
-                          nScales::Array{<:Integer, 1}, subsampling::Array{T, 1},
-                          shearLevels::Array{<:Array{<:Integer, 1}},
-                          padding::Bool, gpu::Bool=false, percentage=.9,
-                          typeBecomes::DataType=Float32,
-                          frameBound=typeBecomes(-1.0)) where {S<:Integer,
-                                                               T<:Real,
-                                                               W<:Shearlab.Shearletsystem2D}
-    @assert m+1==size(subsampling, 1)
-    @assert m+1==size(nScales, 1)
-
-    rows = sizes(bsplineType(), subsampling, Xsizes[1])[1:end-1]
-    cols = sizes(bsplineType(), subsampling, Xsizes[2])[1:end-1]
-
-    println("Treating as a 2D signal. Vector Lengths: $Xsizes nScales:" *
-            "$nScales subsampling: $subsampling")
-    shears =  [Shearlab.getshearletsystem2D(rows[i], cols[i], nScales[i],
-                                            shearLevels[i];
-                                            typeBecomes = typeBecomes,
-                                            upperFrameBound = frameBound,
-                                            padded = padding) for (i,x) in
-               enumerate(subsampling)]
-    outputSizes = getResizingRates(shears, length(shears)-1, percentage=percentage)
-
-    return layeredTransform{typeof(shears[1]), 2}(m, Xsizes, shears,
-                                                  Float32.(subsampling), outputSizes)
-end
-
-
-
-# version with explicit name calling
-function layeredTransform(m::Int, Xsizes::Tuple{<:Integer, <:Integer};
-                          nScale::Int=2, nScales::Array{<:Integer,1} = [nScale for
-                                                                        i=1:(m+1)],
-                          shearLevel::Array{<:Integer, 1} = ceil.(Int,
-                                                                  (1:nScale)/2),
-                          shearLevels::Array{<:Array{<:Integer, 1}, 1} =
-                          [ceil.(Int, (1:nScales[i])/2) for i=1:(m+1)],
-                          subsample::S = 2.0, subsamples::Array{<:Real,1} =
-                          [Float32(subsample) for i=1:(m+1)], gpu::Bool =
-                          false, padding::Bool=true,
-                          typeBecomes::DataType=Float32, percentage=.9,
-                          frameBound=typeBecomes(1.0)) where {T<:Number, S<:Number}
-    return layeredTransform(m, Xsizes, nScales, subsamples, shearLevels,
-                            padding, gpu, percentage, typeBecomes)
-end
-
-
-
-
 #################################################################################
 ########################### scattered type ######################################
 #################################################################################
@@ -223,17 +162,6 @@ end
 
 import Base:getindex
 Base.getindex(X::scattered, i::Union{AbstractArray, <:Integer}) = X.output[i]
-# function Base.getindex(X::scattered, p::pathType{<:Integer})
-#     k = X.k
-#     from = X.output[p.m+1]
-#     ax = axes(from)
-#     nShears = [size(x,k+1) for x in X.output[1:p.m+1]]
-#     nShears = [floor(Int, x/prod(nShears[1:i-1])) for (i,x) in enumerate(nShears)]
-#     nShears = [nShears... 1]
-#     relIndex = 1+sum([(px-1)*prod(nShears[i+2:end]) for (i,px) in enumerate(p.Idxs)])
-#     println("relIndex = $(relIndex)")
-#     return from[ax[1:k]..., relIndex, ax[k+2:end]...]
-# end
 
 function Base.getindex(X::scattered, p::pathType)
     # if it's not an integer type, then the last index is the only weird one
@@ -313,49 +241,3 @@ function scattered(layers::layeredTransform{S,1}, X::Array{T,N};
     zerr[1][:, axes(X)[2:end]...] = copy(X)
     return scattered{T,N+1}(layers.m, 1, zerr, output)
 end
-
-function scattered(layers::layeredTransform{U,2}, X::Array{T, N};
-                   subsample::Bool=true, percentage::Float64=.9) where {U, T <:
-                                                                        Number, N,
-                                                                        S<:Number} 
-    n, q, dataSizes, outputSizes, resultingSize = calculateSizes(layers,
-                                                                    true,
-                                                                    size(X))
-    zerr = [zeros(T, n[i,:]..., prod(q[1:i-1]), size(X)[3:end]...) for i=1:layers.m+1] 
-    zerr[1] = reshape(copy(X), (size(X)..., 1))
-    if subsample
-        output = [zeros(T, outputSizes[i]...) for i=1:layers.m+1]
-    else
-        output = [zeros(T, n[i+1,:]..., prod(q[1:i-1]), size(X)[3:end]...) for i=1:layers.m+1]
-    end
-    return scattered{T, N+1}(layers.m, 2, zerr, output)
-end
-
-
-# Note: if stType is decreasing, this function relies on functions found in Utils.jl
-# function scattered(layers::layeredTransform, X::Array{T,N}, stType::String;
-#                    totalScales=[-1 for i=1:layers.m+1]) where {T <: Number, N} 
-#     @assert stType==fullType() || stType==decreasingType()
-#     n, q, dataSizes, outputSizes, resultingSize = calculateSizes(layers,
-#                                                                  (-1,-1),
-#                                                                  size(X),
-#                                                                  totalScales =
-#                                                                  totalScales)
-#     if stType=="full"
-#         zerr=[zeros(T, size(X)[1:end-1]..., n[i], q[i]) for i=1:layers.m+1]
-#         output = [zeros(T, size(X)[1:end-1]..., n[i+1], q[i]) for
-#                   i=1:layers.m+1] 
-#     elseif stType=="decreasing"
-#         # brief reminder, smaller index==larger scale
-#         counts = [numInLayer(i,layers,q.-1) for i=0:layers.m]
-#         zerr=[zeros(T, size(X)[1:end-1]..., n[i], counts[i]) for i=1:layers.m+1]
-#         output = [zeros(T, size(X)[1:end-1]..., n[i+1], counts[i]) for i=1:layers.m+1]
-#     elseif stType=="collating"
-#         zerr=[zeros(T, size(X)[1:end-1]..., n[i], q[1:i-1].-1) for i=1:layers.m+1]
-#         output = [zeros(T, size(X)[1:end-1]..., n[i+1], q[1:i-1].-1) for i=1:layers.m+1]
-#     end
-#     for i in eachindex(view(zerr[1], axes(zerr[1])[1:end-1]..., 1))
-#         zerr[1][i,1] = X[i]
-#     end
-#     scattered{T, N+1}(layers.m, 1, zerr, output)
-# end

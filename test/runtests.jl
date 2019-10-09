@@ -11,5 +11,3 @@ using Test
 include("planTests.jl")
 include("cwtTests.jl")
 include("pathTests.jl")
-#include("shatteringTests.jl")
-# include("inversionTests.jl")

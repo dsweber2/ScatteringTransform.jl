@@ -14,34 +14,6 @@ given a layeredTransform and an array as produced by the thin ST, wrap the
 results in the easier to process scattered type. note that the data is zero
 when produced this way.
 """
-function wrap(layers::layeredTransform{K, 2}, results::AbstractArray{T,N}, X;
-              percentage=.9) where {K, N, T<: Number}
-    wrapped = scattered(layers, X)
-    n, q, dataSizes, outputSizes, resultingSize = calculateSizes(layers,
-                                                                 (-1,-1),
-                                                                 size(X),
-                                                                 percentage =
-                                                                 percentage)
-    for (i,layer) in enumerate(layers.shears[1:layers.m+1])
-        concatStart = sum([prod(oneLayer) for oneLayer in
-                           outputSizes[1:i-1]]) + 1
-        outerAxes = axes(wrapped.output[i])[4:end]
-        for j = 1:size(wrapped.output[i])[end]
-            thingToWrite = reshape(results[concatStart .+
-                                           (j-1)*resultingSize[i] .+
-                                           (0:(resultingSize[i]-1)),
-                                           outerAxes...], outputSizes[i][[1:2; 4:end]])
-            wrapped.output[i][:,:,j, outerAxes...] = thingToWrite
-        end
-    end
-    return wrapped
-end
-
-
-
-
-
-
 function wrap(layers::layeredTransform{K, 1}, results::AbstractArray{T,N}, X;
               percentage=.9) where {K, N, T<: Number}
     wrapped = scattered(layers, X)
@@ -87,7 +59,7 @@ end
 
     gathers all sheared matrices in a file with the name grouped(keep) and makes a single matrix out of them, with each row being a single sheared transform. Keep determines which depth to keep, with an empty matrix meaning keep all layers. named is the name of the variable in the file, while it is saved to "grouped(keep)"
 """
-function MatrixAggrigator(pardir::String; keep=[], named="output",tyyp::String="Shattering")
+function MatrixAggrigator(pardir::String; keep=[], named="output")
   vectorLength = 0
   # First determine the size of a single entry
   for (root, dir, files) in walkdir(pardir)
@@ -96,13 +68,9 @@ function MatrixAggrigator(pardir::String; keep=[], named="output",tyyp::String="
       if name[end-3:end]==".jld"
         results = load("$root/$name", named)
         if keep==[]
-          if tyyp=="Shattering"
-            vectorLength = [prod(size(x)) for x in results.output]
-          else
             vectorLength = [prod(size(results))]
-          end
         else
-          vectorLength = [prod(size(x)) for x in results.output[keep]]
+            vectorLength = [prod(size(x)) for x in results.output[keep]]
         end
         break
       end
@@ -127,13 +95,9 @@ function MatrixAggrigator(pardir::String; keep=[], named="output",tyyp::String="
   for (root, dir, files) in walkdir(pardir)
     for name in files
       if name[end-3:end]==".jld"  && name[1:4]=="data"
-        results = load("$root/$name", named)
-        if tyyp=="Shattering"
-          grouped[i,:] = cat(2,[reshape(results.output[keep[k]],(1,vectorLength[k])) for k=1:size(vectorLength,1)]...)
-        else
+          results = load("$root/$name", named)
           grouped[i,:] = reshape(results,(1,vectorLength[1]))
-        end
-        i+=1
+          i+=1
       end
     end
   end

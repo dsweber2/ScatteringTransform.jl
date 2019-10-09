@@ -42,23 +42,4 @@ end
 
     plans = createFFTPlans(layers, dataSizes, iscomplex=false)
     @test minimum(remotecall_fetch(testFFTPlans, i, plans[i,j], mirSize[j], false, (0,0)) for i=1:size(plans,1) for j=1:size(plans,2))
-
-
-
-
-
-    # 2D test
-    depth=2
-    dataS = (100, 100, 1,3)
-    layers = layeredTransform(depth, dataS[1:2])
-    n, q, dataSizes, outputSizes, resultingSize =
-        ScatteringTransform.calculateSizes(layers, (-1,-1),
-                                           dataS)
-    plans = createFFTPlans(layers, dataSizes)
-    tmpDataSizes = [d[1:2] for d in dataSizes]
-    @test minimum(remotecall_fetch(testFFTPlans, i, plans[i,j],
-                                   tmpDataSizes[j], true,
-                                   layers.shears[j].padBy) for
-                  i=1:size(plans,1) for
-                  j=1:size(plans,2))
 end

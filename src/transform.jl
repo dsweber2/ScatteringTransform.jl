@@ -342,30 +342,6 @@ function midLayer!(layers::layeredTransform{K,1}, results, curPath, dataSizes,
     return toBeHandedBack
 end
 
-function midLayer!(layers::layeredTransform{K,2}, results, curPath, dataSizes,
-                   outerAxes, innerAxes, innerSub, dataDim, i, daughters,
-                   nScales, nonlinear, subsam, outputSubsample,
-                   outputSizeThisLayer, concatStart, padBy, λ, resultingSize,
-                   homeChannel, fftPlan, T) where {K}
-    # make an array to return the results
-    toBeHandedBack = zeros(T, dataSizes[i+1][1:dataDim]...,
-                           size(layers.shears[i].shearlets)[end] - 1,
-                           dataSizes[i+1][dataDim+2:end]...)
-    #println("size(toBeHandedBack) = $(size(toBeHandedBack))")
-    # first perform the continuous wavelet transform on the data from the
-    # previous layer
-    output = sheardec2D(view(curPath, innerAxes..., λ, outerAxes...),
-                        layers.shears[i], fftPlan)
-
-    innerMostAxes = axes(output)[1:2]
-    # iterate over the non transformed dimensions of output
-    writeLoop!(output, outerAxes, i, T,dataSizes, innerAxes, innerSub, layers, results,
-               toBeHandedBack,concatStart,λ, dataDim,outputSize, nonlinear,
-               subsam,outputSizeThisLayer, outputSubsample, resultingSize)
-    #println("AFTER writeloop size(toBeHandedBack) = $(size(toBeHandedBack))")
-    return toBeHandedBack
-end
-
 for nl in functionTypeTuple
     @eval begin
         function writeLoop!(output, outerAxes, i, T,dataSizes, innerAxes,
@@ -493,55 +469,3 @@ end
 
 resampleTo(dataDim, resultingSize, outputSizes, i) = dataDim==1 ?
     resultingSize[i+1] : outputSizes[i+1][2]
-
-# @doc """
-#         finalLayer!(layers, results, curPath, outerAxes, innerAxes, innerSub, dataDim, i, daughters, nScales, nonlinear, subsam, outputSubsample, λ, resultingSize, concatStart, λ)
-
-#     Do the transformation of the m-1 to mth layer, the output of the m-1st layer, and the output of the mth layer. These are glued together for mostly for computational reasons. There is currently no decreasing paths version, so it should end up throwing errors
-#     """
-
-# function finalLayer!(layers::layeredTransform{K, 2}, results, curPath,
-#                      outerAxes, innerAxes, innerSub, dataSizes, dataDim, i,
-#                      daughters, finalDaughters, nScales, nonlinear, subsam,
-#                      outputSubsample, outputSizes, λ, resultingSize,
-#                      concatStart, concatStartLast, padBy, padByLast,
-#                      nScalesLastLayer, fftPlan, fftPlanFinal, T) where {K}
-#     # iterate over the outerAxes
-#     # first perform the continuous wavelet transform on the data from the
-#     # previous layer
-#     output = sheardec2D(view(curPath, innerAxes..., λ, outerAxes...),
-#                         layers.shears[i], fftPlan, true, padBy) 
-#     toBeHandedOnwards = zeros(T, dataSizes[end][1:end-1]...,
-#                               size(layers.shears[i].shearlets)[end] - 1)
-#     # store for the final output
-#     writeLoop!(output, outerAxes, i, T, dataSizes, innerAxes, innerSub, layers,
-#                results, toBeHandedOnwards, concatStart, λ, dataDim, outputSize,
-#                nonlinear, subsam, outputSizes[end-1], outputSubsample,
-#                resultingSize)
-
-#     # write the output from the mth layer to output
-#     for j = 2:size(output)[end]
-#         for outer in eachindex(view(output, outerAxes..., [1 for
-#                                                            i=1:(dataDim+1)]...))
-#             finalOutput = averagingFunction(view(toBeHandedOnwards, outer,
-#                                                  innerSub..., j-1),
-#                                             layers.shears[i+1], fftPlanFinal,
-#                                             true, padByLast)
-#             tmpFinal = Array{Float64,dataDim}(real.(resample(finalOutput, 0f0,
-#                                                              newSize =
-#                                                              outputSizes[end][1:2])))
-#             if outputSubsample[1] > 1 || outputSubsample[2] > 1
-#                 results[concatStartLast +
-#                         (λ-1)*nScalesLastLayer*resultingSize[i] +
-#                         (j-2)*resultingSize[i] .+ (0:(resultingSize[i+1]-1)), outer] =
-#                         resample(tmpFinal, outputSizes[i+1][2])
-#             else
-#                 sizeTmpOut = prod(size(tmpFinal))
-#                 results[(concatStartLast +
-#                                 (λ-1)*nScalesLastLayer*resultingSize[end] +
-#                                 (j-2)*resultingSize[i+1]).+(0:(sizeTmpOut-1)),
-#                         outer] = reshape(tmpFinal, (sizeTmpOut)) 
-#             end
-#         end
-#     end
-# end
