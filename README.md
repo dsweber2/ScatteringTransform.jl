@@ -1,5 +1,5 @@
 # ScatteringTransform.jl
-An implementation of the generalized scattering transform in Julia. Documentation in progress, as are updates to 1.0
+An implementation of the generalized scattering transform in Julia. Documentation in progress.
 
 ## Installation
 Basic installation: at the moment, this is not an official package. Because of this, to install it, you must first clone it, then make it accessible to your project.
