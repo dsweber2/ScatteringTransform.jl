@@ -68,8 +68,9 @@ function st(X::Array{T, N}, layers::layeredTransform, nonlinear::nl;
     println("outputSizes = $(outputSizes)")
     println("made the storage arrays, about to make the fft plans")
 
-    if fftPlans == -1 && verbose
-        @time fftPlans = createFFTPlans(layers, dataSizes, verbose = verbose,
+    if fftPlans == -1
+        println("dataSizes = $(dataSizes)")
+        @time fftPlans = createFFTPlans(layers, dataSizes,
                                         iscomplex = T<:Complex)
     elseif fftPlans == -1
         println("dataSizes = $(dataSizes)")
@@ -80,7 +81,7 @@ function st(X::Array{T, N}, layers::layeredTransform, nonlinear::nl;
     results = iterateOverLayers!(layers, results, nextData, dataSizes,
                                  outputSizes, dataDim, q, totalScales, T, thin,
                                  nonlinear, subsam, outputSubsample,
-                                 resultingSize, fftPlans, verbose)
+                                 resultingSize, fftPlans)
     println("finished iterate Over layers")
 
 
@@ -101,12 +102,12 @@ function st(layers::layeredTransform, X::Array{T, N}, nonlinear::nl;
               outputSubsample = outputSubsample, subsam = subsam, totalScales =
               totalScales, percentage = percentage)
 end
-st(layers::layeredTransform, X::Array{T}; nonlinear::Function=abs, subsam::Function=bspline) where {T<:Real} = st(X,layers,nonlinear=nonlinear, subsamp=subsam,verbose=false)
+st(layers::layeredTransform, X::Array{T}; nonlinear::Function=abs, subsam::Function=bspline) where {T<:Real} = st(X,layers,nonlinear=nonlinear, subsamp=subsam)
 
 
 function iterateOverLayers!(layers, results, nextData, dataSizes, outputSizes,
                            dataDim, q, totalScales, T, thin, nonlinear, subsam,
-                           outputSubsample, resultingSize, fftPlans, verbose)
+                           outputSubsample, resultingSize, fftPlans)
     for (i,layer) in enumerate(layers.shears[1:layers.m])
         println("On layer $(i)")
         #println("size(nextData) = $(size(nextData[1]))")
@@ -188,14 +189,14 @@ function iterateOverLayers!(layers, results, nextData, dataSizes, outputSizes,
                           daughters, finalDaughters, totalScales[i], nonlinear,
                           subsam, outputSubsample, outputSizes, resultingSize,
                           concatStart, concatStartLast, padBy, padByLast,
-                          nScalesLastLayer, fftPlans, T, dataSizes,verbose)
+                          nScalesLastLayer, fftPlans, T, dataSizes)
         else 
             # any layer before the penultimate
             spawningJobs!(listOfProcessResults, layers, results, cur,
                           dataSizes, outerAxes,innerAxes, innerSub, dataDim, i,
                           daughters, totalScales[i], nonlinear, subsam,
                           outputSubsample, outputSizes[i], concatStart, padBy,
-                          resultingSize, dataChannel, fftPlans, T,verbose)
+                          resultingSize, dataChannel, fftPlans, T)
         end
         # using one channel per
         for (λ,x) in enumerate(listOfProcessResults)
@@ -218,7 +219,7 @@ function spawningJobs!(listOfProcessResults, layers, results, cur, dataSizes,
                        outerAxes, innerAxes, innerSub, dataDim, i, daughters,
                        totalScale, nonlinear, subsam, outputSubsample,
                        outputSize, concatStart, padBy, resultingSize,
-                       dataChannel, fftPlans, T, verbose)
+                       dataChannel, fftPlans, T)
     njobs = Distributed.nworkers();
     cjob = 0;
     for (j,x) in enumerate(cur)
@@ -254,7 +255,7 @@ function spawningJobs!(listOfProcessResults, layers, results, cur, outerAxes,
                        finalDaughters, totalScale, nonlinear, subsam,
                        outputSubsample, outputSizes, resultingSize,
                        concatStart, concatStartLast, padBy, padByLast,
-                       nScalesLastLayer, fftPlans, T, dataSizes, verbose)
+                       nScalesLastLayer, fftPlans, T, dataSizes)
     njobs = Distributed.nworkers();
     cjob = 0;
     for (j,x) in enumerate(cur)
