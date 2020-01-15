@@ -1,5 +1,4 @@
-
-# this file is best used interactively in atom
+# this file is best used interactively
 using Distributed
 addprocs(4)
 @everywhere using Revise
@@ -10,9 +9,6 @@ using Statistics
 t = 0.001:6π/100:6π
 f = 2 .* max.(0,-(t.-3*π))./(t.-3*π) .* (sin.(2π*t)) .+ 10 .* max.(0,t.-3*π)./(t.-3*π) .+ max.(0,t.-3*π)./(t.-3*π).* sin.(4π*t.+π)
 plot(t, f)
-
-# brief example of what the wavelets look like
-
 
 # First create the transform configuration
 layers = layeredTransform(2, length(f))
@@ -27,7 +23,7 @@ layers = layeredTransform(2, length(f))
 ###########################################################################################################
 ####    the second outputs a single array where the last dimension corresponds to the transformed data. Useful for large datasets, and more optimized
 ###########################################################################################################
-@time thinOp = st(f, layers, absType(), outputSubsample=(-1,3), thin=true) # run twice to get the time. The first is compile time
+@time thinOp = st(f, layers, absType(), outputSubsample=(-1,3), thin=true); # run twice to get the time. The first is compile time
 
 
 # computing the morlet wavelet coefficients subsampled for comparison

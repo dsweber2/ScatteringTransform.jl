@@ -35,13 +35,11 @@ function st(X::Array{T, N}, layers::layeredTransform, nonlinear::nl;
             # allow for variation in subsamping method again
             thin::Bool=true, outputSubsample::Tuple{Int, Int}=(-1,-1),
             subsam::Bool=true, totalScales = [-1 for i=1:layers.m+1],
-            percentage = .9, fftPlans = -1, verbose::Bool=false) where {T <: Real, S <: Union, N, nl <:
+            percentage = .9, fftPlans = -1) where {T <: Real, S <: Union, N, nl <:
                                     nonlinearity, Sub <: resamplingMethod}
     @assert length(totalScales)==layers.m+1
     @assert fftPlans ==-1 || typeof(fftPlans)<:Array{<:Future,2}
-    if verbose
-        println("verbose mode on. This may have more output than you'd like to put up with")
-    end
+    println("Debug mode on. This may have more output than you'd like to put up with")
     dataDim = eltypes(layers)[2]
     # Insist that X has to have at least one extra meta-dimension, even if it is 1
     if ndims(X) == dataDim
@@ -56,9 +54,7 @@ function st(X::Array{T, N}, layers::layeredTransform, nonlinear::nl;
                                                                  percentage =
                                                                  percentage)
     nextData = [reshape(X, (size(X)[1:dataDim]..., 1, size(X)[(dataDim+1):end]...))]
-    if verbose
-        println("about to make the storage arrays")
-    end
+    println("about to make the storage arrays")
 
     # get the size of a single entry as a single vector (outputSizes gives the
     # # of paths)
@@ -69,29 +65,24 @@ function st(X::Array{T, N}, layers::layeredTransform, nonlinear::nl;
     # create list of size references if we're subsampling the output an
     # extra amount
     results = SharedArray(zeros(T, netSize, outputSizes[1][dataDim+2:end]...))
-    #println("outputSizes = $(outputSizes)")
-    if verbose
-        println("made the storage arrays, about to make the fft plans")
-    end
+    println("outputSizes = $(outputSizes)")
+    println("made the storage arrays, about to make the fft plans")
 
     if fftPlans == -1 && verbose
         @time fftPlans = createFFTPlans(layers, dataSizes, verbose = verbose,
                                         iscomplex = T<:Complex)
     elseif fftPlans == -1
-        #println("dataSizes = $(dataSizes)")
+        println("dataSizes = $(dataSizes)")
         fftPlans = createFFTPlans(layers, dataSizes, T=T, iscomplex =
                                   T<:Complex)
     end
-    if verbose
-        println("about to start iterating")
-    end 
+    println("about to start iterating")
     results = iterateOverLayers!(layers, results, nextData, dataSizes,
                                  outputSizes, dataDim, q, totalScales, T, thin,
                                  nonlinear, subsam, outputSubsample,
                                  resultingSize, fftPlans, verbose)
-    if verbose
-        println("finished iterate Over layers")
-    end
+    println("finished iterate Over layers")
+
 
     if thin
         return results
@@ -117,9 +108,7 @@ function iterateOverLayers!(layers, results, nextData, dataSizes, outputSizes,
                            dataDim, q, totalScales, T, thin, nonlinear, subsam,
                            outputSubsample, resultingSize, fftPlans, verbose)
     for (i,layer) in enumerate(layers.shears[1:layers.m])
-        if verbose
-            println("On layer $(i)")
-        end 
+        println("On layer $(i)")
         #println("size(nextData) = $(size(nextData[1]))")
         cur = nextData #data from the previous layer
 
@@ -210,7 +199,7 @@ function iterateOverLayers!(layers, results, nextData, dataSizes, outputSizes,
         end
         # using one channel per
         for (λ,x) in enumerate(listOfProcessResults)
-            # println("type of the thing being fetched: $typeof(x)")
+            println("type of the thing being fetched: $typeof(x)")
             tmpFetch = fetch(x)
             if typeof(tmpFetch) <: Exception
                 throw(tmpFetch)
@@ -219,9 +208,7 @@ function iterateOverLayers!(layers, results, nextData, dataSizes, outputSizes,
                 nextData[λ] = tmpFetch
             end
         end
-        if verbose
-            println("fetched from workers")
-        end
+        println("fetched from workers")
     end
     results
 end
@@ -241,6 +228,7 @@ function spawningJobs!(listOfProcessResults, layers, results, cur, dataSizes,
             # do the actual transformation; the last layer requires
             # far less saved than the mid-layers. cjob+1 is the worker to
             # assign the task to (+1 since mod is 0...n-1 rather than 1...n
+            println("sending out remotecalls")
             futureThing = remotecall(midLayer!, cjob+1, layers, results, x,
                                      dataSizes, outerAxes, innerAxes, innerSub,
                                      dataDim, i, daughters, totalScale,
@@ -339,6 +327,7 @@ function midLayer!(layers::layeredTransform{K,1}, results, curPath, dataSizes,
                resultingSize)
     # println("size(toBeHandedBack) = $(size(toBeHandedBack)), typeof =
     # $(typeof(toBeHandedBack)), used by (procs(toBeHandedBack))")
+    println("AFTER writeloop in midlayer size(toBeHandedBack) = $(size(toBeHandedBack))")
     return toBeHandedBack
 end
 
@@ -404,7 +393,7 @@ function finalLayer!(layers::layeredTransform{K,N}, results, curPath,
     # previous layer
     # println("inner = $(innerAxes), outer = $(outerAxes), size(curPath) = "*
     #         "$(size(curPath))")
-    #println("starting,λ=$(λ)")
+    println("starting,λ=$(λ) in finalLayer!")
     output = dispatch(N, view(curPath, innerAxes..., λ, outerAxes...),
                       layers.shears[i], daughters, fftPlan)
 

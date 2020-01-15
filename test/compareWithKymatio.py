@@ -4,14 +4,11 @@ import numpy as np
 from kymatio import Scattering2D
 import torchvision
 
-
 from kymatio.scattering1d.filter_bank import scattering_filter_factory
 
 import numpy as np
 import matplotlib.pyplot as plt
 
-norms = [np.linalg.norm(psi_f[0]) for psi_f in psi1_f]
-norms.append(np.linalg.norm(phi_f[0]))
 
 T = 2**9
 J = 4
@@ -23,6 +20,9 @@ for Q in [1, 2, 4, 8]:
     phi_tmp, psi1_tmp, psi2_tmp, tmp = scattering_filter_factory(np.log2(T), J, Q)
     phi_f.append(phi_tmp)
     psi1_f.append(psi1_tmp)
+
+norms = [np.linalg.norm(psi_f[0]) for psi_f in psi1_f]
+norms.append(np.linalg.norm(phi_f[0]))
 #plt.xlim(0, 0.5)
 Tp = np.arange(T)[0:300]
 plt.figure()
@@ -45,8 +45,8 @@ for psi_f in psi1_f[3]:
 
 
 
-plt.xlabel(r'$\omega$', fontsize=18)
-plt.ylabel(r'$\hat\psi_j(\omega)$', fontsize=18)
+plt.xlabel(r'$\xi$', fontsize=18)
+plt.ylabel(r'$\hat\psi_j(\xi)$', fontsize=18)
 fig.suptitle(f'Comparison as Q increases', fontsize=18)
 axes[0].set_title("Q = 1")
 axes[1].set_title("Q = 2")

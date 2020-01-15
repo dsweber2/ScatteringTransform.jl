@@ -1,7 +1,7 @@
 using Revise, ScatteringTransform, Plots, LinearAlgebra
 pyplot()
 
-k = 2^7
+k = 2^9
 t = (-1+1/k):1/k:1; size(t) # interval
 n = 20       # degree of polynomial
 testSignal = hcat([t.^i for i=0:n]...)* randn(n+1)
@@ -9,15 +9,18 @@ plot(t, testSignal)
 
 
 layers = layeredTransform(2, length(testSignal))
+# 11 is *way* too far out
 layers = layeredTransform(2, length(testSignal), CWTType = WT.Morlet(11), nScales=[8 for i=1:3])
 layers.shears[1].averagingLength
 
 # let's look at the actual filters that are used
 n = ScatteringTransform.getNs(size(testSignal), layers)
 i=1
-daughters = computeWavelets(n[i], layers.shears[i])
+
+layers.shears[i]
+daughters,ξ = computeWavelets(n[i], layers.shears[i])
 layers.shears[1].frameBound
-ω = [0:ceil(Int, n[1]); -floor(Int,n[1])+1:-1]*2π
+ω = [0:ceil(Int, n[1]); -floor(Int,n[1])+1:-1]*2π;
 plot(daughters[:, :], legend=false)
 plot(daughters[:, end], legend=false)
 
@@ -40,7 +43,6 @@ norm(ScatteringTransform.Daughter(layers.shears[i], 2.0^(3/8), ω)[1:(n[1]+1)])
 layers.shears[i]
 
 stResult = st(testSignal, layers, absType())
-
 
 
 
