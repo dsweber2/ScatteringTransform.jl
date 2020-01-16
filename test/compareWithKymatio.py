@@ -5,6 +5,7 @@ from kymatio import Scattering2D
 import torchvision
 
 from kymatio.scattering1d.filter_bank import scattering_filter_factory
+from kymatio.scattering1d.filter_bank import compute_params_filterbank
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -53,3 +54,18 @@ axes[1].set_title("Q = 2")
 axes[2].set_title("Q = 4")
 axes[3].set_title("Q = 8")
 plt.savefig("Q_vaguely_num_per_octave.pdf")
+
+
+
+Q=8
+J=4
+r_psi=math.sqrt(0.5)
+sigma0=0.1
+sigma_low = sigma0 / math.pow(2, J)
+xi1, sigma1, j1 = compute_params_filterbank(sigma_low, Q, r_psi=math.sqrt(0.5), alpha=5.)
+plt.figure()
+plt.plot(np.diff([math.log(x)/math.log(2) for x in reversed(xi1)]))
+plt.title(f'Scaling Ratio Kymatio (logarithmic is flat)')
+plt.xlabel('wavelet index (increasing frequency)')
+plt.ylabel('scale ratio, log(2) scaling')
+plt.show()
