@@ -63,7 +63,7 @@ function MatrixAggrigator(pardir::String; keep=[], named="output")
   vectorLength = 0
   # First determine the size of a single entry
   for (root, dir, files) in walkdir(pardir)
-    # println("folder $root")
+    @debug "folder $root"
     for name in files
       if name[end-3:end]==".jld"
         results = load("$root/$name", named)
@@ -85,7 +85,7 @@ function MatrixAggrigator(pardir::String; keep=[], named="output")
       end
     end
   end
-  println("vectorLength = $vectorLength")
+  @debug "vectorLength = $vectorLength"
   grouped = zeros(NumFiles, sum(vectorLength))
   if keep==[]
     keep = 1:size(vectorLength,1)
@@ -123,10 +123,10 @@ function transformFolder(sourceFolder::String, destFolder::String, layers::layer
     for dir in dirs
       mkpath(joinpath(destFolder,dir))
     end
-    println(root)
+    @debug "" root
     for file in files
       # data is expected as *column* vectors
-      println("starting file $(joinpath(root,file))")
+      @debug "starting file $(joinpath(root,file))"
       savefile = joinpath(destFolder, relpath(root,sourceFolder), "$(file).h5")
       savefileSize = stat(savefile).size
       if overwrite || savefileSize < 10
@@ -143,10 +143,8 @@ function transformFolder(sourceFolder::String, destFolder::String, layers::layer
             innerAxes = axes(fullMatrix)[2:end]
             usefulSlice = 1:min(2,nEx);
             if thin
-              # println("l101")
               tmpResult = thinSt(fullMatrix[usefulSlice, innerAxes...], layers, nonlinear=nonlinear, subsam=subsam, stType=stType, outputSubsample = postSubsample)
             else
-              # println("l104")
               tmpResult = st(fullMatrix[usefulSlice, innerAxes...], layers, nonlinear=nonlinear, subsam=subsam, stType=stType)
             end
             # if the data is too big, we'll need extra room to store the results
@@ -162,18 +160,15 @@ function transformFolder(sourceFolder::String, destFolder::String, layers::layer
               for i = 2:maxValue
                 usefulSlice = (2*i-1):min(nEx, 2*i)
                 if thin
-                  # println("ln120")
                   tmpResult = thinSt(fullMatrix[usefulSlice, innerAxes...], layers, nonlinear=nonlinear, subsam=subsam, stType=stType, outputSubsample = postSubsample)
                 else
-                  # println("ln123")
                   tmpResult = st(fullMatrix[usefulSlice, innerAxes...], layers, nonlinear=nonlinear, subsam=subsam, stType=stType)
                 end
-                # println("ln126")
                 result[usefulSlice, innerResultAxes...] = tmpResult
               end
               # repair a problem in the previous run
             end
-            println("saving to $(savefile)")
+            @info "saving to $(savefile)"
             if savefileSize<10 && isfile(savefile)
               rm(savefile)
             end
@@ -183,7 +178,7 @@ function transformFolder(sourceFolder::String, destFolder::String, layers::layer
       end
     end
   end
-  println("saving settings to $(joinpath(destFolder,"settings.h5"))")
+  @info "saving settings to $(joinpath(destFolder,"settings.h5"))"
   save(joinpath(destFolder,"settings.jld"),"layers", layers)
   return
 end

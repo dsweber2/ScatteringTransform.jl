@@ -118,14 +118,11 @@ end
 to be called after distributed. returns a 2D array of futures; the i,jth entry has a future (referenced using fetch) for the fft to be used by worker i in layer j.
 """
 function createFFTPlans(layers::layeredTransform{<:Any, N}, dataSizes;
-                        verbose=false, T=Float32,
-                        iscomplex::Bool=false) where {N}
+                        T=Float32, iscomplex::Bool=false) where {N}
     nPlans = getNumPlans(layers)
     FFTs = Array{Future,2}(undef, nworkers(), layers.m+1)
     for i=1:nworkers(), j=1:layers.m+1
-        if verbose
-            println("i=$(i), j=$(j)")
-        end
+        @debug "i=$(i), j=$(j)"
         if length(layers.n) >= 2
             FFTs[i, j] = remotecall(createRemoteFFTPlan, i,
                                     dataSizes[j][[1 3:end]], T,
@@ -133,7 +130,7 @@ function createFFTPlans(layers::layeredTransform{<:Any, N}, dataSizes;
         else
             fftPlanSize = (dataSizes[j][1]*2, dataSizes[j][3:end]...)
             # in the last layer
-            # println("plans are going to be size $(fftPlanSize)")
+            @debug "plans are going to be size $(fftPlanSize)"
             FFTs[i, j] = remotecall(createRemoteFFTPlan, i, fftPlanSize,
                                     T, iscomplex, nPlans)
         end

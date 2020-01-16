@@ -22,7 +22,7 @@ function computePath(layers::layeredTransform, layered1D::scattered{T,1}, layerM
       tmpλ -= (p[i]-1)*prod(nScalesLayers[i+1:end])
     end
   elseif stType=="decreasing"
-      println("not here")
+      @error "not implemented"
   end
 end
 

@@ -82,8 +82,8 @@ function layeredTransform(m::S, Xlength::S, nScales::Array{S,1},
     @assert m+1 == size(subsampling, 1)
     @assert m+1 == size(nScales, 1)
     
-    println("Treating as a 1D Signal. Vector Lengths: $Xlength nScales:" *
-            "$nScales subsampling: $subsampling")
+    @info "Treating as a 1D Signal. Vector Lengths: $Xlength nScales:" *
+            "$nScales subsampling: $subsampling"
     shears = [wavelet(CWTType; s = nScales[i],
                       boundary = boundary[i], 
                       averagingType = averagingType[i],

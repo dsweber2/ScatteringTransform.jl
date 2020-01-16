@@ -19,8 +19,8 @@ function cwt(Y::AbstractArray{T,N}, c::CFW{<:Any,<:Any,<:Union{WT.Morlet,
              daughters, fftPlan::Future) where {T<:Real, S<:Real, U<:Number,
                                                 N}
     plrfft, plfft = fetch(fftPlan)
-    # println("size(rfft) = $(size(plrfft)), size(fft) = $(size(plfft))")
-    # println("size of signal = $(size(Y))")
+    @debug "size(rfft) = $(size(plrfft)), size(fft) = $(size(plfft))"
+    @debug "size of signal = $(size(Y))"
     return cwt(Y, c, daughters, plrfft, plfft)
 end
 
@@ -47,16 +47,16 @@ function numScales(c::CFW, n, i)
 end
 
 function computeWavelets(n1, c; T=Float64, nScales=-1)
-    #println("n1 = $(n1), T = $(T), nScales = $(nScales)")
-    #println("$(c)")
+   @debug "n1 = $(n1), T = $(T), nScales = $(nScales)"
+   @debug "" c
     daughters,ω = Wavelets.computeWavelets(n1,c,T=T)
-    #println("nScales = $(nScales)")
+   @debug "" nScales
     if nScales>0
-        #println("computeWavelets: $(nScales) size of daughters is $(size(daughters)), reducing to "*
+       @debug "computeWavelets: $(nScales) size of daughters is $(size(daughters)), reducing to "
         #"$(1:nScales), i.e. to $(size(daughters[:,1:nScales]))")
         return (SharedArray(daughters[:,1:nScales]), ω)
     else
-        #println("size of daughters is $(size(daughters))")
+       @debug "size of daughters is $(size(daughters))"
         return (SharedArray(daughters), ω)
     end
 end

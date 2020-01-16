@@ -1,6 +1,9 @@
+using Logging
+global_logger(ConsoleLogger(stderr, Logging.Debug)) # modify the debugging level
 # this file is best used interactively
 using Distributed
 addprocs(4)
+using ScatteringTransform
 @everywhere using Revise
 @everywhere using ScatteringTransform
 using Plots

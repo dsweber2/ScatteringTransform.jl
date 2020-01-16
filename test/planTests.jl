@@ -6,12 +6,12 @@
             if truthVal
                 return true
             else
-                println("$(size(P)) ?= $(dataS)")
+                @debug "$(size(P)) ?= $(dataS)"
             end
         else         # the above only happens for 1D data. The latter doesn't effect padding
             truthVal = (size(P) == ((dataS[1:2] .+ 2 .* padBy)..., dataS[3:end]...))
             if !truthVal
-                println("$(size(P)) ?= $((dataS[1] + 2*padBy[1], dataS[2] + 2*padBy[2], dataS[3:end]...))")
+                @debug "$(size(P)) ?= $((dataS[1] + 2*padBy[1], dataS[2] + 2*padBy[2], dataS[3:end]...))"
             end
             return truthVal
         end
