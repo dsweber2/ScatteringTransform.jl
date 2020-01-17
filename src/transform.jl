@@ -39,6 +39,9 @@ function st(X::Array{T, N}, layers::layeredTransform, nonlinear::nl;
                                     nonlinearity, Sub <: resamplingMethod}
     @assert length(totalScales)==layers.m+1
     @assert fftPlans ==-1 || typeof(fftPlans)<:Array{<:Future,2}
+    if T<:Float64
+        @warn "data type is $T. This is probably higher precision than you need and likely to eat a lot of memory"
+    end
     dataDim = eltypes(layers)[2]
     # Insist that X has to have at least one extra meta-dimension, even if it is 1
     if ndims(X) == dataDim
