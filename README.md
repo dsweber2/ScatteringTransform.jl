@@ -1,4 +1,10 @@
-# ScatteringTransform.jl
+# ScatteringTransform
+[![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://dsweber2.github.io/ScatteringTransform.jl/stable)
+[![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://dsweber2.github.io/ScatteringTransform.jl/dev)
+[![Build Status](https://travis-ci.com/dsweber2/ScatteringTransform.jl.svg?branch=master)](https://travis-ci.com/dsweber2/ScatteringTransform.jl)
+[![Codecov](https://codecov.io/gh/dsweber2/ScatteringTransform.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/dsweber2/ScatteringTransform.jl)
+[![Coveralls](https://coveralls.io/repos/github/dsweber2/ScatteringTransform.jl/badge.svg?branch=master)](https://coveralls.io/github/dsweber2/ScatteringTransform.jl?branch=master)
+
 An implementation of the generalized scattering transform in Julia. Documentation in progress.
 
 ## Installation
