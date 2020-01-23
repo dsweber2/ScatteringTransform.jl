@@ -1,9 +1,9 @@
 # Documentation: http://docs.travis-ci.com/user/languages/julia/
 language: julia
 os:
+  - windows
   - linux
   - osx
-  - windows
 julia:
   - 1.2
   - 1.3
