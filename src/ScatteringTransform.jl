@@ -2,7 +2,7 @@ module ScatteringTransform
 using Distributed, SharedArrays
 using LinearAlgebra, Interpolations, Wavelets, FFTW
 using SpecialFunctions, LinearAlgebra
-using HDF5, Plots, JLD
+using HDF5, JLD
 
 # todo remove nScales controls
 
@@ -50,10 +50,9 @@ export calculateThinStSizes, getPadBy, pad, outputSize, createFFTPlans, remoteMu
 include("nonlinearities.jl")
 export nonlinearity, absType, ReLUType, tanhType, softplusType, piecewiseType, spInverse, aTanh, Tanh, ReLU, piecewiseLinear, plInverse
 include("transform.jl")
-export st, transformMidLayer!, transformFinalLayer!, comparePathsChildren
+export st, transformMidLayer!, transformFinalLayer!
 include("pathMethods.jl")
 export pathToThinIndex
-include("plotting.jl")
 export flatten, MatrixAggrigator, plotCoordinate, reshapeFlattened,
     numberSkipped, logabs, maxPooling, numScales, incrementKeeper,
     numInLayer

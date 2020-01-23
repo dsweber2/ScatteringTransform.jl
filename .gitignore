@@ -3,6 +3,7 @@
 *.jl.mem
 .DS_Store
 /dev/
+src/plotting.jl 
 /docs/build/
 /docs/site/
 *svg
