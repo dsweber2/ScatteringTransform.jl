@@ -12,7 +12,9 @@ matrix:
   allow_failures:
     - julia: nightly
   fast_finish: true
-# env:
+env:
+  matrix:
+    - BINARYPROVIDER_COPYDEREF=true
 #   matrix:
 #     - JULIA_NUM_THREADS=2
 notifications:
