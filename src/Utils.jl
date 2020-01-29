@@ -119,6 +119,8 @@ to be called after distributed. returns a 2D array of futures; the i,jth entry h
 """
 function createFFTPlans(layers::layeredTransform{<:Any, N}, dataSizes;
                         T=Float32, iscomplex::Bool=false) where {N}
+    @debug "starting to create plans at all"
+    @debug "" nwork=nworkers()
     nPlans = getNumPlans(layers)
     FFTs = Array{Future,2}(undef, nworkers(), layers.m+1)
     for i=1:nworkers(), j=1:layers.m+1
