@@ -20,6 +20,8 @@ This uses a modified version of Wavelets.jl that can be found [here](https://git
   (v0.7) pkg> activate .
   (ScatteringTransform) pkg> instantiate
 ```
+either way, make sure you don't have more than a single thread when building by
+setting `JULIA_NUM_THREADS = 1` before calling `Pkg.build`.
 
 ## Basic Usage
 
