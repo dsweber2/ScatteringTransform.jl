@@ -32,13 +32,8 @@ end
 
 
 function numScales(c::CFW, n)
-    n= Int(n)
-    isAve = (c.averagingLength > 0 && !(typeof(c.averagingType) <: WT.NoAve)) ? 1 : 0
-    nOctaves = log2(max(n, 2)) - c.averagingLength
-    nWaveletsInOctave = reverse([max(1, round(Int, c.scalingFactor /
-                                              x^(c.decreasing))) for
-                                 x=1:round(Int, nOctaves)])
-    return round(Int, sum(nWaveletsInOctave) + isAve)
+    nOctaves, totalWavelets, sRange, sWidth = WT.getNWavelets(n,c)
+    return totalWavelets
 end
 
 function numScales(c::CFW, n, i)

@@ -58,7 +58,9 @@ end
 calculate the total number of entries in each layer
 """
 function getQ(layers::layeredTransform{K,1}, n, totalScales; product=true) where {K}
+    # first just the number of new scales
     q = [numScales(layers.shears[i],n[i])-1 for i=1:layers.m+1]
+    # then a product over all previous
     q = [(isnan(totalScales[i]) || totalScales[i]<=0) ? q[i] : totalScales[i] for i=1:layers.m+1]
     if product
         q = [prod(q[1:i-1]) for i=1:layers.m+1]

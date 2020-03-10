@@ -48,13 +48,10 @@ function st(X::Array{T, N}, layers::layeredTransform, nonlinear::nl;
         X = reshape(X, (size(X)..., 1));
     end
     numChildλ = 0
-    n, q, dataSizes, outputSizes, resultingSize = calculateSizes(layers,
-                                                                 outputSubsample,
-                                                                 size(X),
-                                                                 totalScales =
-                                                                 totalScales,
-                                                                 percentage =
-                                                                 percentage)
+    n, q, dataSizes, outputSizes, resultingSize = 
+        calculateSizes(layers, outputSubsample, size(X), totalScales =
+                       totalScales, percentage = percentage)
+
     nextData = [reshape(X, (size(X)[1:dataDim]..., 1, size(X)[(dataDim+1):end]...))]
     @debug "about to make the storage arrays"
 
