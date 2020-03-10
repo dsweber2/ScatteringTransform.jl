@@ -66,10 +66,9 @@ end
 whether the second argument is a single number or a tuple determines whether
 you get a 1D wavelet transform
  """
-function layeredTransform(m::S, Xlength::S, nScales::Array{S,1},
-                          subsampling::Array{T,1},
+function layeredTransform(m::S, Xlength::S, nScales, subsampling,
                           CWTType::Array{WT.ContinuousWaveletClass,1},
-                          averagingLength::Array{S,1} = ceil.(S,4),
+                          averagingLength = ceil.(S,4),
                           averagingType::Array{<:WT.Average,1} = [WT.Father() for
                                                             i=1:(m+1)],
                           boundary::Array{<:WT.WaveletBoundary,1} =
