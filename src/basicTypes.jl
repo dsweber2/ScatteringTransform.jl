@@ -68,7 +68,7 @@ you get a 1D wavelet transform
  """
 function layeredTransform(m::S, Xlength::S, nScales::Array{S,1},
                           subsampling::Array{T,1},
-                          CWTType::WT.ContinuousWaveletClass,
+                          CWTType::Array{WT.ContinuousWaveletClass,1},
                           averagingLength::Array{S,1} = ceil.(S,4),
                           averagingType::Array{<:WT.Average,1} = [WT.Father() for
                                                             i=1:(m+1)],
@@ -77,14 +77,14 @@ function layeredTransform(m::S, Xlength::S, nScales::Array{S,1},
                           frameBounds=[1 for i=1:(m+1)], normalization = [Inf
                                                                           for
                                                                           i=1:(m+1)],
-                          decreasing = [1 for i=1:(m+1)]) where {S <: Integer, 
+                          decreasing = [4.0 for i=1:(m+1)]) where {S <: Integer, 
                                                                  T <: Real}
     @assert m+1 == size(subsampling, 1)
     @assert m+1 == size(nScales, 1)
     
     @info "Treating as a 1D Signal. Vector Lengths: $Xlength nScales:" *
             "$nScales subsampling: $subsampling"
-    shears = [wavelet(CWTType; s = nScales[i],
+    shears = [wavelet(CWTType[i]; s = nScales[i],
                       boundary = boundary[i], 
                       averagingType = averagingType[i],
                       averagingLength = averagingLength[i],
@@ -104,7 +104,7 @@ end
 function layeredTransform(m::S, Xlength::S; nScales::Array{S,1} = [8 for
                                                                    i=1:(m+1)],
                           subsampling::Array{T,1} = [2 for i=1:(m+1)],
-                          CWTType::WT.ContinuousWaveletClass=WT.morl,
+                          CWTType=WT.morl,
                           averagingLength::Array{S,1} = [S(4) for i=1:(m+1)],
                           averagingType::Array{<:WT.Average,1} = [WT.Father() for
                                                                    i=1:(m+1)],
@@ -113,6 +113,9 @@ function layeredTransform(m::S, Xlength::S; nScales::Array{S,1} = [8 for
                           frameBounds=[1 for i=1:(m+1)]) where {S <: Integer,
                                                      T <: Real,
                                                      W <: WT.WaveletBoundary}
+    if typeof(CWTType) <: WT.ContinuousWaveletClass
+        CWTType = [CWTType for i=1:m+1]
+    end
     layeredTransform(m, Xlength, nScales, subsampling, CWTType,
                      averagingLength, averagingType, boundary, frameBounds)
 end
