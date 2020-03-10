@@ -100,11 +100,10 @@ end
 
 
 # version with explicit name calling
-function layeredTransform(m::S, Xlength::S; nScales::Array{S,1} = [8 for
-                                                                   i=1:(m+1)],
-                          subsampling::Array{T,1} = [2 for i=1:(m+1)],
+function layeredTransform(m::S, Xlength::S; nScales = [8.0 for i=1:(m+1)],
+                          subsampling = [2 for i=1:(m+1)],
                           CWTType=WT.morl,
-                          averagingLength::Array{S,1} = [S(4) for i=1:(m+1)],
+                          averagingLength = [4 for i=1:(m+1)],
                           averagingType::Array{<:WT.Average,1} = [WT.Father() for
                                                                    i=1:(m+1)],
                           boundary::Array{W,1} = [WT.DEFAULT_BOUNDARY for
