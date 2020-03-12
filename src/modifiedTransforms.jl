@@ -36,16 +36,11 @@ function numScales(c::CFW, n)
     return totalWavelets
 end
 
-function numScales(c::CFW, n, i)
-    nnn = numScales(c,n)
-    return nnn[i]
-end
-
 function computeWavelets(n1, c; T=Float64, nScales=-1)
-   @debug "n1 = $(n1), T = $(T), nScales = $(nScales)"
-   @debug "" c
+    @debug "n1 = $(n1), T = $(T), nScales = $(nScales)"
+    @debug "" c
     daughters,ω = Wavelets.computeWavelets(n1,c,T=T)
-   @debug "" nScales
+    @debug "" nScales
     if nScales>0
        @debug "computeWavelets: $(nScales) size of daughters is $(size(daughters)), reducing to "
         #"$(1:nScales), i.e. to $(size(daughters[:,1:nScales]))")

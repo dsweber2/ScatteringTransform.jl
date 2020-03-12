@@ -310,6 +310,7 @@ function midLayer!(layers::layeredTransform{K,1}, results, curPath, dataSizes,
     # previous layer 
     output = cwt(view(curPath, innerAxes..., λ, outerAxes...), layers.shears[i],
                  daughters, fftPlan)
+    @debug "" size(output)
     innerMostAxes = axes(output)[end:end]
     # iterate over the non transformed dimensions of output
     writeLoop!(output, outerAxes, i, T,dataSizes, innerAxes, innerSub, layers,
