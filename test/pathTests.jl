@@ -11,8 +11,7 @@
     p = pathType([1,2])
     @test output[p] ≈ output[3][:,2,1]
     p = pathType([2,1])
-    @test output[p] ≈ output[3][:,1+12,1]
+    @test output[p] ≈ output[3][:,1 + 9,1]
     p = pathType([1,:])
-    @test output[p] ≈ output[3][:,1:12,1]
+    @test output[p] ≈ output[3][:,1:9,1]
 end
-using Test
