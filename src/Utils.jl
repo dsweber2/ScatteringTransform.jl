@@ -180,3 +180,49 @@ function remoteDiv(x::Future,y)
     fetch(x) / y
 end
 remoteDiv(y,x::Future) = remoteMultiply(x,y)
+
+
+
+
+
+
+
+
+
+function computeAllWavelets(layers, N; outputSubsample=(-1,-1),totalScales =
+                            [-1 for i=1:layers.m+1], percentage=.9)
+    n, q, dataSizes, outputSizes, resultingSize = 
+        ScatteringTransform.calculateSizes(layers, outputSubsample, N, 
+                                           totalScales = totalScales, 
+                                           percentage = percentage)
+    daughters, ω = computeWavelets(n[1],
+                                   layers.shears[1];
+                                   nScales=-1)
+    allDaughters = Array{Array{eltype(daughters),2},1}(undef, length(n))
+    allDaughters[1] = daughters
+    for (ii,x) in enumerate(n[1:end-1])
+        daughters, ω = computeWavelets(n[ii],
+                                       layers.shears[ii];
+                                       nScales=-1)
+        allDaughters[ii] = daughters
+    end
+    daughters, ω = computeWavelets(n[end],
+                                   layers.shears[end];
+                                   nScales=0)
+    allDaughters[end] = daughters
+    return allDaughters
+end
+function plotAllWavelets(allDaughters)
+    return plot(plot([allDaughters[1] sum(allDaughters[1],
+                                          dims=2)], legend=false, 
+                     title= "layer 1"),
+                heatmap([allDaughters[1] sum(allDaughters[1], dims=2)]),
+                plot([allDaughters[2] sum(allDaughters[2],
+                                          dims=2)],legend=false, 
+                     title= "layer 2"), 
+                heatmap([allDaughters[1] sum(allDaughters[1], dims=2)]),
+                plot(allDaughters[3][:,1],legend=false, title= "output last"),
+                heatmap(allDaughters[3][:,1:1]),
+                layout = (3,2)
+                )
+end

@@ -46,7 +46,7 @@ export WT, wavelet, cwt, getScales, computeWavelets
 include("basicTypes.jl")
 export layeredTransform, scattered
 include("Utils.jl")
-export calculateThinStSizes, getPadBy, pad, outputSize, createFFTPlans, remoteMultiply, createRemoteFFTPlan
+export calculateThinStSizes, getPadBy, pad, outputSize, createFFTPlans, remoteMultiply, createRemoteFFTPlan, computeAllWavelets, plotAllWavelets
 include("nonlinearities.jl")
 export nonlinearity, absType, ReLUType, tanhType, softplusType, piecewiseType, spInverse, aTanh, Tanh, ReLU, piecewiseLinear, plInverse
 include("transform.jl")
