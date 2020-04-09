@@ -15,22 +15,29 @@ results in the easier to process scattered type. note that the data is zero
 when produced this way.
 """
 function wrap(layers::layeredTransform{K, 1}, results::AbstractArray{T,N}, X;
-              percentage=.9) where {K, N, T<: Number}
-    wrapped = scattered(layers, X)
+              percentage=.9, outputSubsample=(-1,-1)) where {K, N, T<: Number}
+    wrapped = scattered(layers, X, outputSubsample=outputSubsample)
     n, q, dataSizes, outputSizes, resultingSize = calculateSizes(layers,
-                                                                 (-1,-1),
+                                                                 outputSubsample,
                                                                  size(X),
                                                                  percentage =
                                                                  percentage)
+    @info "" n, q, dataSizes, outputSizes, resultingSize
     for (i,layer) in enumerate(layers.shears[1:layers.m+1])
-        concatStart = sum([prod(oneLayer) for oneLayer in
-                           outputSizes[1:i-1]]) + 1
+        concatStart = sum([oneLayer[1] for oneLayer in
+                           resultingSize[1:i-1]]) + 1
         outerAxes = axes(wrapped.output[i])[3:end]
+        @info "" concatStart, outerAxes, size(wrapped.output[i])[2],resultingSize[i]
+        println([size(x) for x in wrapped.output])
         for j = 1:size(wrapped.output[i])[2]
+            #println("j=$j, $(size(wrapped.output[i])[2]), start: $(concatStart .+(j-1)*resultingSize[i])")
+            #println("end: $(concatStart .+(j-1)*resultingSize[i] + resultingSize[i]-1)")
+            println((resultingSize[i], outputSizes[i][3:end]...,))
             thingToWrite = reshape(results[concatStart .+
                                            (j-1)*resultingSize[i] .+
                                            (0:(resultingSize[i]-1)),
-                                           outerAxes...], (outputSizes[i][[1; 3:end]]...,))
+                                           outerAxes...], 
+                                   (resultingSize[i], outputSizes[i][3:end]...,))
             wrapped.output[i][:,j, outerAxes...] = thingToWrite
         end
     end

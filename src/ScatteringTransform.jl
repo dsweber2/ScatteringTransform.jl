@@ -3,7 +3,7 @@ using Distributed, SharedArrays
 using LinearAlgebra, Interpolations, Wavelets, FFTW
 using SpecialFunctions, LinearAlgebra
 using HDF5, JLD
-
+using Plots
 # todo remove nScales controls
 
 # TODO: integrate path methods

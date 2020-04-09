@@ -108,14 +108,16 @@ function layeredTransform(m::S, Xlength::S; nScales = [8.0 for i=1:(m+1)],
                                                                    i=1:(m+1)],
                           boundary::Array{W,1} = [WT.DEFAULT_BOUNDARY for
                                                   i=1:(m+1)],
-                          frameBounds=[1 for i=1:(m+1)]) where {S <: Integer,
+                          frameBounds=[1 for i=1:(m+1)], 
+                          normalization = [Inf for i=1:(m+1)],
+                          decreasing = [4.0 for i=1:(m+1)]) where {S <: Integer,
                                                      T <: Real,
                                                      W <: WT.WaveletBoundary}
     if typeof(CWTType) <: WT.ContinuousWaveletClass
         CWTType = [CWTType for i=1:m+1]
     end
     layeredTransform(m, Xlength, nScales, subsampling, CWTType,
-                     averagingLength, averagingType, boundary, frameBounds)
+                     averagingLength, averagingType, boundary, frameBounds, normalization, decreasing)
 end
 
 
@@ -218,27 +220,26 @@ end
 
 # TODO: check performance tips to see if I should add some way of discerning the type of N
 function scattered(layers::layeredTransform{S,1}, X::Array{T,N};
-                   totalScales=[-1 for i=1:layers.m +1]) where {T <: Real, N,
+                   totalScales=[-1 for i=1:layers.m +1], outputSubsample=(-1,-1)) where {T <: Real, N,
                                                                 S}
-    if length(size(X)) == 1
+    if N == 1
         X = reshape(X, (size(X)..., 1));
     end
 
-    n, q, dataSizes, outputSizes, resultingSize = calculateSizes(layers,
-                                                                 (-1,-1),
-                                                                 size(X),
-                                                                 totalScales
-                                                                 =
-                                                                 totalScales)
+    n, q, dataSizes, outputSizes, resultingSize = 
+        calculateSizes(layers, outputSubsample, size(X),totalScales =
+                       totalScales)
+
     if 1==N
         zerr = [zeros(T, n[i], q[i]) for i=1:layers.m+1]
-        output = [zeros(T, n[i+1], q[i]) for i=1:layers.m+1]
+        output = [zeros(T, resultingSize[i], q[i]) for i=1:layers.m+1]
     else
         zerr=[zeros(T, n[i], q[i], size(X)[2:end]...) for
               i=1:layers.m+1]
-        output = [zeros(T, n[i+1], q[i], size(X)[2:end]...)
+        output = [zeros(T, resultingSize[i], q[i], size(X)[2:end]...)
                   for i=1:layers.m+1]
+        @info "" [size(x) for x in output]
     end
-    zerr[1][:, axes(X)[2:end]...] = copy(X)
+    zerr[1][:, 1, axes(X)[2:end]...] = copy(X)
     return scattered{T,N+1}(layers.m, 1, zerr, output)
 end

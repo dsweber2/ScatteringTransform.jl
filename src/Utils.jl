@@ -220,7 +220,7 @@ function plotAllWavelets(allDaughters)
                 plot([allDaughters[2] sum(allDaughters[2],
                                           dims=2)],legend=false, 
                      title= "layer 2"), 
-                heatmap([allDaughters[1] sum(allDaughters[1], dims=2)]),
+                heatmap([allDaughters[2] sum(allDaughters[2], dims=2)]),
                 plot(allDaughters[3][:,1],legend=false, title= "output last"),
                 heatmap(allDaughters[3][:,1:1]),
                 layout = (3,2)
