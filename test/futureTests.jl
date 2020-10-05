@@ -7,7 +7,7 @@
 # @everywhere using ScatteringTransform
 # m1=2; n1=50; p1=55
 # X1 = randn(n1,p1)
-# layer1 = layeredTransform(m1, size(X1), typeBecomes=eltype(X1))
+# layer1 = stParallel(m1, size(X1), typeBecomes=eltype(X1))
 # n, q, dataSizes, outputSizes, resultingSize =
 #     ScatteringTransform.calculateSizes(layer1, (-1,-1), size(X1))
 
@@ -69,7 +69,7 @@
 
 
 #TODO fix the 1D tests
-# function testConstruction1D(lay::layeredTransform, m::Int, shearType, averagingLength, averagingType, nShears::Vector{Int}, subsampling::Array{Float64,1}, n::Int)
+# function testConstruction1D(lay::stParallel, m::Int, shearType, averagingLength, averagingType, nShears::Vector{Int}, subsampling::Array{Float64,1}, n::Int)
 #   @test lay.m == m
 #   @test lay.subsampling==subsampling
 #   sizes = ScatteringTransform.sizes(bsplineType(), bspline,lay.subsampling,n)
@@ -82,13 +82,13 @@
 # end
 # n = 10214
 # f = randn(n)
-# lay = layeredTransform(1, size(f)[end])
+# lay = stParallel(1, size(f)[end])
 # m=3
-# lay = layeredTransform(m, f, subsampling=[8,4,2,1], nScales=[16,8,8,8], CWTType=WT.dog2, averagingLength=[16,4,4,2],averagingType=[:Mother for i=1:(m+1)],boundary=[WT.DEFAULT_BOUNDARY for i=1:(m+1)])
+# lay = stParallel(m, f, subsampling=[8,4,2,1], nScales=[16,8,8,8], CWTType=WT.dog2, averagingLength=[16,4,4,2],averagingType=[:Mother for i=1:(m+1)],boundary=[WT.DEFAULT_BOUNDARY for i=1:(m+1)])
 # @testset "construction tests" begin
 #   testConstruction1D(lay, 3, [ScatteringTransform.CFWA{Wavelets.WT.PerBoundary} for i=1:4], [16, 4, 4, 2], [:Mother for i=1:4], [165,62,46,40], [8,4,2,1]*1.0, n)
 # end
-# function testTransform(f::Array{T}, lay::layeredTransform) where T<:Number
+# function testTransform(f::Array{T}, lay::stParallel) where T<:Number
 #   n=size(f)[end]
 #   @time output = st(f,lay)
 #   sizes = ScatteringTransform.sizes(bsplineType(), bspline,lay.subsampling,n)
@@ -109,34 +109,34 @@
 # end
 # @testset "transform tests" begin
 #   f=1.0 .*[1:50; 50:-1:1]
-#   lay = layeredTransform(3,f)
+#   lay = stParallel(3,f)
 #   # check that various constructions are well-defined
 #   testTransform(f,lay)
 #   f = randn(1020)
 #   m=3
-#   lay = layeredTransform(m, f, subsampling=[8,4,2,1], nScales=[16,8,8,8], CWTType=WT.dog2, averagingLength=[16,4,4,2],averagingType=[:Mother for i=1:(m+1)],boundary=[WT.DEFAULT_BOUNDARY for i=1:(m+1)])
+#   lay = stParallel(m, f, subsampling=[8,4,2,1], nScales=[16,8,8,8], CWTType=WT.dog2, averagingLength=[16,4,4,2],averagingType=[:Mother for i=1:(m+1)],boundary=[WT.DEFAULT_BOUNDARY for i=1:(m+1)])
 #   testTransform(f, lay)
-#   layeredTransform(3, length(f), [2, 2, 2, 2], [2, 2, 2, 2], WT.dog2)
-#   layeredTransform(3, length(f), 8, [2, 2, 2, 2], WT.dog2)
-#   layeredTransform(3, length(f), [2, 2, 2, 2], 2, WT.dog2)
-#   layeredTransform(3, length(f), 8, 2, WT.dog2)
+#   stParallel(3, length(f), [2, 2, 2, 2], [2, 2, 2, 2], WT.dog2)
+#   stParallel(3, length(f), 8, [2, 2, 2, 2], WT.dog2)
+#   stParallel(3, length(f), [2, 2, 2, 2], 2, WT.dog2)
+#   stParallel(3, length(f), 8, 2, WT.dog2)
 
 #   # test on input with multiple samples
 #   testTransform(randn(2,3,1020),lay)
 #   testTransform(randn(2,1020),lay)
 # end
-# scattered(lay, randn(3,1020), "full")
+# Scattered(lay, randn(3,1020), "full")
 
-# # scattered construction tests
-# scattered{Float64,2}(2,1,[im*randn(10,10) for i=1:3],[randn(10,10) for i=1:3])
-# layers = layeredTransform(3, length(f), 8, 4)
+# # Scattered construction tests
+# Scattered{Float64,2}(2,1,[im*randn(10,10) for i=1:3],[randn(10,10) for i=1:3])
+# layers = stParallel(3, length(f), 8, 4)
 
-# results = scattered(layers, f)
+# results = Scattered(layers, f)
 
 # f = randn(10,30,500) #there are 10 examples of length 500
-# layeredTransform(3,f[1,1,:])
+# stParallel(3,f[1,1,:])
 # #TODO: make a version that can handle input of arbitrary number of initial dimensions
-# tmp = layeredTransform(1,f[1,1,:])
+# tmp = stParallel(1,f[1,1,:])
 # ScatteringTransform.cwt(f, tmp.shears[1])
 # averageNoiseMat = cwt(f,tmp.shears[1],J1=1)
 # using FFTW
@@ -202,7 +202,7 @@
 #   end
 # end
 # # direct transformation
-# layers = layeredTransform(2,data)
+# layers = stParallel(2,data)
 # @time thinOutput = thinSt(data,layers,outputSubsample=(-1,3))
 # # auxillary functions
 # targetDir = "tmpOutput"
@@ -212,7 +212,7 @@
 # transformFolder("tmpData", targetDir, layers; separate=true, loadThis = defaultLoadFunction, postSubsample=(-1,3))
 # load("tmpOutput/settings.jld","layers")
 # load("/VastExpanse/data/SSAM2_motionCompensatedData/newData/lipschitz2Layer3Samples/settings.jld  ")
-# layeredTransform
+# stParallel
 # @testset "folder transformations"
 # end
 # for i=1:20
@@ -226,13 +226,13 @@
 # using JLD
 # module ScatteringTransform
 # include("src/modifiedTransforms.jl")
-# export layeredTransform
-# struct layeredTransform{T}
+# export stParallel
+# struct stParallel{T}
 #   m::Int # the number of layers, not counting the zeroth layer
 #   n::Int # the length of a single entry
 #   shears::Array{T} # the array of the transforms; the final of these is used only for averaging, so it has length m+1
 #   subsampling::Array{Float64,1} # for each layer, the rate of subsampling. There is one of these for layer zero as well, since the output is subsampled, so it should have length m+1
-#   layeredTransform{T}(m::Int, n::Int, shears::Array{T}, subsampling::Array{Float64,1}) where {T} = new(m,n, shears, subsampling)
+#   stParallel{T}(m::Int, n::Int, shears::Array{T}, subsampling::Array{Float64,1}) where {T} = new(m,n, shears, subsampling)
 # end
 # end
 # @everywhere

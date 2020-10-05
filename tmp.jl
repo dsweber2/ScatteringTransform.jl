@@ -1,4 +1,4 @@
-function thinSt(X::Array{T}, layers::layeredTransform; nonlinear::Function=abs, subsam::Function=bspline, stType::String="full", outputSubsample::Tuple{Int,Int}=(-1,1), totalScales = [-1 for i=1:layers.m+1]) where {T<:Real}
+function thinSt(X::Array{T}, layers::stParallel; nonlinear::Function=abs, subsam::Function=bspline, stType::String="full", outputSubsample::Tuple{Int,Int}=(-1,1), totalScales = [-1 for i=1:layers.m+1]) where {T<:Real}
   @assert length(totalScales)==layers.m+1
   # Insist that X has to have at least one extra meta-dimension, even if it is 1
   if length(size(X)) == length(size(layers.subsampling))

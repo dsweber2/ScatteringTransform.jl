@@ -25,6 +25,6 @@ setting `JULIA_NUM_THREADS = 1` before calling `Pkg.build`.
 
 ## Basic Usage
 
-This implementation works strictly on 1 dimensional data and uses Morlet wavelets. If you give it data that has more dimensions, it will transform along the last dimension. There are 2 steps to applying a scattering transform. The first is constructing the transform, done with `layeredTransform(m,example)`. Then you need to actually transform the data; if you are investigating a single example, use `st(f, layers)` to get a `scattered`, a type containing both the intermediate results and the output of each layer. On the other hand, if you're transforming a large set, and only want the outputs, possibly highly subsampled, use `thinSt`.
+This implementation works strictly on 1 dimensional data and uses Morlet wavelets. If you give it data that has more dimensions, it will transform along the last dimension. There are 2 steps to applying a scattering transform. The first is constructing the transform, done with `stParallel(m,example)`. Then you need to actually transform the data; if you are investigating a single example, use `st(f, layers)` to get a `Scattered`, a type containing both the intermediate results and the output of each layer. On the other hand, if you're transforming a large set, and only want the outputs, possibly highly subsampled, use `thinSt`.
 
 For more detailed description, see the file [basicUsage.jl](basicUsage.jl)

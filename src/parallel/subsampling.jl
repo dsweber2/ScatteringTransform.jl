@@ -1,7 +1,7 @@
 # TODO: implement functions that return the size of the output these create
 # Various methods of subsampling:
 # maxPooling: chooses the maximum in a neighborhood large enough to shrink each dimension by a factor rate. Any dimension. Currently broken
-# biliniear: resample on a grid with the specified rate, using a linear interpolation in both x and y between the 4 points. 2D only
+# bilinear: resample on a grid with the specified rate, using a linear interpolation in both x and y between the 4 points. 2D only
 # bspline: uses a quadratic bspline interpolation from the julia package Interpolations
 # linear: resample on a grid with the specified rate using linear interpolation. 1D only
 abstract type resamplingMethod end

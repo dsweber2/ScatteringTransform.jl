@@ -1,5 +1,4 @@
 # This file contains mostly random utilities
-# TODO: make a way of accessing based on a path, especially in the 1D case
 # TODO: make the matrix aggrigator only take the output array
 
 
@@ -8,15 +7,15 @@
 
 
 @doc """
-    scattered = wrap(layers::layeredTransform{K, M}, results::Array{T,N}, X) where {K, N, M, T<:Number}
+    Scattered = wrap(layers::stParallel{K, M}, results::Array{T,N}, X) where {K, N, M, T<:Number}
 
-given a layeredTransform and an array as produced by the thin ST, wrap the
-results in the easier to process scattered type. note that the data is zero
+given a stParallel and an array as produced by the thin ST, wrap the
+results in the easier to process Scattered type. note that the data is zero
 when produced this way.
 """
-function wrap(layers::layeredTransform{K, 1}, results::AbstractArray{T,N}, X;
+function wrap(layers::stParallel{K, 1}, results::AbstractArray{T,N}, X;
               percentage=.9, outputSubsample=(-1,-1)) where {K, N, T<: Number}
-    wrapped = scattered(layers, X, outputSubsample=outputSubsample)
+    wrapped = ScatteredFull(layers, X, outputSubsample=outputSubsample)
     n, q, dataSizes, outputSizes, resultingSize = calculateSizes(layers,
                                                                  outputSubsample,
                                                                  size(X),
@@ -113,19 +112,19 @@ function MatrixAggrigator(pardir::String; keep=[], named="output")
 end
 
 
-function reshapeFlattened(mat::Array{Float64}, sheared::S) where S<:scattered
+function reshapeFlattened(mat::Array{Float64}, sheared::S) where S<:Scattered
   return reshape(mat, size(sheared.output[end]))
 end
 
 @doc """
-    transformFolder(sourceFolder::String, destFolder::String, layers::layeredTransform; separate::Bool=false, loadThis::Function=defaultLoadFunction, nonlinear::Function=abs, subsam::Function=bspline, stType::String="full", thin::Bool=true, postSubsample::Tuple{Int,Int}=(-1,-1), overwrite::Bool=false)
+    transformFolder(sourceFolder::String, destFolder::String, layers::stParallel; separate::Bool=false, loadThis::Function=defaultLoadFunction, nonlinear::Function=abs, subsam::Function=bspline, stType::String="full", thin::Bool=true, postSubsample::Tuple{Int,Int}=(-1,-1), overwrite::Bool=false)
 
-Given the (relative) name of a folder and a layered transform, it will load and transform the entire folder, and save the output into a similarly structured set of folders in destFolder. If separate is true, it will also save a file containing just the scattered coefficients from all inputs.
+Given the (relative) name of a folder and a layered transform, it will load and transform the entire folder, and save the output into a similarly structured set of folders in destFolder. If separate is true, it will also save a file containing just the Scattered coefficients from all inputs.
 
 The data is loaded via a user supplied function loadThis. This should have the signature `(data,hasContents) = loadThis(filename::String)`. `filename` is a (relative) path to the file, while `data` should be arranged so that the  last dimension is to be transformed. `hasContents` is a boolean that indicates if there is actually any data in the file.
 If overwrite is false, then skip files that already exist. If overwrite is true, for right now, it uses whatever is already there as the last entries
 """
-function transformFolder(sourceFolder::String, destFolder::String, layers::layeredTransform; separate::Bool=false, loadThis::Function=defaultLoadFunction, nonlinear::Function=abs, subsam::Function=bspline, stType::String="full", thin::Bool=true, postSubsample::Tuple{Int,Int}=(-1,-1), overwrite::Bool=false)
+function transformFolder(sourceFolder::String, destFolder::String, layers::stParallel; separate::Bool=false, loadThis::Function=defaultLoadFunction, nonlinear::Function=abs, subsam::Function=bspline, stType::String="full", thin::Bool=true, postSubsample::Tuple{Int,Int}=(-1,-1), overwrite::Bool=false)
   for (root, dirs, files) in walkdir(sourceFolder)
     for dir in dirs
       mkpath(joinpath(destFolder,dir))
@@ -214,75 +213,3 @@ function loadhdf5(datafile::String)
   end
 end
 
-@doc """
-flatten(results::scattered{T,1}) where T<:Number
-  concatOutput = Vector{Float64}(sum([prod(size(x)) for x in results.output]))
-
-given a scattered, it produces a single vector containing the entire transform in order, i.e. the same format as output by thinSt
-"""
-function flatten(results::scattered{T,N}, layers::layeredTransform{S, 1}) where {T<:Real, N, S}
-  concatOutput = zeros(Float64,size(results.output[1])[1:end-2]..., sum([prod(size(x)[end-1:end]) for x in results.output]))
-  outPos = 1
-  for curLayer in results.output
-    sizeTmpOut = prod(size(curLayer))
-    concatOutput[outPos.+(0:sizeTmpOut-1)] = reshape(curLayer, (sizeTmpOut))
-    outPos += sizeTmpOut
-  end
-  concatOutput
-end
-
-function flatten(results::scattered{T,N}, layers::layeredTransform{S, 2}) where {T<:Real, N, S}
-    concatOutput = zeros(T, size(results.output[1])[1:end-3]...,
-                         sum([prod(size(x)[end-2:end]) for x in results.output]))
-    outPos = 1
-    for curLayer in results.output
-        outerAxes = axes(curLayer)[1:end-3]
-        sizeTmpOut = prod(size(curLayer)[end-2:end])
-        for outer in eachindex(view(curLayer, outerAxes..., 1, 1, 1))
-            concatOutput[outer, outPos.+(0:sizeTmpOut-1)] = reshape(curLayer,
-                                                                    (sizeTmpOut))
-        end
-        outPos += sizeTmpOut
-    end
-    concatOutput
-end
-
-
-# treating them kind of like vectors
-
-import Base.-
--(scattered1::scattered{T,N},scattered2::scattered{S,N}) where {T<:Number,S<:Number, N} = scattered{T, N}(scattered1.m, scattered1.k, [scattered1.data[i] - scattered2.data[i] for i=1:scattered1.m+1], [scattered1.output[i]+ -1*scattered2.output[i] for i=1:scattered1.m+1])
-
-import LinearAlgebra.norm
-#norm(scattered1::scattered{T,N},dims::Int=k) where {T<:Number} = sum([norm(scattered.output[i]) for i=1:scattered.m+1])
-
-# function norm(scattered1::scattered{T,N},p::S; dims::Array{Int,1}) where {T<:Number,N,K,S<:Real}
-#   setdiff(1:(length(size(scattered1))-1), dims)
-#   result = Array{T,N}()
-#   reduce(norm, +, view(scattered1),)
-#   axes(scattered.output[i])
-#   for i=1:
-#   sum([norm(view(scattered.output[i][]) for i=1:scattered.m+1]))
-# end
-"""
-   norm(scattered1::scattered{T,N},p::S=2) where {T<:Number, S<:Real, N}
-
-the norm of a scattered result. By default it doesn't take a norm over the leading dimensions
-"""
-function norm(scattered1::scattered{T,N},p::S=2) where {T<:Number, S<:Real, N}
-  results = Array{Float64, N-2}(undef, size(scattered1.output[1])[1:(end-2)])
-  outerAxes = axes(scattered1.output[1])[1:end-2]
-  for i in eachindex(view(scattered1.output[1], outerAxes..., 1,1))
-    results[i] = sum(norm(x[i, :, :], p).^p for x in scattered1.output).^(1/p)
-  end
-  return results
-end
-# function norm(scattered1::scattered{T,N},p::S; keepdims::Val{K}) where {T<:Number, N,K}
-#   result = Array{T,Val(N) - Val(K)}(undef,size(scattered1))
-# function norm(scattered1::scattered{T,N},p::S; dims::Array{Int,1}) where {T<:Number,N,K,S<:Real}
-#   result = Array{T, Val(N) - length(dims)}(zeros())
-#   return sum(norm(view(x[axes(x)[dims],:]), p).^p for x in scattered1.output)
-# end
-#wef = randn(10,10,10)
-#from scratch version
-#(mapreduce(x->mapreduce(y->y.^p, +, x, dims=dims), +, x for x in wef)).^(1/p)

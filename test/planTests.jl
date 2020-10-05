@@ -27,8 +27,8 @@ end
     # 1D test
     depth=2
     dataS = (100, 1, 3)
-    layers = layeredTransform(depth, 100)
-    @debug "created layeredTransform"
+    layers = stParallel(depth, 100)
+    @debug "created stParallel"
     n, q, dataSizes, outputSizes, resultingSize =
         ScatteringTransform.calculateSizes(layers, (-1,-1),
                                            dataS)

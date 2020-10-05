@@ -3,11 +3,11 @@ using Wavelets
 Random.seed!(135)
 @testset "st using cwt tests" begin
     sharpExample = zeros(100,2); sharpExample[26:75,:] .= 1;
-    layers = layeredTransform(2, size(sharpExample, 1))
+    layers = stParallel(2, size(sharpExample, 1))
     resSt = st(sharpExample, layers, absType())
     @test eltype(resSt) <: eltype(sharpExample) # check the type
     multiDExample = 1000*randn(50, 10, 43)
-    layers = layeredTransform(2, size(multiDExample, 1))
+    layers = stParallel(2, size(multiDExample, 1))
     resSt = st(multiDExample, layers, absType());
     @test eltype(resSt) <: eltype(multiDExample)
     @test 0 < minimum(abs.(resSt[:, 1, 1]))  # input is always non-zero so nothing should be *Exactly* zero, except by chance (which is why we set the seed above)
@@ -20,14 +20,14 @@ end
 
 
 f = randn(102)
-lay = layeredTransform(1, size(f)[1])
-scattered(lay, f)
-# some basic tests for the scattered type
+lay = stParallel(1, size(f)[1])
+Scattered(lay, f)
+# some basic tests for the Scattered type
 # m=2, 3extra, 2transformed
 fixDims = [3,5,2]
 m = 2; k=2
 n = [100 200; 50 100; 25 50]; q = [5, 5, 5]
-ex1 = scattered(m, k, fixDims, n, q,Float64)
+ex1 = Scattered(m, k, fixDims, n, q,Float64)
 @test ex1.m==m
 @test ex1.k==k
 @test size(ex1.data,1)==m+1

@@ -1,4 +1,4 @@
-import Wavelets.cwt
+import ContinuousWavelets.cwt
 import Wavelets.wavelet
 import Wavelets.eltypes
 import Wavelets.WT

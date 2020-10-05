@@ -8,9 +8,9 @@ testSignal = hcat([t.^i for i=0:n]...)* randn(n+1)
 plot(t, testSignal)
 
 
-layers = layeredTransform(2, length(testSignal))
+layers = stParallel(2, length(testSignal))
 # 11 is *way* too far out
-layers = layeredTransform(2, length(testSignal), CWTType = WT.Morlet(11), nScales=[8 for i=1:3])
+layers = stParallel(2, length(testSignal), CWTType = WT.Morlet(11), nScales=[8 for i=1:3])
 layers.shears[1].averagingLength
 
 # let's look at the actual filters that are used

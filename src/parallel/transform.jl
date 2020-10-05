@@ -15,10 +15,10 @@
 # TODO: make a function which determines the breakpoints given the layers function and the size of the input
 # TODO: non-thin is currently not outputing values in the data section
 @doc """
-        st(X::Array{T, N}, layers::layeredTransform, nonlinear::nl; fullOr::fullType=fullType(),# subsam::Sub = bspline(), thin::Bool=true, outputSubsample::Tuple{Int, Int}=(-1,-1), subsam::Bool=true, totalScales = [-1 for i=1:layers.m+1], percentage = .9, fftPlans = -1) where {T <: Real, S <: Union, N, nl <: nonlinearity, Sub <: resamplingMethod}
-1D scattering transform using the layeredTransform layers. you can switch out the nonlinearity as well as the method of subsampling. Finally, the stType is a string. If it is "full", it will produce all paths. If it is "decreasing", it will only keep paths of increasing scale. If it is "collating", you must also include a vector of matrices.
+        st(X::Array{T, N}, layers::stParallel, nonlinear::nl; fullOr::fullType=fullType(),# subsam::Sub = bspline(), thin::Bool=true, outputSubsample::Tuple{Int, Int}=(-1,-1), subsam::Bool=true, totalScales = [-1 for i=1:layers.m+1], percentage = .9, fftPlans = -1) where {T <: Real, S <: Union, N, nl <: Function, Sub <: resamplingMethod}
+1D scattering transform using the stParallel layers. you can switch out the nonlinearity as well as the method of subsampling. Finally, the stType is a string. If it is "full", it will produce all paths. If it is "decreasing", it will only keep paths of increasing scale. If it is "collating", you must also include a vector of matrices.
 # Arguments
-- `nonlinear` : a type of nonlinearity. Should be one of `absType()`, `ReLUType()`, `tanhType()`, or `softplusType()`.
+- `nonlinear` : a type of nonlinearity. Should be a function that acts on Complex numbers
 - `thin` : determines whether to wrap the output into a format that can be indexed using paths. `thin` cannot.
 - `totalScales`, if positive, gives the number of non-averaging wavelets.
 - `outputSubsample` is a tuple, with the first number indicating a rate, and the second number giving the minimum allowed size. If some of the entries are less than 1, it has different behaviour:
@@ -30,13 +30,13 @@
        only `fullType()` is functional.
 - `fftPlans = false` if not `false`, it should be a 2D array of `Future`s, where the first index is the layer, and the second index the core. See `createFFTPlans` if you want to do this.
 """
-function st(X::Array{T, N}, layers::layeredTransform, nonlinear::nl;
+function st(X::Array{T, N}, layers::stParallel, nonlinear::nl;
             fullOr::fullType=fullType(),# subsam::Sub = bspline(), #TODO
             # allow for variation in subsamping method again
             thin::Bool=true, outputSubsample::Tuple{Int, Int}=(-1,-1),
             subsam::Bool=true, totalScales = [-1 for i=1:layers.m+1],
             percentage = .9, fftPlans = -1) where {T <: Real, S <: Union, N, nl <:
-                                    nonlinearity, Sub <: resamplingMethod}
+                                    Function, Sub <: resamplingMethod}
     @assert length(totalScales)==layers.m+1
     @assert fftPlans ==-1 || typeof(fftPlans)<:Array{<:Future,2}
     if T<:Float64
@@ -83,21 +83,21 @@ function st(X::Array{T, N}, layers::layeredTransform, nonlinear::nl;
     if thin
         return results
     else
-        return wrap(layers, results, X, percentage = percentage)
+        return ScatteredOut(results,ndims(layers))
     end
 end
-function st(layers::layeredTransform, X::Array{T, N}, nonlinear::nl;
+function st(layers::stParallel, X::Array{T, N}, nonlinear::nl;
             fullOr::fullType=fullType(),# subsam::Sub = bspline(), #TODO
             # allow for variation in subsamping method again
             thin::Bool=true, outputSubsample::Tuple{Int, Int}=(-1,-1),
             subsam::Bool=true, totalScales = [-1 for i=1:layers.m+1],
             percentage = .9, fftPlans = -1) where {T <: Real, S <: Union, N, nl <:
-                                    nonlinearity, Sub <: resamplingMethod}
+                                    Function, Sub <: resamplingMethod}
     return st(X, layers, nonlinear, fullOr, thin = thin,
               outputSubsample = outputSubsample, subsam = subsam, totalScales =
               totalScales, percentage = percentage)
 end
-st(layers::layeredTransform, X::Array{T}; nonlinear::Function=abs, subsam::Function=bspline) where {T<:Real} = st(X,layers,nonlinear=nonlinear, subsamp=subsam)
+st(layers::stParallel, X::Array{T}; nonlinear::Function=abs, subsam::Function=bspline) where {T<:Real} = st(X,layers,nonlinear=nonlinear, subsamp=subsam)
 
 
 function iterateOverLayers!(layers, results, nextData, dataSizes, outputSizes,
@@ -293,7 +293,7 @@ function midLayer! end
 
 
 viableDims =[(1, cwt)]
-function midLayer!(layers::layeredTransform{K,1}, results, curPath, dataSizes,
+function midLayer!(layers::stParallel{K,1}, results, curPath, dataSizes,
                    outerAxes, innerAxes, innerSub, dataDim, i, daughters,
                    nScales, nonlinear, subsam, outputSubsample,
                    outputSizeThisLayer, concatStart, padBy, λ, resultingSize,
@@ -321,60 +321,56 @@ function midLayer!(layers::layeredTransform{K,1}, results, curPath, dataSizes,
     return toBeHandedBack
 end
 
-for nl in functionTypeTuple
-    @eval begin
-        function writeLoop!(output, outerAxes, i, T,dataSizes, innerAxes,
-                            innerSub, layers, results, toBeHandedBack,
-                            concatStart, λ, dataDim, outputSize,
-                            nonlinear::$(nl[2]), subsam, outputSizeThisLayer,
-                            outputSubsample, resultingSize)
-            for outer in eachindex(view(output, [1 for i=1:(dataDim+1)]...,
-                                        outerAxes...))
-                # output may have length zero if the starting path has low
-                # enough scale
-                for j = 2:size(output, dataDim+1)
-                    toBeHandedBack[innerSub..., j-1, outer] =
-                        $(nl[1]).(resample(view(output, innerAxes..., j,
-                                                outer), layers.subsampling[i]))
-                end
-                # actually write to the output
-                if subsam
-                    tmpOut = Array{T, dataDim}(real.(resample(view(output,
-                                                                   innerAxes...,
-                                                                   1,
-                                                                   outer),
-                                                              0f0, newSize =
-                                                              outputSizeThisLayer[1:dataDim])))
-                else
-                    tmpOut = Array{T, dataDim}(real(resample(view(output,
-                                                                  innerAxes...,
-                                                                  1,
-                                                                  outer),
-                                                             layers.subsampling[i])))
-                end
-                sizeTmpOut = prod(size(tmpOut))
-                if outputSubsample[1] > 1 || outputSubsample[2] > 1
-                    @debug "(λ-1)*resultingSize[i] = $((λ-1)*resultingSize[i])"
-                    results[concatStart .+ (λ-1)*resultingSize[i] .+
-                            (0:(resultingSize[i]-1)), outer] =
-                            resample(tmpOut, 0f0, newSize = resultingSize[i])
-                else
-                    results[concatStart .+ (λ-1)*resultingSize[i] .+
-                            (0:sizeTmpOut-1), outer] = reshape(tmpOut, (sizeTmpOut))
-                end
-                @debug "λ = $(λ), i=$(i), concatStart = $(concatStart)"
-            end
+function writeLoop!(output, outerAxes, i, T,dataSizes, innerAxes,
+                    innerSub, layers, results, toBeHandedBack,
+                    concatStart, λ, dataDim, outputSize,
+                    nonlinear, subsam, outputSizeThisLayer,
+                    outputSubsample, resultingSize)
+    for outer in eachindex(view(output, [1 for i=1:(dataDim+1)]...,
+                                outerAxes...))
+        # output may have length zero if the starting path has low
+        # enough scale
+        for j = 2:size(output, dataDim+1)
+            toBeHandedBack[innerSub..., j-1, outer] =
+                nonlinear.(resample(view(output, innerAxes..., j,
+                                        outer), layers.subsampling[i]))
         end
-
+        # actually write to the output
+        if subsam
+            tmpOut = Array{T, dataDim}(real.(resample(view(output,
+                                                           innerAxes...,
+                                                           1,
+                                                           outer),
+                                                      0f0, newSize =
+                                                      outputSizeThisLayer[1:dataDim])))
+        else
+            tmpOut = Array{T, dataDim}(real(resample(view(output,
+                                                          innerAxes...,
+                                                          1,
+                                                          outer),
+                                                     layers.subsampling[i])))
+        end
+        sizeTmpOut = prod(size(tmpOut))
+        if outputSubsample[1] > 1 || outputSubsample[2] > 1
+            @debug "(λ-1)*resultingSize[i] = $((λ-1)*resultingSize[i])"
+            results[concatStart .+ (λ-1)*resultingSize[i] .+
+                    (0:(resultingSize[i]-1)), outer] =
+                    resample(tmpOut, 0f0, newSize = resultingSize[i])
+        else
+            results[concatStart .+ (λ-1)*resultingSize[i] .+
+                    (0:sizeTmpOut-1), outer] = reshape(tmpOut, (sizeTmpOut))
+        end
+        @debug "λ = $(λ), i=$(i), concatStart = $(concatStart)"
+    end
+end
 
 @doc """
         finalLayer!(layers, results, curPath, outerAxes, innerAxes, innerSub, dataDim, i, daughters, nScales, nonlinear, subsam, outputSubsample, λ, resultingSize, concatStart, λ)
-
-    Do the transformation of the m-1 to mth layer, the output of the m-1st layer, and the output of the mth layer. These are glued together for mostly for computational reasons. There is currently no decreasing paths version, so it should end up throwing errors
-    """
-function finalLayer!(layers::layeredTransform{K,N}, results, curPath,
+Do the transformation of the m-1 to mth layer, the output of the m-1st layer, and the output of the mth layer. These are glued together for mostly for computational reasons. There is currently no decreasing paths version, so it should end up throwing errors
+"""
+function finalLayer!(layers::stParallel{K,N}, results, curPath,
                      outerAxes, innerAxes, innerSub, dataSizes, dataDim, i,
-                     daughters, finalDaughters, nScales, nonlinear::$(nl[2]),
+                     daughters, finalDaughters, nScales, nonlinear,
                      subsam, outputSubsample, outputSizes, λ, resultingSize,
                      concatStart, concatStartLast, padBy, padByLast,
                      nScalesLastLayer, fftPlan, fftPlanFinal, T) where {K, N}
@@ -382,11 +378,11 @@ function finalLayer!(layers::layeredTransform{K,N}, results, curPath,
     # first perform the continuous wavelet transform on the data from the
     # previous layer
     @debug "inner = $(innerAxes), outer = $(outerAxes), size(curPath) = "*
-           "$(size(curPath))"
+    "$(size(curPath))"
     @debug "starting,λ=$(λ) in finalLayer!"
     output = dispatch(N, view(curPath, innerAxes..., λ, outerAxes...),
                       layers.shears[i], daughters, fftPlan)
-
+    
     @debug "starting, $innerAxes"
     nScalesPenult = getLastScales(dataDim, daughters, layers.shears[i])#numScales(layers.shears[i], size(innerAxes[1],1), i)
     toBeHandedOnwards = zeros(T, dataSizes[end][1:dataDim]...,
@@ -398,7 +394,7 @@ function finalLayer!(layers::layeredTransform{K,N}, results, curPath,
                resultingSize)
     @debug "writeLoop"
     innerAxes = axes(toBeHandedOnwards)[1:dataDim]
-
+    
     # write the output from the mth layer to output
     tmpSize = 1
     for j = 2:size(output, dataDim+1)
@@ -429,8 +425,6 @@ function finalLayer!(layers::layeredTransform{K,N}, results, curPath,
             end
         end
     end
-end
-end
 end
 
 resampleTo(dataDim, resultingSize, outputSizes, i) = dataDim==1 ?

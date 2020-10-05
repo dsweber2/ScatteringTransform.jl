@@ -14,7 +14,7 @@ f = 2 .* max.(0,-(t.-3*π))./(t.-3*π) .* (sin.(2π*t)) .+ 10 .* max.(0,t.-3*π)
 plot(t, f)
 
 # First create the transform configuration
-layers = layeredTransform(2, length(f))
+layers = stParallel(2, length(f))
 
 # two major versions:
 ###########################################################################################################
@@ -69,7 +69,7 @@ resp = permutedims(resp, (1,3,2))[:,:,1:45]
 # this example is the reflection off of a sharkfin whose interior liquid has speed 1999.0 at distance 10.2 meters
 # it is now ordered as (range)×(cross-range)×(angle)
 
-layers = layeredTransform(2, size(resp,1))
+layers = stParallel(2, size(resp,1))
 size(resp)
 # since this is going to be pretty large, we should subsample heavily (see the docs via ?st for options)
 @time tmpOutput = st(resp[:,:,1], layers, absType(), outputSubsample=(-1,5))

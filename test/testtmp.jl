@@ -1,6 +1,6 @@
 using Test
-function testShattered(X::Array{T,N},layer::layeredTransform,m::Int64) where {T <:Real,N}
-    thing = scattered(layer, X)
+function testShattered(X::Array{T,N},layer::stParallel,m::Int64) where {T <:Real,N}
+    thing = Scattered(layer, X)
     @test typeof(thing.data[1]) == Array{T, N+1}
     @test typeof(thing.output[1]) == Array{T, N+1}
     @test thing.m ==layer.m
@@ -24,7 +24,7 @@ end
 
 
 
-function testShattering(X::Array{Float64}, nonlinear::S, layer::layeredTransform, m::Int64) where S <: nonlinearity
+function testShattering(X::Array{Float64}, nonlinear::S, layer::stParallel, m::Int64) where S <: nonlinearity
     @time outputFull = st(X,layer,nonlinear,thin=false)
 
     # check that the data isn't NaN

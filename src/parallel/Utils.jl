@@ -7,7 +7,7 @@ struct decreasingType <: stType end
 
 
 @doc """
-      n, q, dataSizes, outputSizes, resultingSize = calculateSizes(layers::layeredTransform{K,1}, outputSubsample, Xsize; totalScales = [-1 for i=1:layers.m+1]) where {K}
+      n, q, dataSizes, outputSizes, resultingSize = calculateSizes(layers::stParallel{K,1}, outputSubsample, Xsize; totalScales = [-1 for i=1:layers.m+1]) where {K}
 
   * n is a list of the sizes of a single example. It is (m+1)×dataDim
 one dimension at a time
@@ -16,7 +16,7 @@ one dimension at a time
   * outputsizes is the same for the output arrays
   * resultingsize is a list of the output size as a result of subsampling
 """
-function calculateSizes(layers::layeredTransform{K,1},
+function calculateSizes(layers::stParallel{K,1},
                         outputSubsample, Xsize; totalScales = [-1
                                                                for
                                                                i=1:layers.m+1],
@@ -49,7 +49,7 @@ end
 
 get the sizes of a single example in each layer
 """
-function getNs(Xsize, layers::layeredTransform{K,1}) where K
+function getNs(Xsize, layers::stParallel{K,1}) where K
     return Int.(sizes(bsplineType(), layers.subsampling, Xsize[(end):end]))
 end
 
@@ -57,7 +57,7 @@ end
   q = getQ(layers, n, totalScales; product=true)
 calculate the total number of entries in each layer
 """
-function getQ(layers::layeredTransform{K,1}, n, totalScales; product=true) where {K}
+function getQ(layers::stParallel{K,1}, n, totalScales; product=true) where {K}
     # first just the number of new scales
     q = [numScales(layers.shears[i], n[i])-1 for i=1:layers.m+1]
     # then a product over all previous
@@ -88,38 +88,12 @@ end
 
 
 
-
-
-
-
-import LinearAlgebra.norm
-function norm(scattered::scattered{T,N}, p) where {T<:Number, N}
-    #TODO functional version of this
-    return (sum([norm(scattered.output[i],p).^p for i=1:scattered.m+1])).^(1/p)
-end
-
-
-
-# TODO maybe fold this in?
 """
-    totalSize, Xsizes, Ysizes = outputSize(X,layers)
-
-get the length of a thin version
-"""
-function outputSize(X, layers)
-  Xsizes = [size(X,1); layers.reSizingRates[1,:]]
-  Ysizes = [size(X,2); layers.reSizingRates[2,:]]
-  return (sum([numInLayer(m-1,layers)*Xsizes[m+1]*Ysizes[m+1] for m=1:layers.m+1]), Xsizes, Ysizes)
-end
-
-
-
-"""
-    createFFTPlans(layers::layeredTransform{K, N}, dataSizes; verbose=false, T=Float32, iscomplex::Bool=false)
+    createFFTPlans(layers::stParallel{K, N}, dataSizes; verbose=false, T=Float32, iscomplex::Bool=false)
 
 to be called after distributed. returns a 2D array of futures; the i,jth entry has a future (referenced using fetch) for the fft to be used by worker i in layer j.
 """
-function createFFTPlans(layers::layeredTransform{<:Any, N}, dataSizes;
+function createFFTPlans(layers::stParallel{<:Any, N}, dataSizes;
                         T=Float32, iscomplex::Bool=false) where {N}
     @debug "starting to create plans at all"
     @debug "" nwork=nworkers()
@@ -145,7 +119,7 @@ end
 
 # only in the 1D case where we're using either Morlet or Paul wavelets do we
 # need both a rfft and an fft
-function getNumPlans(layers::layeredTransform{<:Any,1})
+function getNumPlans(layers::stParallel{<:Any,1})
     if typeof(layers.shears[1].waveType) <: Union{WT.Morlet, WT.Paul}
         return 2
     elseif  typeof(layers.shears[1].waveType) <: WT.Dog

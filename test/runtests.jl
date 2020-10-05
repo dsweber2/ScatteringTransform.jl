@@ -1,4 +1,4 @@
-# tests for the various forms of layeredTransform for the ScatteringTransform
+# tests for the various forms of stParallel for the ScatteringTransform
 using Distributed
 addprocs((Sys.CPU_THREADS)-2-nprocs())
 @everywhere using Interpolations, Wavelets, LinearAlgebra

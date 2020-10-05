@@ -2,17 +2,17 @@
 
   given a path p and a flattened scattering transform flat, return the transform of that row.
 """
-function findp(flat::Vector{T}, p::Vector{S}, layers::layeredTransform) where {T <: Number, S<:Integer}
+function findp(flat::Vector{T}, p::Vector{S}, layers::stParallel) where {T <: Number, S<:Integer}
 
 end
 
 
 """
-  p = computePath(layers::layeredTransform, layerM::Int, λ::Int; stType::String="full"))
+  p = computePath(layers::stParallel, layerM::Int, λ::Int; stType::String="full"))
 
 compute the path p that corresponds to location λ in the stType of transform
 """
-function computePath(layers::layeredTransform, layered1D::scattered{T,1}, layerM::Int, λ::Int; stType::String="full") where T<:Number
+function computePath(layers::stParallel, layered1D::ScatteredFull{T,1}, layerM::Int, λ::Int; stType::String="full") where T<:Number
   nScalesLayers = [numScales(layers.shears[i], layered1D.data[i]) for i=1:layerM]
   p = zeros(layerM)
   if stType=="full"
@@ -28,7 +28,7 @@ end
 
 
 @doc """
-    numChildren = numChildren(keeper::Array{Int}, layers::layeredTransform, nScalesLayers::Array{Int})
+    numChildren = numChildren(keeper::Array{Int}, layers::stParallel, nScalesLayers::Array{Int})
 
 given a keeper, determine the number of children it has.
 """
@@ -62,11 +62,11 @@ function numChildren(keeperOriginal::Array{Int}, scalingFactors::Array{Float64},
   end
   numThisLayer
 end
-numChildren(keeperOriginal::Array{Int}, layers::layeredTransform, nScalesLayers::Array{Int}) = numChildren(keeperOriginal::Array{Int}, [shear.scalingFactor for shear in layers.shears], nScalesLayers::Array{Int})
+numChildren(keeperOriginal::Array{Int}, layers::stParallel, nScalesLayers::Array{Int}) = numChildren(keeperOriginal::Array{Int}, [shear.scalingFactor for shear in layers.shears], nScalesLayers::Array{Int})
 
 
 @doc """
-numInLayer(m::Int, layers::layeredTransform, nScalesLayers::Array{Int})
+numInLayer(m::Int, layers::stParallel, nScalesLayers::Array{Int})
 
 A stupidly straightforward way of counting the number of decreasing paths in a given layer.
 """
@@ -87,7 +87,7 @@ function numInLayer(m::Int, scalingFactors::Array{Float64}, nScalesLayers::Array
   numThisLayer
 end
 
-numInLayer(m::Int, layers::layeredTransform, nScalesLayers::Array{Int}) = numInLayer(m, [shear.scalingFactor for shear in layers.shears], nScalesLayers)
+numInLayer(m::Int, layers::stParallel, nScalesLayers::Array{Int}) = numInLayer(m, [shear.scalingFactor for shear in layers.shears], nScalesLayers)
 
 
 
