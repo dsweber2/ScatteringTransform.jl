@@ -12,32 +12,48 @@
 given a stParallel and an array as produced by the thin ST, wrap the
 results in the easier to process Scattered type. note that the data is zero
 when produced this way.
+
+TODO: the 2nd layer still has a weird size, since both indices are stuck together (see the cwt example)
 """
-function wrap(layers::stParallel{K, 1}, results::AbstractArray{T,N}, X;
-              percentage=.9, outputSubsample=(-1,-1)) where {K, N, T<: Number}
-    wrapped = ScatteredFull(layers, X, outputSubsample=outputSubsample)
+function roll(layers::stParallel{K, 1}, results::AbstractArray{T,N}, X;
+              percentage=.9, outputSubsample=(-1,-1),full=false) where {K, N, T<: Number}
+    if full
+        wrapped = ScatteredFull(layers, X, outputSubsample=outputSubsample)
+    else
+        wrapped = ScatteredOut(layers, X, outputSubsample=outputSubsample)
+    end
     n, q, dataSizes, outputSizes, resultingSize = calculateSizes(layers,
                                                                  outputSubsample,
                                                                  size(X),
                                                                  percentage =
                                                                  percentage)
-    @info "" n, q, dataSizes, outputSizes, resultingSize
-    for (i,layer) in enumerate(layers.shears[1:layers.m+1])
-        concatStart = sum([oneLayer[1] for oneLayer in
-                           resultingSize[1:i-1]]) + 1
-        outerAxes = axes(wrapped.output[i])[3:end]
-        @info "" concatStart, outerAxes, size(wrapped.output[i])[2],resultingSize[i]
-        println([size(x) for x in wrapped.output])
-        for j = 1:size(wrapped.output[i])[2]
-            #println("j=$j, $(size(wrapped.output[i])[2]), start: $(concatStart .+(j-1)*resultingSize[i])")
-            #println("end: $(concatStart .+(j-1)*resultingSize[i] + resultingSize[i]-1)")
-            println((resultingSize[i], outputSizes[i][3:end]...,))
-            thingToWrite = reshape(results[concatStart .+
-                                           (j-1)*resultingSize[i] .+
+    @info "" n' q dataSizes outputSizes resultingSize
+    outerAxes = axes(X)[2:end]
+    println(outerAxes)
+    addedLayers = parallel.getListOfScaleDims(layers,n)
+    for i = 1:depth(layers)+1
+        concatStart = sum([prod(oneLayer[1:end-ndims(X)+1]) for oneLayer in
+                           outputSizes[1:i-1]]) + 1
+        println(outputSizes[1:i-1],concatStart)
+        for js in indexOverScales(addedLayers,i)
+            j = parallel.linearFromTuple(js, addedLayers[i])
+            if i==3
+                println("js=$js, j=$j")
+                println(concatStart .+ j*resultingSize[i] .+ (0:(resultingSize[i]-1)))
+                println(j*resultingSize[i])
+            end
+            accessed = results[concatStart .+
+                                           j*resultingSize[i] .+
                                            (0:(resultingSize[i]-1)),
-                                           outerAxes...], 
-                                   (resultingSize[i], outputSizes[i][3:end]...,))
-            wrapped.output[i][:,j, outerAxes...] = thingToWrite
+                               outerAxes...]
+            thingToWrite = reshape(accessed, 
+                                   (resultingSize[i],
+                                    size(X)[2:end]...,))
+            if js == 1
+                wrapped.output[i][:, outerAxes...] = thingToWrite
+            else
+                wrapped.output[i][:,js..., outerAxes...] = thingToWrite
+            end
         end
     end
     return wrapped

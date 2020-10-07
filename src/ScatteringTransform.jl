@@ -4,6 +4,7 @@ using ChainRules
 using CUDA
 using Flux:mse, update!
 using FFTW
+using Wavelets, ContinuousWavelets
 using Zygote, Flux, Shearlab, LinearAlgebra, AbstractFFTs
 using Flux
 using FourierFilterFlux
@@ -17,57 +18,11 @@ using Statistics, LineSearches, Optim
 import Adapt: adapt
 import ChainRules:rrule
 import Zygote:has_chain_rrule, rrule
+import Wavelets:eltypes
 
 
-abstract type scatteringTransform{Dimension, Depth} end
-struct stFlux{Dimension, Depth, ChainType,D,E,F} <: scatteringTransform{Dimension, Depth}
-    mainChain::ChainType
-    normalize::Bool
-    outputSizes::D
-    outputPool::E
-    settings::F
-end
-
-import Base.ndims
-ndims(s::scatteringTransform{D}) where D = D
-nPathDims(ii) = 1+max(min(ii-2,1),0) # the number of path dimensions at layer ii (zeroth
-# is ii=1)
-function Base.show(io::IO, st::stFlux{Dim,Dep}) where {Dim,Dep}
-    layers = st.mainChain.layers
-    σ = layers[1].σ
-    Nd = ndims(st)
-    nFilters = [size(layers[i].weight,3)-1 for i=1:3:(3*Dim)]
-    batchSize = getBatchSize(layers[1])
-    print(io, "stFlux{$(Dep), Nd=$(Nd), filters=$(nFilters), σ = " *
-          "$(σ), batchSize = $(batchSize), normalize = $(st.normalize)}")
-end
-
-# the type T is a type of frame transform that forms the backbone of the transform
-# the type Dimension<:Integer gives the dimension of the transform
-
-struct stParallel{T, Dimension, Depth} <: scatteringTransform{Dimension, Depth}
-    n::Tuple{Vararg{Int, Dimension}} # the dimensions of a single entry
-    shears::Array{T,1} # the array of the transforms; the final of these is
-    # used only for averaging, so it has length m+1
-    subsampling::Array{Float32, 1} # for each layer, the rate of
-    # subsampling. There is one of these for layer zero as well, since the
-    # output is subsampled, so it should have length m+1
-    outputSize::Array{Int, 2} # a list of the size of a single output example
-    # dimensions in each layer. The first index is layer, the second is
-    # dimension (e.g. a 3 layer shattering transform is 3×2) TODO: currently
-    # unused for the 1D case
-end
-
-function Base.show(io::IO, l::stParallel{T,D,Depth}) where {T,D,Depth}
-    print(io, "stParallel{$T,$D} depth $(Depth), input size $(l.n), subsampling rates $(l.subsampling), outputsizes = $(l.outputSize)")
-end
-
-function eltypes(f::stParallel)
-    return (eltype(f.shears), length(f.n))
-end
-
-export scatteringTransform, stFlux, stParallel, eltypes
 include("shared.jl")
+export scatteringTransform, stFlux, stParallel, eltypes, depth
 include("pathLocs.jl")
 export pathLocs 
 include("scattered.jl")
@@ -92,16 +47,65 @@ include("Flux/flUtilities.jl")
 export getWavelets, flatten, roll, importantCoords, batchOff
 include("parallel/parallelCore.jl") # there's enough weird stuff going on in
 # here that I'm isolating it in a module
+using .parallel
 function (stPara::stParallel)(x; nonlinearity=abs, thin=false,
                               outputSubsample=(-1,-1), subsam=true,
-                              totalScales=[-1 for i=1:layers.m+1],
+                              totalScales=[-1 for i=1:depth(stPara)+1],
                               percentage=.9, fftPlans=-1)
    st(x, stPara, nonlinearity; thin=thin, outputSubsample=outputSubsample,
       subsam=subsam, totalScales=totalScales, percentage=percentage,
       fftPlans=fftPlans)
 end
 
-roll(toRoll, st::stParallel; varargs...) = wrap(st,toRoll; varargs...)
+function ScatteredFull(layers::scatteringTransform{S,1}, X::Array{T,N};
+                       totalScales=[-1 for i=1:depth(layers) +1],
+                       outputSubsample=(-1,-1)) where {T <: Real, N, S}
+    if N == 1
+        X = reshape(X, (size(X)..., 1));
+    end
+
+    n, q, dataSizes, outputSizes, resultingSize = 
+        parallel.calculateSizes(layers, outputSubsample, size(X), 
+                                totalScales = totalScales)
+    numInLayer = getQ(layers, n, totalScales; product=false)
+    addedLayers = [numInLayer[min(i,2):i] for i=1:depth(layers) + 1]
+    if 1==N
+        zerr = [zeros(T, n[i], addedLayers[i]...) for i=1:depth(layers)+1]
+        output = [zeros(T, resultingSize[i], addedLayers[i]...) for i=1:depth(layers)+1]
+    else
+        zerr=[zeros(T, n[i], q[i], size(X)[2:end]...) for
+              i=1:depth(layers)+1]
+        output = [zeros(T, resultingSize[i], addedLayers[i]..., size(X)[2:end]...)
+                  for i=1:depth(layers)+1]
+        @info "" [size(x) for x in output]
+    end
+    zerr[1][:, 1, axes(X)[2:end]...] = copy(X)
+    return ScatteredFull{T, N+1}(depth(layers), 1, zerr, output)
+end
+
+function ScatteredOut(layers::ST, X::Array{T,N};
+                       totalScales=[-1 for i=1:depth(layers) +1],
+                       outputSubsample=(-1,-1)) where {ST <: scatteringTransform, T <: Real, N, S}
+    if N == 1
+        X = reshape(X, (size(X)..., 1));
+    end
+
+    n, q, dataSizes, outputSizes, resultingSize = 
+        parallel.calculateSizes(layers, outputSubsample, size(X), totalScales =
+                       totalScales)
+    addedLayers = parallel.getListOfScaleDims(layers, n, totalScales)
+    @info addedLayers
+    if 1==N
+        output = [zeros(T, resultingSize[i], addedLayers[i]...) for i=1:depth(layers)+1]
+    else
+        output = [zeros(T, resultingSize[i], addedLayers[i]..., size(X)[2:end]...)
+                  for i=1:depth(layers)+1]
+    end
+    @info [size(x) for x in output]
+    return ScatteredOut{T, N+1}(depth(layers), 1, output)
+end
+
+roll(toRoll, stP::stParallel, originalInput; varargs...) = parallel.roll(stP, toRoll,originalInput; varargs...)
 export roll, wrap, sizes, calculateThinStSizes, createFFTPlans,
     createRemoteFFTPlan, computeAllWavelets, plotAllWavelets
 export spInverse, aTanh, Tanh, ReLU, piecewiseLinear, plInverse

@@ -1,3 +1,53 @@
+abstract type scatteringTransform{Dimension, Depth} end
+struct stFlux{Dimension, Depth, ChainType,D,E,F} <: scatteringTransform{Dimension, Depth}
+    mainChain::ChainType
+    normalize::Bool
+    outputSizes::D
+    outputPool::E
+    settings::F
+end
+
+import Base.ndims
+ndims(s::scatteringTransform{D}) where D = D
+nPathDims(ii) = 1+max(min(ii-2,1),0) # the number of path dimensions at layer ii (zeroth
+# is ii=1)
+depth(s::scatteringTransform{Dim,Depth}) where {Dim, Depth} = Depth
+function Base.show(io::IO, st::stFlux{Dim,Dep}) where {Dim,Dep}
+    layers = st.mainChain.layers
+    σ = layers[1].σ
+    Nd = ndims(st)
+    nFilters = [size(layers[i].weight,3)-1 for i=1:3:(3*Dim)]
+    batchSize = getBatchSize(layers[1])
+    print(io, "stFlux{$(Dep), Nd=$(Nd), filters=$(nFilters), σ = " *
+          "$(σ), batchSize = $(batchSize), normalize = $(st.normalize)}")
+end
+
+# the type T is a type of frame transform that forms the backbone of the transform
+# the type Dimension<:Integer gives the dimension of the transform
+
+struct stParallel{T, Dimension, Depth, subsampType, outType} <: scatteringTransform{Dimension, Depth}
+    n::Tuple{Vararg{Int, Dimension}} # the dimensions of a single entry
+    shears::Array{T,1} # the array of the transforms; the final of these is
+    # used only for averaging, so it has length m+1
+    subsampling::subsampType # for each layer, the rate of
+    # subsampling. There is one of these for layer zero as well, since the
+    # output is subsampled, so it should have length m+1
+    outputSize::outType # a list of the size of a single output example
+    # dimensions in each layer. The first index is layer, the second is
+    # dimension (e.g. a 3 layer shattering transform is 3×2) TODO: currently
+    # unused for the 1D case
+end
+
+function Base.show(io::IO, l::stParallel{T,D,Depth}) where {T,D,Depth}
+    print(io, "stParallel{$T,$D} depth $(Depth), input size $(l.n), subsampling rates $(l.subsampling), outputsizes = $(l.outputSize)")
+end
+
+function eltypes(f::stParallel)
+    return (eltype(f.shears), length(f.n))
+end
+
+
+
 """
     listVargs = processArgs(m, varargs)
 method to go from arguments given to the scattering transform constructor to 

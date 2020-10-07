@@ -9,8 +9,8 @@ function stParallel(m, Xlength; CWTType=morl, subsampling = 2,
     CWTType = makeTuple(m+1, CWTType)
     subsampling = makeTuple(m+1, subsampling)
     pairedArgs = processArgs(m+1, varargs)
-    @info "Treating as a 1D Signal. Vector Lengths: $Xlength nScales:" *
-            "$nScales subsampling: $subsampling"
     shears = map(x->wavelet(x[1]; x[2]...), zip(CWTType,pairedArgs))
-    stParallel{typeof(shears[1])}((Xlength,), shears, subsampling, outputSize)
+    # @info "Treating as a 1D Signal. Vector Lengths: $Xlength nScales:" *
+    #         "$nScales subsampling: $subsampling"
+    stParallel{typeof(shears[1]), 1, m, typeof(subsampling), typeof(outputSize)}((Xlength,), shears, subsampling, outputSize)
 end

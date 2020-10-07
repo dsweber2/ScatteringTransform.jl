@@ -15,7 +15,7 @@
 # TODO: make a function which determines the breakpoints given the layers function and the size of the input
 # TODO: non-thin is currently not outputing values in the data section
 @doc """
-        st(X::Array{T, N}, layers::stParallel, nonlinear::nl; fullOr::fullType=fullType(),# subsam::Sub = bspline(), thin::Bool=true, outputSubsample::Tuple{Int, Int}=(-1,-1), subsam::Bool=true, totalScales = [-1 for i=1:layers.m+1], percentage = .9, fftPlans = -1) where {T <: Real, S <: Union, N, nl <: Function, Sub <: resamplingMethod}
+        st(X::Array{T, N}, layers::stParallel, nonlinear::nl; fullOr::fullType=fullType(),# subsam::Sub = bspline(), thin::Bool=true, outputSubsample::Tuple{Int, Int}=(-1,-1), subsam::Bool=true, totalScales = [-1 for i=1:depth(layers)+1], percentage = .9, fftPlans = -1) where {T <: Real, S <: Union, N, nl <: Function, Sub <: resamplingMethod}
 1D scattering transform using the stParallel layers. you can switch out the nonlinearity as well as the method of subsampling. Finally, the stType is a string. If it is "full", it will produce all paths. If it is "decreasing", it will only keep paths of increasing scale. If it is "collating", you must also include a vector of matrices.
 # Arguments
 - `nonlinear` : a type of nonlinearity. Should be a function that acts on Complex numbers
@@ -34,10 +34,10 @@ function st(X::Array{T, N}, layers::stParallel, nonlinear::nl;
             fullOr::fullType=fullType(),# subsam::Sub = bspline(), #TODO
             # allow for variation in subsamping method again
             thin::Bool=true, outputSubsample::Tuple{Int, Int}=(-1,-1),
-            subsam::Bool=true, totalScales = [-1 for i=1:layers.m+1],
+            subsam::Bool=true, totalScales = [-1 for i=1:depth(layers)+1],
             percentage = .9, fftPlans = -1) where {T <: Real, S <: Union, N, nl <:
                                     Function, Sub <: resamplingMethod}
-    @assert length(totalScales)==layers.m+1
+    @assert length(totalScales)==depth(layers)+1
     @assert fftPlans ==-1 || typeof(fftPlans)<:Array{<:Future,2}
     if T<:Float64
         @warn "data type is $T. This is probably higher precision than you need and likely to eat a lot of memory"
@@ -83,14 +83,15 @@ function st(X::Array{T, N}, layers::stParallel, nonlinear::nl;
     if thin
         return results
     else
-        return ScatteredOut(results,ndims(layers))
+        return roll(layers, results, X; percentage=percentage, 
+                    outputSubsample= outputSubsample)
     end
 end
 function st(layers::stParallel, X::Array{T, N}, nonlinear::nl;
             fullOr::fullType=fullType(),# subsam::Sub = bspline(), #TODO
             # allow for variation in subsamping method again
             thin::Bool=true, outputSubsample::Tuple{Int, Int}=(-1,-1),
-            subsam::Bool=true, totalScales = [-1 for i=1:layers.m+1],
+            subsam::Bool=true, totalScales = [-1 for i=1:depth(layers)+1],
             percentage = .9, fftPlans = -1) where {T <: Real, S <: Union, N, nl <:
                                     Function, Sub <: resamplingMethod}
     return st(X, layers, nonlinear, fullOr, thin = thin,
@@ -103,14 +104,14 @@ st(layers::stParallel, X::Array{T}; nonlinear::Function=abs, subsam::Function=bs
 function iterateOverLayers!(layers, results, nextData, dataSizes, outputSizes,
                            dataDim, q, totalScales, T, thin, nonlinear, subsam,
                            outputSubsample, resultingSize, fftPlans)
-    for (i,layer) in enumerate(layers.shears[1:layers.m])
+    for (i,layer) in enumerate(layers.shears[1:depth(layers)])
         @debug "On layer $(i)"
         @debug "size(nextData) = $(size(nextData[1]))"
         cur = nextData #data from the previous layer
 
         # only store the intermediate results in intermediate layers
         # TODO: get rid of the data channel, or replace nextData with it
-        if i < layers.m
+        if i < depth(layers)
             # store the data in a channel, along with the number of
             # it's parent
             dataChannel = Channel{ Tuple{ Array{ length(dataSizes[i+1])},
@@ -160,7 +161,7 @@ function iterateOverLayers!(layers, results, nextData, dataSizes, outputSizes,
         # layers paths
 
         # iterate over the scales two layers back
-        if i==layers.m
+        if i==depth(layers)
             # compute the final mother if we're on the last layer
             if dataDim==1
                 @debug "last layer dataSizes[end] = $(dataSizes[end]), $(layers.shears[i+1])"
@@ -200,7 +201,7 @@ function iterateOverLayers!(layers, results, nextData, dataSizes, outputSizes,
             if typeof(tmpFetch) <: Exception
                 throw(tmpFetch)
             end
-            if i<layers.m
+            if i<depth(layers)
                 nextData[λ] = tmpFetch
             end
         end
@@ -314,7 +315,7 @@ function midLayer!(layers::stParallel{K,1}, results, curPath, dataSizes,
     innerMostAxes = axes(output)[end:end]
     # iterate over the non transformed dimensions of output
     writeLoop!(output, outerAxes, i, T,dataSizes, innerAxes, innerSub, layers,
-               results, toBeHandedBack, concatStart,λ, dataDim,outputSize,
+               results, toBeHandedBack, jRncatStart,λ, dataDim, nothing,
                nonlinear, subsam, outputSizeThisLayer, outputSubsample,
                resultingSize)
     @debug "AFTER writeloop in midlayer size(toBeHandedBack) = $(size(toBeHandedBack))"
@@ -389,7 +390,7 @@ function finalLayer!(layers::stParallel{K,N}, results, curPath,
                               nScalesPenult, dataSizes[end][3:end]...)
     @debug "handing onwards"
     writeLoop!(output, outerAxes, i, T, dataSizes, innerAxes, innerSub, layers,
-               results, toBeHandedOnwards, concatStart, λ, dataDim, outputSize,
+               results, toBeHandedOnwards, concatStart, λ, dataDim, nothing,
                nonlinear, subsam, outputSizes[end-1], outputSubsample,
                resultingSize)
     @debug "writeLoop"

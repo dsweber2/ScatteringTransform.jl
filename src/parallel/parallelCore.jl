@@ -7,13 +7,13 @@ using HDF5, JLD
 using Plots
 # todo remove nScales controls
 # the overall container defines a few types we need here
-import ScatteringTransform:stParallel, Scattered, ScatteredFull, ScatteredOut
+import ScatteringTransform:stParallel, Scattered, ScatteredFull, ScatteredOut, depth, eltypes
 
 include("subsampling.jl")
 export sizes, bsplineType, bilinearType
 include("modifiedTransforms.jl")
 include("Utils.jl")
-export calculateThinStSizes, createFFTPlans, remoteMultiply,
+export calcuateSizes, calculateThinStSizes, createFFTPlans, remoteMultiply,
     createRemoteFFTPlan, computeAllWavelets, plotAllWavelets
 include("nonlinearities.jl")
 export spInverse, aTanh, Tanh, ReLU, piecewiseLinear, plInverse
@@ -25,5 +25,5 @@ export pathToThinIndex, MatrixAggrigator, plotCoordinate,
     incrementKeeper, numInLayer
 include("postProcessing.jl")
 export logabs, ReLU, MatrixAggrigator, reshapeFlattened,
-    loadSyntheticMatFile, transformFolder, flatten
+    loadSyntheticMatFile, transformFolder, flatten, roll
 end

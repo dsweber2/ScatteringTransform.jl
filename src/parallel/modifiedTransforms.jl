@@ -14,8 +14,8 @@ end
 
 
 # a version that can deal with futures, for parallel computing
-function cwt(Y::AbstractArray{T,N}, c::CFW{<:Any,<:Any,<:Union{WT.Morlet,
-                                                               WT.Paul}},
+function cwt(Y::AbstractArray{T,N}, c::CWT{<:Any,<:Any,<:Union{Morlet,
+                                                               Paul}},
              daughters, fftPlan::Future) where {T<:Real, S<:Real, U<:Number,
                                                 N}
     plrfft, plfft = fetch(fftPlan)
@@ -24,15 +24,15 @@ function cwt(Y::AbstractArray{T,N}, c::CFW{<:Any,<:Any,<:Union{WT.Morlet,
     return cwt(Y, c, daughters, plrfft, plfft)
 end
 
-function cwt(Y::AbstractArray{T,N}, c::CFW{<:Any,<:Any,<:Union{WT.Dog}},
+function cwt(Y::AbstractArray{T,N}, c::CWT{<:Any,<:Any,<:Union{Dog}},
              daughters, fftPlan::Future) where {T<:Real, S<:Real, U<:Number, N}
     pl = fetch(fftPlan)
     return cwt(Y, c, daughters, pl)
 end
 
 
-function numScales(c::CFW, n)
-    nOctaves, totalWavelets, sRange, sWidth = WT.getNWavelets(n,c)
+function numScales(c::CWT, n)
+    nOctaves, totalWavelets, sRange, sWidth = getNWavelets(n,c)
     return totalWavelets
 end
 

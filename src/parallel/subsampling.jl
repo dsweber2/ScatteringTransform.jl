@@ -19,7 +19,7 @@ maximum(A::Array{Complex{Float64}}) = A[indmax(abs(A))]
 
 Use bilinear interpolation to evaluate the points off-grid. This is linear in x and linear in y, but quadratic in the pair.
 """
-function resample(input::AbstractArray{T,2}, rate::Float32,
+function resample(input::AbstractArray{T,2}, rate,
                   samplingType::bsplineType; newSize =
                   (-1,-1)) where T<:Number
     Nin = size(input)
@@ -42,7 +42,7 @@ function resample(input::AbstractArray{T,2}, rate::Float32,
     output = T.(itp(xInds,yInds))
 end
 
-function resample(input::AbstractArray{T,1}, rate::Float32,
+function resample(input::AbstractArray{T,1}, rate,
                   samplingType::bsplineType; newSize =
                   (-1,)) where T<:Number
     Nin = size(input)
@@ -62,7 +62,7 @@ end
 
     Use bilinear interpolation to evaluate the points off-grid. This is linear in x and linear in y, but quadratic in the pair.
     """
-function resample(input::AbstractArray{T,2}, rate::Float32, samplingType::bilinearType; newSize = (-1,-1)) where T<:Number
+function resample(input::AbstractArray{T,2}, rate, samplingType::bilinearType; newSize = (-1,-1)) where T<:Number
     Nin = size(input)
     # if the rate results in a non-integer number of samples, round up.
     if rate != 0.0 || newSize[1] <= 0
@@ -91,12 +91,12 @@ function resample(input::AbstractArray{T,2}, rate::Float32, samplingType::biline
 end
 
 # provide default behaviour, which is bspline subsampling
-function resample(input::AbstractArray{T,1}, rate::Float32; newSize = 
+function resample(input::AbstractArray{T,1}, rate; newSize = 
                   (-1,)) where T<:Number
     resample(input, rate, bsplineType(); newSize=newSize)
 end
-resample(input::AbstractArray{T,2}, rate::Float32; newSize = (-1,-1)) where T<:Number = resample(input, rate, bsplineType(); newSize=newSize)
-function resample(input::AbstractArray{T,N}, rate::Float32; newSize = (-1,-1)) where {T<:Number, N}
+resample(input::AbstractArray{T,2}, rate; newSize = (-1,-1)) where T<:Number = resample(input, rate, bsplineType(); newSize=newSize)
+function resample(input::AbstractArray{T,N}, rate; newSize = (-1,-1)) where {T<:Number, N}
     if rate != 0.0 || newSize[1] <= 0
         newSize = (Int(ceil(size(input,1)/rate)),
                    Int(ceil(size(input,2)/rate)))
@@ -196,13 +196,13 @@ end
 # TODO: figure out what's wrong with Quadratic(Reflect() and re-implement it
 
 @doc """
-  subsamp = sizes(func<:resamplingMethod, rate::Array{T,1}, sizeX::Tuple{Int}) where T<:Real
+  subsamp = sizes(func<:resamplingMethod, rate::NTuple{T,1}, sizeX::Tuple{Int}) where T<:Real
 
 given a subsampling rate, a subsampling method func, and an initial size
 tuple sizeX, return an array of sizes as used by the scattering(1,2)D
 constructors
 """
-function sizes(func::S, rate::Array{T}, sizeX) where {T<:Real, S<:resamplingMethod}
+function sizes(func, rate, sizeX) 
     if typeof(sizeX)<:Tuple
         sizeX = sizeX[1]
     end

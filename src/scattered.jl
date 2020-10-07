@@ -32,7 +32,6 @@ struct ScatteredFull{T,N} <:Scattered{T,N}
         new(m, k, data, output)
     end
 end
-
 """
 A simple wrapper for the results of the scattering transform. Its one field
 `result` contains a tuple of the results from each layer, in the order zero,
@@ -44,11 +43,52 @@ struct ScatteredOut{T,N} <:Scattered{T,N}
     k::Int# the meta-dimension of the signals (should be either 1 or 2)
     output
 end
-ScatteredOut(output; k=1) = ScatteredOut{eltype(output),
+ScatteredOut(output, k=1) = ScatteredOut{eltype(output),
                                          ndims(output[1])}(length(output)-1, k,
                                                            output)
 
-import Base.+, Base.-, Base.broadcast, Base.length, Base.size, Base.iterate, Base.broadcastable
+
+
+
+
+@doc """
+      scatteredOut(m, k, fixDim::Array{<:Real, 1}, n::Array{<:Real, 2}, q::Array{<:Real, 1}, T::DataType)
+
+  element type is T and N the total number of indices, including both signal dimension and any example indices. k is the actual dimension of a single signal.
+  """
+function ScatteredOut(m, k, fixDim::Array{<:Real, 1}, n::Array{<:Real, 2},
+                   q::Array{<:Real, 1}, T::DataType)
+    @assert m+1==size(n,1)
+    @assert m+1==length(q)
+    @assert   k==size(n,2)
+    fixDim = Int.(fixDim)
+    n = Int.(n)
+    q = Int.(q)
+    N = k + length(fixDim)+1
+    output = [zeros(T,  n[i,:]..., prod(q[1:(i-1)].-1), fixDim...) for i=1:m+1]
+    return ScatteredOut{T,N}(m, k, data, output)
+end
+
+function ScatteredFull(m, k, fixDim::Array{<:Real, 1}, n::Array{<:Real, 2},
+                   q::Array{<:Real, 1}, T::DataType)
+    @assert m+1==size(n,1)
+    @assert m+1==length(q)
+    @assert   k==size(n,2)
+    fixDim = Int.(fixDim)
+    n = Int.(n)
+    q = Int.(q)
+    N = k + length(fixDim)+1
+    data = [zeros(T, n[i,:]..., prod(q[1:i].-1), fixDim...) for
+            i=1:m+1]
+    output = [zeros(T,  n[i,:]..., prod(q[1:(i-1)].-1), fixDim...) for i=1:m+1]
+    return ScatteredFull{T,N}(m, k, data, output)
+end
+
+
+import Base.==, Base.+, Base.-, Base.broadcast, Base.length, Base.size, Base.iterate, Base.broadcastable
+
+==(a::ScatteredOut,b::ScatteredOut) = all(a.output .==b.output)
+==(a::ScatteredFull,b::ScatteredFull) = all(a.data .==b.data) && all(a.output .==b.output)
 function +(a::ScatteredOut, b::ScatteredOut)
     @assert a.m== b.m
     @assert a.k== b.k
