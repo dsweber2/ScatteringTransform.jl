@@ -15,7 +15,7 @@ Zygote.@adjoint function getindex(F::T, i::Integer) where T <: Scattered
         zeroNonRefed = map(ii-> ii-1==i ? Ȳ[1] : zeros(eltype(F.output[ii]),
                                                   size(F.output[ii])...),
                            (1:length(F.output)...,)) 
-        ∂F = T(zeroNonRefed)
+        ∂F = T(F.m, F.k, zeroNonRefed)
         return ∂F, nothing
     end
     return getindex(F, i), getInd_rrule
@@ -26,7 +26,7 @@ Zygote.@adjoint function getindex(F::T, inds::AbstractArray) where T<: Scattered
         zeroNonRefed = map(ii-> ii-1 in inds ? Ȳ[indexin(ii-1,inds)[1]] :
                            zeros(eltype(F.output[ii]), size(F.output[ii])...),
                            (1:length(F.output)...,)) 
-        ∂F = T(zeroNonRefed)
+        ∂F = T(F.m, F.k, zeroNonRefed)
         return ∂F, nothing
     end
     return getindex(F, inds), getInd_rrule
@@ -37,7 +37,7 @@ Zygote.@adjoint function getindex(x::T, p::pathLocs) where T <: Scattered
         zeroNonRefed = map(ii-> zeros(eltype(x.output[ii]),
                                       size(x.output[ii])...),
                            (1:length(x.output)...,))
-        ∂x = T(zeroNonRefed)
+        ∂x = T(x.m, x.k, zeroNonRefed)
         ∂x[p] = Δ
         return ∂x, nothing
     end

@@ -2,6 +2,7 @@ using Random
 using Wavelets
 using ContinuousWavelets
 Random.seed!(135)
+using Test
 @testset "st using cwt tests" begin
     sharpExample = zeros(100,2); sharpExample[26:75,:] .= 1;
     layers = stParallel(2, size(sharpExample, 1))

@@ -22,10 +22,16 @@ function stFlux(inputSize::NTuple{N}, m; trainable = false,
                              poolBy= 3//2, σ=abs, kwargs...) where {N} 
     # N determines the number of spatial dimensions
     Nd = N - 2;
-    outputPool = makeTuple(m, outputPool)
+    if length(outputPool) == 1 # replicate for each dimension and layer
+        outputPool = ntuple(k->ntuple(i->outputPool[1], Nd), m+1)
+    elseif length(outputPool) == m+1 # replicate for each dimension
+        outputPool = ntuple(k-> ntuple(i->outputPool[k]), m+1)
+    elseif length(outputPool) == Nd
+        outputPool = ntuple(k->outputPool, m+1)
+    end
     if typeof(poolBy) <: Union{<:Rational, <:Integer}
-        poolBy = RationPool((ntuple(i->poolBy, N-2)...,), 
-                            nExtraDims = nPathDims(ii+1)+1)
+        poolBy = map(ii->RationPool((ntuple(i->poolBy, N-2)...,), 
+                            nExtraDims = nPathDims(ii+1)+1),1:m+1)
     end
     poolBy = makeTuple(m, poolBy)
     listOfSizes = [(inputSize..., ntuple(i->1, max(i-1, 0))...) for i=0:m]
@@ -33,7 +39,7 @@ function stFlux(inputSize::NTuple{N}, m; trainable = false,
     argsToEach = processArgs(m+1, kwargs)
     for i=1:m
         # first transform
-        interstitial[3*i - 2] = dispatchLayer(listOfSizes, Val(Nd); σ=identity,
+        interstitial[3*i - 2] = dispatchLayer(listOfSizes[i], Val(Nd); σ=identity,
                                               argsToEach[i]...)
         nFilters = size(interstitial[3*i - 2].weight)[end]
         
@@ -63,12 +69,16 @@ function stFlux(inputSize::NTuple{N}, m; trainable = false,
     end
 
     # final averaging layer
-    interstitial[3*m + 1] = dispatchLayer(listOfSizes, Val(Nd);
+    interstitial[3*m + 1] = dispatchLayer(listOfSizes[end], Val(Nd);
                                         averagingLayer=true, σ=identity, 
                                         argsToEach[end]...)
     chacha = Chain(interstitial...)
-    outputSizes = ([(map(poolSingle, outputPool, x[1:Nd])..., x[(Nd+1):end]...) for x
-                    in listOfSizes]...,)
+    @info "" listOfSizes outputPool
+    #println([map(poolSize, outputPool[ii], x[1]) for (ii,x) in enumerate(listOfSizes)])
+    #println("thing $([(map(poolSize, outputPool[ii], x[1:Nd])..., x[(Nd+1):end]...) for (ii,x)
+    #                in enumerate(listOfSizes)])")
+    outputSizes = ([(map(poolSize, outputPool[ii], x[1:Nd])..., x[(Nd+1):end]...) for (ii,x)
+                    in enumerate(listOfSizes)]...,)
 
     # record the settings used pretty kludgy
     settings = (:outputPool=>outputPool, :poolBy=>poolBy, :σ=>σ, argsToEach...)
@@ -79,11 +89,11 @@ function stFlux(inputSize::NTuple{N}, m; trainable = false,
 end
 
 function dispatchLayer(listOfSizes, Nd::Val{1}; varargs...)
-    waveletLayer(listOfSizes[ii]; varargs)
+    waveletLayer(listOfSizes; varargs...)
 end
 
 function dispatchLayer(listOfSizes, Nd::Val{2}; varargs...)
-    shearingLayer(listOfSizes[ii]; varargs)
+    shearingLayer(listOfSizes; varargs...)
 end
 
 
@@ -92,34 +102,37 @@ end
 # actually apply the transform
 function (st::stFlux)(x::T) where {T<:AbstractArray}
     mc = st.mainChain.layers
-    res = applyScattering(mc, x, ndims(st), st)
+    res = applyScattering(mc, x, ndims(st), st, 0)
     return ScatteredOut(res, ndims(mc[1]))
 end
 
 
-function applyScattering(c::Tuple, x, Nd, st)
+function applyScattering(c::Tuple, x, Nd, st, M)
     res = first(c)(x)
     if typeof(first(c)) <: ConvFFT
         tmpRes = res[map(x->Colon(), 1:Nd)..., end, map(x->Colon(), 1:ndims(res)-Nd-1)...]
+        println("size(tmpRes) = $(size(tmpRes))")
         # return a subsampled version of the output at this layer
-        poolSizes = (st.outputPool..., ntuple(i->1, ndims(tmpRes)-Nd-2)...)
-        r = RationPool(st.outputPool, nExtraDims = ndims(tmpRes)-Nd)
+        poolSizes = (st.outputPool[M+1]..., ntuple(i->1, ndims(tmpRes)-Nd-2)...)
+        r = RationPool(st.outputPool[M+1], nExtraDims = ndims(tmpRes) - Nd)
         if st.normalize
+            println(size(tmpRes))
             tmpRes = normalize(r(real.(tmpRes)), Nd)
-            apld = applyScattering(tail(c), res, Nd, st)
+            println(size(tmpRes))
+            apld = applyScattering(tail(c), res, Nd, st, M+1)
             return (tmpRes, apld...)
         else
             tmpRes = r(real.(tmpRes))
             return (tmpRes,
-                    applyScattering(tail(c), res, Nd, st)...)
+                    applyScattering(tail(c), res, Nd, st, M+1)...)
            end
     else
         # this is either a reshaping layer or a subsampling layer, so no output
-        return applyScattering(tail(c), res, Nd, st)
+        return applyScattering(tail(c), res, Nd, st, M)
     end
 end
 
-applyScattering(::Tuple{}, x, Nd, st) = tuple() # all of the returns should
+applyScattering(::Tuple{}, x, Nd, st, M) = tuple() # all of the returns should
 # happen along the way, not at the end
 
 """

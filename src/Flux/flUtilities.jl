@@ -50,13 +50,14 @@ function roll(toRoll, st::stFlux)
     locSoFar = 0
     for (ii, x) in enumerate(rolled)
         szThisLayer = oS[ii][1:Nd+nPathDims(ii)]
+        println(szThisLayer)
         totalThisLayer = prod(szThisLayer)
         range = (locSoFar + 1):(locSoFar + totalThisLayer)
         addresses = (szThisLayer..., nExamples...)
         rolled[ii][:] = reshape(toRoll[range, :], addresses)
         locSoFar += totalThisLayer
     end
-    return scattered(rolled)
+    return ScatteredOut(rolled, Nd)
 end
 
 """

@@ -186,15 +186,15 @@ end
 
 # access methods
 import Base:getindex
-Base.getindex(X::Scattered, i::AbstractArray) = X.output[i .+ 1]
+Base.getindex(X::Scattered, i::Union{Tuple, <:AbstractArray}) = X.output[i .+ 1]
 Base.getindex(X::Scattered, i::Integer) = X.output[i+1]
-function Base.getindex(X::ScatteredOut, c::Colon, 
-                       i::Union{<:AbstractArray, <:Integer})
-    ScatteredOut(X.m, X.k, map(x-> x[axes(x)[1:end-1]..., i], X.output))
+function Base.getindex(X::ScatteredOut{T,N}, c::Colon, 
+                       i::Union{<:AbstractArray, <:Integer}) where {T,N}
+    ScatteredOut{T,N}(X.m, X.k, map(x-> x[axes(x)[1:end-1]..., i...], X.output))
 end
-function Base.getindex(X::ScatteredFull, c::Colon, 
-                       i::Union{<:AbstractArray, <:Integer})
-    ScatteredFull(X.m, X.k, map(x-> x[axes(x)[1:end-1]..., i], X.data),
+function Base.getindex(X::ScatteredFull{T,N}, c::Colon, 
+                       i::Union{<:AbstractArray, <:Integer}) where {T,N}
+    ScatteredFull{T,N}(X.m, X.k, map(x-> x[axes(x)[1:end-1]..., i], X.data),
                   map(x-> x[axes(x)[1:end-1]..., i], X.output))
 end
 

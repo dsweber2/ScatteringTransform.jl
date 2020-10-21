@@ -15,20 +15,7 @@
 # TODO: make a function which determines the breakpoints given the layers function and the size of the input
 # TODO: non-thin is currently not outputing values in the data section
 @doc """
-        st(X::Array{T, N}, layers::stParallel, nonlinear::nl; fullOr::fullType=fullType(),# subsam::Sub = bspline(), thin::Bool=true, outputSubsample::Tuple{Int, Int}=(-1,-1), subsam::Bool=true, totalScales = [-1 for i=1:depth(layers)+1], percentage = .9, fftPlans = -1) where {T <: Real, S <: Union, N, nl <: Function, Sub <: resamplingMethod}
-1D scattering transform using the stParallel layers. you can switch out the nonlinearity as well as the method of subsampling. Finally, the stType is a string. If it is "full", it will produce all paths. If it is "decreasing", it will only keep paths of increasing scale. If it is "collating", you must also include a vector of matrices.
-# Arguments
-- `nonlinear` : a type of nonlinearity. Should be a function that acts on Complex numbers
-- `thin` : determines whether to wrap the output into a format that can be indexed using paths. `thin` cannot.
-- `totalScales`, if positive, gives the number of non-averaging wavelets.
-- `outputSubsample` is a tuple, with the first number indicating a rate, and the second number giving the minimum allowed size. If some of the entries are less than 1, it has different behaviour:
-    + `(<1, x)` : subsample to x elements for each path.
-    + `(<1, <1)` : no ssubsampling
-    + `(x, <1)` : subsample at a rate of x, with at least one element kept in each path
-- `fullOr::fullType=fullType()` : the structure of the transform either
-       `fullType()`, `collatingType()` or `decreasingType()`. At the moment,
-       only `fullType()` is functional.
-- `fftPlans = false` if not `false`, it should be a 2D array of `Future`s, where the first index is the layer, and the second index the core. See `createFFTPlans` if you want to do this.
+see the docs for stParallel
 """
 function st(X::Array{T, N}, layers::stParallel, nonlinear::nl;
             fullOr::fullType=fullType(),# subsam::Sub = bspline(), #TODO
@@ -315,7 +302,7 @@ function midLayer!(layers::stParallel{K,1}, results, curPath, dataSizes,
     innerMostAxes = axes(output)[end:end]
     # iterate over the non transformed dimensions of output
     writeLoop!(output, outerAxes, i, T,dataSizes, innerAxes, innerSub, layers,
-               results, toBeHandedBack, jRncatStart,λ, dataDim, nothing,
+               results, toBeHandedBack, concatStart, λ, dataDim, nothing,
                nonlinear, subsam, outputSizeThisLayer, outputSubsample,
                resultingSize)
     @debug "AFTER writeloop in midlayer size(toBeHandedBack) = $(size(toBeHandedBack))"
@@ -354,6 +341,7 @@ function writeLoop!(output, outerAxes, i, T,dataSizes, innerAxes,
         sizeTmpOut = prod(size(tmpOut))
         if outputSubsample[1] > 1 || outputSubsample[2] > 1
             @debug "(λ-1)*resultingSize[i] = $((λ-1)*resultingSize[i])"
+            resampled = resample(tmpOut, 0f0, newSize = resultingSize[i])
             results[concatStart .+ (λ-1)*resultingSize[i] .+
                     (0:(resultingSize[i]-1)), outer] =
                     resample(tmpOut, 0f0, newSize = resultingSize[i])
@@ -395,7 +383,6 @@ function finalLayer!(layers::stParallel{K,N}, results, curPath,
                resultingSize)
     @debug "writeLoop"
     innerAxes = axes(toBeHandedOnwards)[1:dataDim]
-    
     # write the output from the mth layer to output
     tmpSize = 1
     for j = 2:size(output, dataDim+1)
@@ -415,7 +402,7 @@ function finalLayer!(layers::stParallel{K,N}, results, curPath,
                         (j-2)*resultingSize[i+1] .+ (0:(resultingSize[i+1]-1)),
                         outer] = resample(tmpFinal, 0f0, newSize =
                                           resampleTo(dataDim, resultingSize,
-                                                     outputSize, i))
+                                                     outputSizes, i))
             else
                 sizeTmpOut = prod(size(tmpFinal))
                 tmpSize = sizeTmpOut

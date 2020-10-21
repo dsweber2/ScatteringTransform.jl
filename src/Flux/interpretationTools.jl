@@ -87,9 +87,17 @@ end
 """
     plotSecondLayer(stw; title="Second Layer results",xVals=-1,yVals=-1,logPower=false, toHeat=nothing, c=cgrad([:blue, :orange], scale=:log), threshold=0)
 TODO fix the similarity of these names.
+xVals and yVals give the spacing of the grid, as it doesn't seem to be done
+correctly by default. xVals gives the distance from the left and the right
+as a tuple, while yVals gives the distance from the top and the bottom,
+also as a tuple. Default values are `xVals = (.037, .852), yVals = (.056, .939)`, or if you have no title, use `xVals = (.0105, .882), yVals = (.056, .939)`
+If you have no colorbar, set `xVals = (.0015, .997), yVals = (.002, .992)`
 In the case that arbitrary space has been introduced, if you have a title, use `xVals = (.037, .852), yVals = (.056, .939)`, or if you have no title, use `xVals = (.0105, .882), yVals = (.056, .939)`
 """
-function plotSecondLayer(stw; title="Second Layer results",xVals=-1,yVals=-1,logPower=false, toHeat=nothing, c=cgrad([:blue, :orange], scale=:log), threshold=0)
+function plotSecondLayer(stw; title="Second Layer results", xVals=-1, yVals=-1,
+                         logPower=false, toHeat=nothing, 
+                         c=cgrad([:blue, :orange], scale=:log), threshold=0,
+                         linePalette=:greys, kwargs...)
     n,m = size(stw[2])[2:3]
     gr(size=2.5 .*(280,180))
     if xVals == -1  &&  title == ""
@@ -112,11 +120,12 @@ function plotSecondLayer(stw; title="Second Layer results",xVals=-1,yVals=-1,log
         toHeat = log.(toHeat)
     end
     if title==""
-        plt = heatmap(toHeat, yticks=1:n, xticks=1:m, tick_direction=:out,
-                      xlabel="Layer 1 index", ylabel="Layer 2 index",c=c)
+        plt = heatmap(toHeat; yticks=1:n, xticks=1:m, tick_direction=:out,
+                      xlabel="Layer 1 index", ylabel="Layer 2 index",c=c,kwargs...)
     else
-        plt = heatmap(toHeat, yticks=1:n, xticks=1:m, tick_direction=:out,
-                      title=title, xlabel="Layer 1 index", ylabel="Layer 2 index", c=c)
+        plt = heatmap(toHeat; yticks=1:n, xticks=1:m, tick_direction=:out,
+                      title=title, xlabel="Layer 1 index", 
+                      ylabel="Layer 2 index", c=c,kwargs...)
     end
     nPlot = 2
     totalRange = maximum(toHeat)-minimum(toHeat)
@@ -125,7 +134,7 @@ function plotSecondLayer(stw; title="Second Layer results",xVals=-1,yVals=-1,log
         if maximum(abs.(stw[2][:,i,j,:]))>threshold
             plt = plot!(stw[2][:,i,j,:], legend=false, subplot=nPlot,
                         bg_inside = cgrad(c)[(toHeat[i,j]-bottom)/totalRange],
-                        ticks=nothing, palette=:greys, frame=:box,
+                        ticks=nothing, palette=linePalette, frame=:box,
                         inset=(1,bbox(xrange[j], yrange[i], Δx/(m+10),
                                       Δy/(n+10),:bottom,:left)))
             nPlot+=1
@@ -147,7 +156,7 @@ presently it only works for pathLocs whose indices are Boolean Arrays
 """
 function addNextPath(addTo::pathLocs{m},addFrom) where m
     shouldWeDo = foldl(checkShouldAdd, zip(addTo.indices, addFrom.indices), init=Tuple{}())
-    inds = map(collatingTransform.makeNext, addTo.indices, addFrom.indices, shouldWeDo)
+    inds = map(makeNext, addTo.indices, addFrom.indices, shouldWeDo)
     return pathLocs{m}(inds)
 end
 function checkShouldAdd(didPrevs,current)
