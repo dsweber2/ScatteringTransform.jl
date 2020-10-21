@@ -1,5 +1,5 @@
 # tests for the various forms of stParallel for the ScatteringTransform
-using Revise; using Distributed
+using Distributed
 addprocs(min((Sys.CPU_THREADS)-2-nprocs(), 2))
 @everywhere using Revise
 @everywhere using Interpolations, ContinuousWavelets, LinearAlgebra

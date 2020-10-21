@@ -73,10 +73,6 @@ function stFlux(inputSize::NTuple{N}, m; trainable = false,
                                         averagingLayer=true, σ=identity, 
                                         argsToEach[end]...)
     chacha = Chain(interstitial...)
-    @info "" listOfSizes outputPool
-    #println([map(poolSize, outputPool[ii], x[1]) for (ii,x) in enumerate(listOfSizes)])
-    #println("thing $([(map(poolSize, outputPool[ii], x[1:Nd])..., x[(Nd+1):end]...) for (ii,x)
-    #                in enumerate(listOfSizes)])")
     outputSizes = ([(map(poolSize, outputPool[ii], x[1:Nd])..., x[(Nd+1):end]...) for (ii,x)
                     in enumerate(listOfSizes)]...,)
 
@@ -111,14 +107,11 @@ function applyScattering(c::Tuple, x, Nd, st, M)
     res = first(c)(x)
     if typeof(first(c)) <: ConvFFT
         tmpRes = res[map(x->Colon(), 1:Nd)..., end, map(x->Colon(), 1:ndims(res)-Nd-1)...]
-        println("size(tmpRes) = $(size(tmpRes))")
         # return a subsampled version of the output at this layer
         poolSizes = (st.outputPool[M+1]..., ntuple(i->1, ndims(tmpRes)-Nd-2)...)
         r = RationPool(st.outputPool[M+1], nExtraDims = ndims(tmpRes) - Nd)
         if st.normalize
-            println(size(tmpRes))
             tmpRes = normalize(r(real.(tmpRes)), Nd)
-            println(size(tmpRes))
             apld = applyScattering(tail(c), res, Nd, st, M+1)
             return (tmpRes, apld...)
         else

@@ -59,13 +59,9 @@ function (r::RationPool)(x::AbstractArray{<:Any,N}) where N
     Nd = nPoolDims(r)
     Nneed = ndims(r.m) + 2
     extraDims = ntuple(ii->1, Nneed-N)
-    #println(size(x))
     partial = reshape(x, (size(x)[1:Nd]..., extraDims..., size(x)[Nd+1:end]...))
-    #println(size(partial))
     partial = r.m(partial)
-    #println(size(partial))
     address = map(stopAtExactly_WithRate_FromSize_, size(partial)[1:nPoolDims(r)], r.resSize, size(x)[1:nPoolDims(r)])
-    println("in RationPool, $(map(length,address))")
     ax = axes(partial)
     endAxes = ax[Nd+Nneed-N+1:end] #grab the stuff after extraDims
     return partial[address..., extraDims..., endAxes...]
@@ -92,12 +88,10 @@ end
 
 function stopAtExactly_WithRate_(i, subBy)
     tmp = round.(Int, range(1, stop=i, length=round(Int, i/subBy)))
-    #println("$(length(tmp)), i=$i, subBy=$subBy")
     return tmp
 end
 function stopAtExactly_WithRate_FromSize_(i, subBy, orig)
     tmp = round.(Int, range(1, stop=i, length=round(Int, orig/subBy)))
-    #println("$(length(tmp)), i=$i, subBy=$subBy, orig=$orig")
     return tmp
 end
 
