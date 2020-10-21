@@ -115,7 +115,7 @@ export pathToThinIndex, MatrixAggregator, plotCoordinate, reshapeFlattened,
 export loadSyntheticMatFile, transformFolder, flatten
 include("Flux/adjoints.jl")
 include("Flux/interpretationTools.jl")
-export ∇st, plotFirstLayer1D, gifFirstLayer, plotSecondLayer1D, addNextPath
+export ∇st, plotFirstLayer1D, gifFirstLayer, plotSecondLayer, addNextPath
 include("Flux/trainingStorageTools.jl")
 export buildRecord, expandRecord!, addCurrent!, makeObjFun, fitReverseSt,
     justTrain, maximizeSingleCoordinate, fitByPerturbing, perturb, genNoise,
