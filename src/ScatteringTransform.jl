@@ -33,15 +33,12 @@ export RationPool, nPoolDims, outdims, poolSize
 include("Flux/flTransform.jl")
 export normalize
 
-function scatteringTransform(inputSize, m, backend::Val{stFlux}; kwargs...)
-    stFlux(inputSize, m; kwargs...)
+function scatteringTransform(inputSize, m, backend::UnionAll; kwargs...)
+    backend(inputSize, m; kwargs...)
 end
 
-function scatteringTransform(inputSize, m, backend::Val{stParallel}; kwargs...)
-    stParallel(m, inputSize[1]; kwargs...)
-end
-scatteringTransform(inputSize,m; kwargs...) = 
-    scatteringTransform(inputSize, m, backend=stFlux; kwargs...)
+scatteringTransform(inputSize,m; kwargs...) =
+    scatteringTransform(inputSize, m, stFlux; kwargs...)
 
 include("Flux/flUtilities.jl")
 export getWavelets, flatten, roll, importantCoords, batchOff

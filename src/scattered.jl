@@ -155,7 +155,7 @@ end
 
 
 function Base.show(io::IO, s::ScatteredOut{T,N}) where {T,N}
-    print(io, "ScatteredOut{T,N} $(s.k) dim. OutputSizes:")
+    print(io, "ScatteredOut{$T,$N} $(s.k) dim. OutputSizes:")
     outputSizes = map(x->size(x), s.output)
     for x in outputSizes
         print(io,"\n    $(x)")

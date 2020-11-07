@@ -85,7 +85,7 @@ function plotSecondLayer1D(loc, origLoc, wave1, wave2, original=false, subsamSz=
 end
 
 """
-    plotSecondLayer(stw; title="Second Layer results",xVals=-1,yVals=-1,logPower=false, toHeat=nothing, c=cgrad([:blue, :orange], scale=:log), threshold=0)
+    plotSecondLayer(stw::Union{ScatteredOut,Array{<:Real,4}}; title="Second Layer results",xVals=-1,yVals=-1,logPower=false, toHeat=nothing, c=cgrad([:blue, :orange], scale=:log), threshold=0, minLog=NaN,)
 TODO fix the similarity of these names.
 xVals and yVals give the spacing of the grid, as it doesn't seem to be done
 correctly by default. xVals gives the distance from the left and the right
@@ -94,12 +94,19 @@ also as a tuple. Default values are `xVals = (.037, .852), yVals = (.056, .939)`
 If you have no colorbar, set `xVals = (.0015, .997), yVals = (.002, .992)`
 In the case that arbitrary space has been introduced, if you have a title, use `xVals = (.037, .852), yVals = (.056, .939)`, or if you have no title, use `xVals = (.0105, .882), yVals = (.056, .939)`
 """
+function plotSecondLayer(stw::ScatteredOut; kwargs...)
+    plotSecondLayer(stw[2];kwargs...)
+end
+
 function plotSecondLayer(stw; title="Second Layer results", xVals=-1, yVals=-1,
                          logPower=false, toHeat=nothing, 
-                         c=cgrad([:blue, :orange], scale=:log), threshold=0,
-                         linePalette=:greys, kwargs...)
-    n,m = size(stw[2])[2:3]
+                         c=cgrad([:blue, :orange]), threshold=0,
+                         linePalette=:greys, minLog=NaN, kwargs...)
+    n,m = size(stw)[2:3]
     gr(size=2.5 .*(280,180))
+    if !(typeof(c)<:PlotUtils.ContinuousColorGradient)
+        c = cgrad(c)
+    end
     if xVals == -1  &&  title == ""
         xVals = (.0105, .882)
     elseif xVals ==-1
@@ -114,10 +121,13 @@ function plotSecondLayer(stw; title="Second Layer results", xVals=-1, yVals=-1,
     Δy = yVals[2]-yVals[1]
     yrange = range(yVals[1]+Δy/n-Δy/(n+3), stop = yVals[2]-2*Δy/(n+3)+Δy/n, length=n)
     if toHeat == nothing
-        toHeat = [norm(stw[2][:,i,j,1]) for i=1:n,j=1:m]
+        toHeat = [norm(stw[:,i,j,1]) for i=1:n,j=1:m]
     end
     if logPower
         toHeat = log.(toHeat)
+        if !isnan(minLog)
+            toHeat = max.(minLog,toHeat)
+        end
     end
     if title==""
         plt = heatmap(toHeat; yticks=1:n, xticks=1:m, tick_direction=:out,
@@ -131,9 +141,9 @@ function plotSecondLayer(stw; title="Second Layer results", xVals=-1, yVals=-1,
     totalRange = maximum(toHeat)-minimum(toHeat)
     bottom = minimum(toHeat)
     for i=1:n, j=1:m
-        if maximum(abs.(stw[2][:,i,j,:]))>threshold
-            plt = plot!(stw[2][:,i,j,:], legend=false, subplot=nPlot,
-                        bg_inside = cgrad(c)[(toHeat[i,j]-bottom)/totalRange],
+        if maximum(abs.(stw[:,i,j,:]))>threshold
+            plt = plot!(stw[:,i,j,:], legend=false, subplot=nPlot,
+                        bg_inside = c[(toHeat[i,j]-bottom)/totalRange],
                         ticks=nothing, palette=linePalette, frame=:box,
                         inset=(1,bbox(xrange[j], yrange[i], Δx/(m+10),
                                       Δy/(n+10),:bottom,:left)))

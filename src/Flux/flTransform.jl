@@ -34,9 +34,10 @@ function stFlux(inputSize::NTuple{N}, m; trainable = false,
                             nExtraDims = nPathDims(ii+1)+1),1:m+1)
     end
     poolBy = makeTuple(m, poolBy)
+    argsToEach = processArgs(m+1, kwargs)
+
     listOfSizes = [(inputSize..., ntuple(i->1, max(i-1, 0))...) for i=0:m]
     interstitial = Array{Any,1}(undef, 3*(m+1)-2)
-    argsToEach = processArgs(m+1, kwargs)
     for i=1:m
         # first transform
         interstitial[3*i - 2] = dispatchLayer(listOfSizes[i], Val(Nd); σ=identity,
