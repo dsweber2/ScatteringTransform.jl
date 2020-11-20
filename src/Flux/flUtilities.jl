@@ -1,3 +1,13 @@
+# how should we apply a function recursively to the stFlux type? to each part of the chain, of course
+import FourierFilterFlux.functor
+import Flux.functor
+function functor(stf::stFlux{Dimension, Depth, ChainType, D, E,F}) where {Dimension, Depth, ChainType, D, E,F}
+    return (stf.mainChain...,), y -> begin
+        stFlux{Dimension, Depth, typeof(Chain(y...)), D,E,F}(Chain(y...),stf.normalize, stf.outputSizes, stf.outputPool, stf.settings)
+    end
+end
+
+
 """
 wave1, wave2, wave3, ... = getWavelets(sc::stFlux)
 
@@ -50,7 +60,6 @@ function roll(toRoll, st::stFlux)
     locSoFar = 0
     for (ii, x) in enumerate(rolled)
         szThisLayer = oS[ii][1:Nd+nPathDims(ii)]
-        println(szThisLayer)
         totalThisLayer = prod(szThisLayer)
         range = (locSoFar + 1):(locSoFar + totalThisLayer)
         addresses = (szThisLayer..., nExamples...)
@@ -58,6 +67,25 @@ function roll(toRoll, st::stFlux)
         locSoFar += totalThisLayer
     end
     return ScatteredOut(rolled, Nd)
+end
+"""
+    p = computeLoc(loc, toRoll, st::stFlux)
+given a location `loc` in the flattened output `toRoll`, return a
+pathLocs describing that location in the rolled version
+"""
+function computeLoc(loc, toRoll, st::stFlux)
+    Nd = ndims(st)
+    oS = st.outputSizes
+    nExamples = size(toRoll)[2:end]
+    locSoFar = 0
+    for (ii, x) in enumerate(oS)
+        szThisLayer = x[1:Nd+nPathDims(ii)]
+        totalThisLayer = prod(szThisLayer)
+        if locSoFar + totalThisLayer ≥ loc
+            return pathLocs(ii-1,Tuple(CartesianIndices(szThisLayer)[1+loc-locSoFar]))
+        end
+        locSoFar += totalThisLayer
+    end
 end
 
 """

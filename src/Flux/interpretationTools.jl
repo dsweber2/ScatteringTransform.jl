@@ -99,9 +99,8 @@ function plotSecondLayer(stw::ScatteredOut; kwargs...)
 end
 
 function plotSecondLayer(stw; title="Second Layer results", xVals=-1, yVals=-1,
-                         logPower=false, toHeat=nothing, 
-                         c=cgrad([:blue, :orange]), threshold=0,
-                         linePalette=:greys, minLog=NaN, kwargs...)
+                         logPower=true, toHeat=nothing, c=cgrad(:viridis, [0,.9]),
+                         threshold=0, linePalette=:greys, minLog=NaN, kwargs...)
     n,m = size(stw)[2:3]
     gr(size=2.5 .*(280,180))
     if !(typeof(c)<:PlotUtils.ContinuousColorGradient)
