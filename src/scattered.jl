@@ -43,10 +43,11 @@ struct ScatteredOut{T,N} <:Scattered{T,N}
     k::Int# the meta-dimension of the signals (should be either 1 or 2)
     output
 end
-ScatteredOut(output, k=1) = ScatteredOut{eltype(output),
+function ScatteredOut(output, k=1)
+    ScatteredOut{eltype(output),
                                          ndims(output[1])}(length(output)-1, k,
                                                            output)
-
+end
 
 
 
