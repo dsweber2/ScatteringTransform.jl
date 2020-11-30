@@ -57,15 +57,15 @@ end
 """
 function makeObjFun(target, st, normalize=st.normalize,λ=1e-10)
     path = pathLocs(0,:,1,:,2,:)
-    makeObjFun(target,path,st,normalize,λ=λ)
+    makeObjFun(target,path,st,normalize,λ)
 end
 
 function fitReverseSt(N, initGuess; opt=Momentum(), ifGpu=identity, obj = nothing, keepWithin=-1,stochastic=false)
     ongoing = copy(initGuess|> ifGpu);
-    pathOfDescent = zeros(Float64, size(ongoing,1),1,N+1)|>ifGpu;
+    pathOfDescent = zeros(Float64, size(ongoing,1),1,size(initGuess,3),N+1)|>ifGpu;
     println("initial objective function is $(obj(ongoing))")
-    pathOfDescent[:,:,1] = ongoing|>ifGpu;
-    err = zeros(Float64, N+1); err[1] = obj(pathOfDescent[:,:,1:1])
+    pathOfDescent[:,:,:,1] = ongoing|>ifGpu;
+    err = zeros(Float64, N+1); err[1] = obj(pathOfDescent[:,:,:,1])
     return justTrain(N, pathOfDescent, err, 1, ongoing, opt=opt, ifGpu=ifGpu, obj=obj, keepWithin=keepWithin,stochastic=stochastic)
 end
 
@@ -78,7 +78,7 @@ function justTrain(N, pathOfDescent, err, prevLen, ongoing; opt=Momentum(), ifGp
         elseif err[ii]/err[1] <1e-7
             println("oh, we actually finished?")
             err= err[1:ii]
-            pathOfDescent = pathOfDescent[:,:,1:ii-1]
+            pathOfDescent = pathOfDescent[:,:,:,1:ii-1]
             return (pathOfDescent,err)
         end
         if ii %10==0
@@ -104,7 +104,7 @@ function justTrain(N, pathOfDescent, err, prevLen, ongoing; opt=Momentum(), ifGp
         if stochastic
             ongoing += opt.eta*1*norm(∇,1)*randn(size(ongoing)...)
         end
-        pathOfDescent[:,:,ii] = ongoing
+        pathOfDescent[:,:,:,ii] = ongoing
     end
     return (pathOfDescent, err,opt)
 end
@@ -115,7 +115,9 @@ function maximizeSingleCoordinate(N, initGuess, p,target, st; ifGpu=identity,
                                   adjustStepSize=false, allowedTime=-1,
                                   λ=1e-10, tryCatch=true,kwargs...)
     ongoing = copy(initGuess) |> ifGpu;
-    println("initial objective function is $(obj(ongoing))")
+    if obj!=nothing
+        println("initial objective function is $(obj(ongoing))")
+    end
     if allowedTime>0
         totalUsed = 0
         N=500
@@ -200,7 +202,7 @@ function fitByPerturbing(N, initGuess, p,target, st;  timeAl = -1,
         println("perturbing for the $(j)th time. rate = $(rate)")
         # generate the next example
         (pert, minObj,tooMany), timeUsed, _ = @timed perturb(perturbedRes.minimizer, obj, rate,
-                                         NSamples, noiseType, tooMany)
+                                                             NSamples, noiseType, tooMany)
         println(minObj)
         totalUsed += timeUsed
         oldRes = perturbedRes
@@ -262,13 +264,12 @@ function fitByPerturbing(N, initGuess, p,target, st;  timeAl = -1,
 end
 
 function perturb(x, obj, stepSize = .01f0, K=100, noiseType=:pink,tooMany=0)
-    tmp = genNoise(size(x)[1:end-1], K, noiseType) # get your favorite kind of noise
+    tmp = genNoise(size(x), K, noiseType) # get your favorite kind of noise
     tmp = stepSize*norm(x) * tmp ./ 
-        reshape([norm(w) for w in eachslice(tmp, dims=3)], (1,1,K)) # normalize
+        reshape([norm(w) for w in eachslice(tmp, dims=4)], (1,1,1,K)) # normalize
     # it to match stepSize times the norm of x
     perturbed = x .+ tmp
-    errs = [obj(reshape(w, (size(w)..., 1))) for w in eachslice(perturbed,
-                                                                dims=3)]
+    errs = [obj(w) for w in eachslice(perturbed, dims=4)]
     μ = argmin(errs)            # find the best
     if errs[μ] > obj(x)
         println("couldn't find a better location. Adjust stepSize or number of samples K")
@@ -276,7 +277,7 @@ function perturb(x, obj, stepSize = .01f0, K=100, noiseType=:pink,tooMany=0)
     else
         tooMany = max(0,tooMany-1)
     end
-    return perturbed[:,:,μ:μ], errs[μ], tooMany
+    return perturbed[:,:,:,μ], errs[μ], tooMany
 end
 
 function genNoise(sz, K, noiseType)
@@ -303,11 +304,11 @@ end
 
 function continueTrain(N, pathOfDescent, err; opt=Momentum, ifGpu=identity, 
                        obj = obj, keepWithin = -1,stochastic=false) 
-    prevLen = size(pathOfDescent,3)
-    currentGuess = pathOfDescent[:,:,end:end] |> ifGpu;
+    prevLen = size(pathOfDescent,4)
+    currentGuess = pathOfDescent[:,:,:,end] |> ifGpu;
     pathOfDescent = cat(pathOfDescent,
-                        zeros(Float64, size(pathOfDescent,1),1,N), 
-                        dims=3) |> ifGpu;
+                        zeros(Float64, size(pathOfDescent,1),1,size(pathOfDescent,3),N), 
+                        dims=4) |> ifGpu;
     err = cat(err, zeros(Float64, N), dims=1)
     return justTrain(N, pathOfDescent, err, prevLen, currentGuess, opt=opt, ifGpu=ifGpu, obj=obj, keepWithin=keepWithin,stochastic=stochastic)
 end
@@ -394,7 +395,7 @@ end
 
 function catchAndUpλ(e, ongoing, N, target, p, st, λ, timeAl, allowIncrease,algo, lineSearch; kwargs...) 
     println("too little weight placed on the normalization, upping to $(λ*1e2)")
-    while λ < 1e3
+    while λ < 1e8
         λ=λ*1e2
         obj = makeObjFun(target, p, st, true,λ)
         function obj∇!(F, ∇, x)

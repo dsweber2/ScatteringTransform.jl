@@ -1,44 +1,9 @@
-# function rrule(::typeof(RationPool),resSize,k=2; nExtraDims=2, poolType = MeanPool)
-#     function RationalPoolΔ(δ)
-#         println("problems")
-#         println(NO_FIELDS)
-#         return NO_FIELDS
-#     end
-    
-#     return RationPool(resSize,k; nExtraDims=2, poolType = MeanPool), RationalPoolΔ
-# end
-
-
-# function rrule(::typeof(ScatteredOut), m, k, output)
-#     function ∇scattered(δ)
-#         println("base constructor ",typeof(δ))
-#         return (δ.output, )
-#     end
-#     ScatteredOut(m,k,output), ∇scattered
-# end
-#@non_differentiable ScatteredOut(::Any)
 Zygote.@adjoint function ScatteredOut(output,k=1)
     function ∇scattered(δ)
-        return (δ.output,)
+        return (δ.output,nothing)
     end
     ScatteredOut(output,k), ∇scattered
 end
-
-# function rrule(::typeof(ScatteredOut), output,k=1)
-#     function ∇scattered(δ)
-#         println("abridged constructor ",typeof(δ))
-#         return (δ.output, )
-#     end
-#     ScatteredOut(output,k), ∇scattered
-# end
-
-# function rrule(::typeof(ScatteredOut), m,k,fixDim::Array{<:Real,1},n,q,T)
-#     function ∇scattered(δ)
-#         println("empty",typeof(δ))
-#         return (NO_FIELDS, )
-#     end
-#     ScatteredOut(m,k,fixDim,n,q,T), ∇scattered
-# end
 
 Zygote.@adjoint function getindex(F::T, i::Integer) where T <: Scattered
     function getInd_rrule(Ȳ)
