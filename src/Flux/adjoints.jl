@@ -38,3 +38,10 @@ Zygote.@adjoint function getindex(x::T, p::pathLocs) where T <: Scattered
     end
     return getindex(x, p), getInd_rrule
 end
+
+function rrule(::typeof(flatten), scatRes)
+    function ∇flatten(Δarray)
+        return (NO_FIELDS, roll(Δarray, scatRes),)
+    end
+    return flatten(scatRes), ∇flatten
+end

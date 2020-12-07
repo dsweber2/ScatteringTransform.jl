@@ -45,6 +45,16 @@ there is also a version for the parallel transform; since `percentage` and
 function roll(toRoll, st::stFlux)
     Nd = ndims(st)
     oS = st.outputSizes
+    roll(toRoll, oS, Nd)
+end
+
+function roll(toRoll, stOutput::S) where S<:Scattered
+    Nd = ndims(stOutput)
+    oS = map(size,stOutput.output)
+    return roll(toRoll, oS, Nd)
+end
+
+function roll(toRoll, oS::Tuple, Nd)
     nExamples = size(toRoll)[2:end]
     rolled = ([adapt(typeof(toRoll), zeros(eltype(toRoll),
                                           sz[1:Nd+nPathDims(ii)]...,
