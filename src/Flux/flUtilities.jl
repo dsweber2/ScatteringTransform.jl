@@ -25,15 +25,9 @@ given a scattered, it produces a single vector containing the entire transform i
 function flatten(scatRes::S) where S <: Scattered
     res = scatRes.output
     netSizes = [prod(size(r)[1:end-1]) for r in res]
-    relevantLocs = [sum(netSizes[1:(i)]) for i in 0:length(netSizes)]
     batchSize = size(res[1])[end]
     singleExampleSize = sum(netSizes)
-    output = adapt(typeof(res[1]), zeros(singleExampleSize, batchSize))
-    output = cat([reshape(x, (netSizes[i], batchSize)) for (i,x) in enumerate(res)]..., dims=1)
-    # for (i,x) in enumerate(scatRes)
-    #     indices = (1+relevantLocs[i]):relevantLocs[i+1]
-    #     output[indices, :] = reshape(x, (netSizes[i], batchSize))
-    # end
+    output = cat((reshape(x, (netSizes[i], batchSize)) for (i,x) in enumerate(res))..., dims=1)
     return output
 end
 flatten(scatRes) = scatRes
@@ -68,6 +62,8 @@ function roll(toRoll, st::stFlux)
     end
     return ScatteredOut(rolled, Nd)
 end
+
+
 """
     p = computeLoc(loc, toRoll, st::stFlux)
 given a location `loc` in the flattened output `toRoll`, return a
