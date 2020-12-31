@@ -45,3 +45,9 @@ function rrule(::typeof(flatten), scatRes)
     end
     return flatten(scatRes), ∇flatten
 end
+function rrule(::typeof(roll), toRoll, stOutput)
+    function ∇roll(Δ)
+        return NO_FIELDS, flatten(Δ), NO_FIELDS
+    end
+    return roll(toRoll, stOutput), ∇roll
+end

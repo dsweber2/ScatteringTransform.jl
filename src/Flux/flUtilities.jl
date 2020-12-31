@@ -24,7 +24,7 @@ given a scattered, it produces a single vector containing the entire transform i
 """
 function flatten(scatRes::S) where S <: Scattered
     res = scatRes.output
-    netSizes = [prod(size(r)[1:end-1]) for r in res]
+    netSizes = [prod(size(r)[1:nPathDims(ii)+scatRes.k]) for (ii,r) in enumerate(res)]
     batchSize = size(res[1])[end]
     singleExampleSize = sum(netSizes)
     output = cat((reshape(x, (netSizes[i], batchSize)) for (i,x) in enumerate(res))..., dims=1)
