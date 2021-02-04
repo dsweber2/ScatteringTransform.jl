@@ -42,60 +42,127 @@ function addCurrent!(record, result, ii)
 end
 
 """
-    makeObjFun(target, path::pathLocs, st, normalize=st.normalize)
+    obj = makeObjFun(target, path::pathLocs, st, normalize=st.normalize,
+                     λ=1e-10, jointObj=false)
+
+Make an objective function `obj(x)` that evaluates the difference between a
+target stOutput and the input `x`.
+
+    makeObjFun(target::AbstractArray, st, jointObj=false, kwargs...)
+jointObj makes a function `obj(x,y)` where `x` is as otherwise and `y` has the
+shape of target.
+
+Note that the joint case is defined for y as an array. In that case, the path is
+ignored and the difference across the whole output is evaluted.
 """
-function makeObjFun(target, path::pathLocs, st, normalize=st.normalize, λ=1e-10)
-    if normalize
-        nPaths = sum([prod(size(x)[2:end - 1]) for x in target.output])
-        return obj(x) = sum(mse(a[1], a[2]) for a in zip(st(x)[path], target[path])) + λ * norm(x)
+function makeObjFun(target::ScatteredOut, path::pathLocs, st,
+                    normalize=st.normalize, λ=1e-10, jointObj=false, innerProd=false)
+    if jointObj # return a function of both x and y?
+        if normalize # normalize the input
+            if innerProd # just maximize the dot product?
+                jointNormIPObjxy(x, y::ScatteredOut) = sum(mse(a[1], a[2]) for a in zip(st(x)[path], y[path])) + λ * norm(x)
+                function jointNormIPObjxy(x, y::AbstractArray)
+                    -sum(y' * ScatteringTransform.flatten(st(x))) + λ * norm(x)
+                end
+                return jointNormIPObjxy
+            else
+                jointNormObjxy(x, y::ScatteredOut) = sum(mse(a[1], a[2]) for a in zip(st(x)[path], y[path])) + λ * norm(x)
+                function jointNormObjxy(x, y::AbstractArray)
+                    sum((ScatteringTransform.flatten(st(x)) .- y).^2) + λ * norm(x)
+                end
+                return jointNormObjxy
+            end
+        else
+            jointObjxy(x, y::ScatteredOut) = sum(mse(a[1], a[2]) for a in
+                                                 zip(st(x)[path], y[path]))
+            function jointObjxy(x, y::AbstractArray)
+                sum((ScatteringTransform.flatten(st(x)) .- y).^2)
+            end
+            return jointObjxy
+        end
     else
-        return cobj(x) = sum(mse(a[1], a[2]) for a in zip(st(x)[path], target[path]))
+        if normalize
+            return normObjx(x) = sum(mse(a[1], a[2]) for a in zip(st(x)[path], target[path])) + λ * norm(x)
+        else
+            return unnormObjx(x) = sum(mse(a[1], a[2]) for a in zip(st(x)[path], target[path]))
+        end
+    end
+end
+
+"""
+    obj(x) = makeNormMatchObjFun(target, st, normTarget, λ)
+fit the target in the scattering domain and try to keep the input domain norm near `normTarget`.
+"""
+function makeNormMatchObjFun(target, st, normTarget, λ)
+    jointNormObj(x) = sum(mse(a[1], a[2]) for a in zip(st(x), target)) + λ * (normTarget - norm(x))^2
+    function jointNormObjxy(x)
+        sum((ScatteringTransform.flatten(st(x)) .- target).^2) + λ * (normTarget - norm(x))^2
     end
 end
 """
     makeObjFun(target, path::pathLocs, st, normalize=st.normalize)
+if we want to fit the whole path for the target
 """
-function makeObjFun(target, st, normalize=st.normalize, λ=1e-10)
+function makeObjFun(target::ScatteredOut, st, kwargs...)
     path = pathLocs(0, :, 1, :, 2, :)
-    makeObjFun(target, path, st, normalize, λ)
+    makeObjFun(target, path, st, kwargs...)
 end
 
-function fitReverseSt(N, initGuess; opt=Momentum(), ifGpu=identity, obj=nothing, keepWithin=-1,stochastic=false)
+
+function makeObjFun(target::AbstractArray, st, kwargs...)
+    makeObjFun(roll(target, st), st, kwargs...)
+end
+
+function fitReverseSt(N, initGuess; opt=Momentum(), ifGpu=identity, obj=nothing,
+                      keepWithin=-1, stochastic=false, errTol=1e5, timeLimit=Year(10), adjust=false)
     ongoing = copy(initGuess |> ifGpu);
     pathOfDescent = zeros(Float64, size(ongoing, 1), 1, size(initGuess, 3), N + 1) |> ifGpu;
     println("initial objective function is $(obj(ongoing))")
     pathOfDescent[:,:,:,1] = ongoing |> ifGpu;
     err = zeros(Float64, N + 1); err[1] = obj(pathOfDescent[:,:,:,1])
-    return justTrain(N, pathOfDescent, err, 1, ongoing, opt=opt, ifGpu=ifGpu, obj=obj, keepWithin=keepWithin, stochastic=stochastic)
+    return justTrain(N, pathOfDescent, err, 1, ongoing, opt=opt, ifGpu=ifGpu,
+                      obj=obj, keepWithin=keepWithin, stochastic=stochastic,
+                      errTol=errTol, timeLimit=timeLimit, adjust=adjust)
 end
 
-function justTrain(N, pathOfDescent, err, prevLen, ongoing; opt=Momentum(), ifGpu=identity, obj=obj, keepWithin=-1,stochastic=false)
+function adjustStepSizeBasedOnVariance!(err, opt, ii)
+    aveErrChange = (mean(err[ii - 22:ii - 18]) - mean(err[ii - 3:ii])) / err[ii]
+    # if the err is flat (less than a .1% change over the past 20 steps), change the step size
+    if ii > 30 &&  aveErrChange < 1e-6
+        # if it varies too much, or has been overall increasing, decrease the step, otherwise, increase
+        if (count(abs.(err[ii - 20:ii] .- mean(err[ii - 20:ii])) ./ err[ii] .> .03) > 5 ||
+            aveErrChange < 0 )
+            # println("$(mean(err[ii - 22:ii - 18]))  $(mean(err[ii - 3:ii]))")
+            opt.eta = opt.eta * .9
+        else
+            opt.eta = opt.eta / .9
+        end
+    end
+end
+
+function justTrain(N, pathOfDescent, err, prevLen, ongoing; opt=Momentum(),
+                   ifGpu=identity, obj=obj, keepWithin=-1, stochastic=false,
+                   errTol=1e5, timeLimit=Year(10), adjust=false, record=true)
+    endTime = now() + timeLimit
     for ii in (prevLen + 1):(prevLen + N)
         err[ii] = obj(ongoing)
-        if err[ii] > 1e5 || isnan(err[ii])
+        if err[ii] > errTol || isnan(err[ii])
             println("way too big at $(ii), aborting")
             break
         elseif err[ii] / err[1] < 1e-7
             println("oh, we actually finished?")
             err = err[1:ii]
-            pathOfDescent = pathOfDescent[:,:,:,1:ii - 1]
+            pathOfDescent = pathOfDescent[:,:,:,1:end - (N - ii + 1)]
             return (pathOfDescent, err)
         end
         if ii % 10 == 0
             println("$ii rel err: $(err[ii] / err[1]), abs err: $(err[ii]), η=$(opt.eta)")
         end
         ∇ = gradient(obj, ongoing)
-        # if the err is flat (less than a .1% change over the past 20 steps), change the step size
-        if ii > 30 && (mean(err[ii - 22:ii - 18]) - mean(err[ii - 3:ii])) / err[ii] < .001
-            # if it varies too much, decrease the step, otherwise, increase
-            if count(abs.(err[ii - 20:ii] .- mean(err[ii - 20:ii])) ./ err[ii] .> .03) > 5
-            # if std(err[max(1,ii-20):ii])/err[ii] > 1e-4
-                # if sum(abs.(diff(diff(err[max(1, ii-20):ii]))))/err[ii]
-                opt.eta = opt.eta * .95
-            else
-                opt.eta = opt.eta / .9
-            end
+        if adjust && ii > 30
+            adjustStepSizeBasedOnVariance!(err, opt, ii)
         end
+
         update!(opt, ongoing, ∇[1])
         sz = norm(ongoing)
         if keepWithin > 0 && sz > keepWithin
@@ -104,10 +171,46 @@ function justTrain(N, pathOfDescent, err, prevLen, ongoing; opt=Momentum(), ifGp
         if stochastic
             ongoing += opt.eta * 1 * norm(∇, 1) * randn(size(ongoing)...)
         end
-        pathOfDescent[:,:,:,ii] = ongoing
+        if record
+            pathOfDescent[:,:,:,ii] = ongoing
+        else
+            pathOfDescent[:,:,:,end] = ongoing
+        end
+
+        if endTime ≤ now()
+            println("out of time")
+            err = err[1:end - (N - ii + 1)]
+            pathOfDescent = pathOfDescent[:,:,:,1:end - (N - ii + 1)]
+            return (pathOfDescent, err, opt)
+        end
     end
     return (pathOfDescent, err, opt)
 end
+
+function continueTrain(N, pathOfDescent, err; opt=Momentum, ifGpu=identity,
+                       obj=obj, keepWithin=-1,stochastic=false, errTol=1e5,
+                       timeLimit=Year(10), adjust=false, record=true)
+    prevLen = size(pathOfDescent, 4)
+    currentGuess = pathOfDescent[:,:,:,end] |> ifGpu;
+    if record
+        pathOfDescent = cat(pathOfDescent,
+                            zeros(Float64, size(pathOfDescent, 1), 1, size(pathOfDescent, 3), N),
+                            dims=4) |> ifGpu;
+    else
+        pathOfDescent = cat(pathOfDescent, zeros(Float64, size(pathOfDescent,
+                                                               1), 1, size(pathOfDescent, 3), 1), dims=4)
+    end
+    err = cat(err, zeros(Float64, N), dims=1)
+    return justTrain(N, pathOfDescent, err, prevLen, currentGuess, opt=opt, ifGpu=ifGpu,
+                      obj=obj, keepWithin=keepWithin, stochastic=stochastic,
+                     errTol=errTol, timeLimit=timeLimit, adjust=adjust)
+end
+
+
+
+
+
+# Everything  after this point is built on using Optim.jl frameworks
 
 function maximizeSingleCoordinate(N, initGuess, p,target, st; ifGpu=identity,
                                   obj=nothing, keepWithin=-1,
@@ -165,6 +268,23 @@ function maximizeSingleCoordinate(N, initGuess, p,target, st; ifGpu=identity,
 end
 
 """
+Given a collection of vectors β used in multinomial regression, fit the positive
+and negative parts separately
+"""
+function fitPositiveNegativeSeperately(β, inputSize; Niter=100, nExEach=1,
+                                       initGen=randn, trainThese=1:size(β, 2),
+                                       varargs...)
+    βplus = max.(β, 0)
+    βminus = max.(-β, 0)
+    initPlus = initGen(inputSize, 1, nExEach, length(trainThese))
+    initMinus = initGen(inputSize, 1, nExEach, length(trainThese))
+    for i = trainThese
+        plusObj = makeObjFun(βplus)
+    end
+
+end
+
+"""
     perturbedRes, λ, errGrouped, totalUsed = fitByPerturbing(N, initGuess,
                          p,target, st; obj=nothing, allowedTime = -1,
                          rate = .1, rateFraction=.9, missesInARow=5,
@@ -172,7 +292,12 @@ end
                          NAttempts=1e6, varargs...)
 
 implementing the perturbed BFGS idea. Differences: perturbing using pink noise
-whose norm is dependent on the size of the signal, whereas theirs is a uniform
+whose norm is dependent on the size of the signal, whereas theirs is a uniform.
++ `N` means the number of iterations
++ `timeAl` is the amount of time allowed (in seconds)
++ `rate` is the step distance we take during a perturbation. Decreases as the
+steps go too far
++ `missesInARow`: the number of misses before adjusting `rate`
 """
 function fitByPerturbing(N, initGuess, p,target, st;  timeAl=-1,
                          rate=.1f0, rateFraction=.8f0, λ=1, missesInARow=1,
@@ -290,7 +415,7 @@ function genNoise(sz, K, noiseType)
         phase = exp.(Float32(2π) * im) .* rand(Float32, N >> 1 + 1, sz[2:end]..., K)
         res = irfft(pink .* phase, N, 1)
         return res ./ norm(res)
-    end
+end
 end
 
 """
@@ -302,25 +427,7 @@ function chooseLargest(p, res, st)
     return res[ii]
 end
 
-function continueTrain(N, pathOfDescent, err; opt=Momentum, ifGpu=identity,
-                       obj=obj, keepWithin=-1,stochastic=false)
-    prevLen = size(pathOfDescent, 4)
-    currentGuess = pathOfDescent[:,:,:,end] |> ifGpu;
-    pathOfDescent = cat(pathOfDescent,
-                        zeros(Float64, size(pathOfDescent, 1), 1, size(pathOfDescent, 3), N),
-                        dims=4) |> ifGpu;
-    err = cat(err, zeros(Float64, N), dims=1)
-    return justTrain(N, pathOfDescent, err, prevLen, currentGuess, opt=opt, ifGpu=ifGpu, obj=obj, keepWithin=keepWithin, stochastic=stochastic)
-end
-
-
-
-function fitUsingOptim(N, ongoing, p, target, st; ifGpu=identity, λ=1e-10,
-                        timeAl=NaN, tryCatch=true, allowIncrease=false,
-                        lineSearch=HagerZhang(), algo=BFGS,
-                        obj=makeObjFun(target, p, st, true, λ), kwargs...)
-
-    obj =
+function makeOptimGradient(obj)
     function obj∇!(F, ∇, x)
         y, back = pullback(obj, x)
         if ∇ != nothing
@@ -330,6 +437,23 @@ function fitUsingOptim(N, ongoing, p, target, st; ifGpu=identity, λ=1e-10,
             return y
         end
     end
+    return obj∇!
+end
+"""
+    fitUsingOptim(N, ongoing, p, target, st; ifGpu=identity, λ=1e-10,
+                        timeAl=NaN, tryCatch=true, allowIncrease=false,
+                        lineSearch=HagerZhang(), algo=BFGS,
+                        obj=makeObjFun(target, p, st, true, λ), kwargs...)
+
+fit the arbitrary one variable objective function obj in a way that
+adjusts the normalization penalty if there's an `ArgumentError` and the type of
+linesearch if the isn't finite or if B > A.
+"""
+function fitUsingOptim(N, ongoing, p, target, st; ifGpu=identity, λ=1e-10,
+                        timeAl=NaN, tryCatch=true, allowIncrease=false,
+                        lineSearch=HagerZhang(), algo=BFGS,
+                        obj=makeObjFun(target, p, st, true, λ), kwargs...)
+    obj∇! = makeOptimGradient(obj)
     if tryCatch
         try
             res = defaultOptim(obj∇!, ongoing, N, timeAl, allowIncrease, algo,
@@ -354,13 +478,12 @@ function fitUsingOptim(N, ongoing, p, target, st; ifGpu=identity, λ=1e-10,
     return res, λ
 end
 function defaultOptim(obj∇!,ongoing,N,timeAl, allowIncrease=false, algo=BFGS,
-                      lineSearch=HagerZhang(); kwargs...)
-    optimize(Optim.only_fg!(obj∇!), ongoing,
-             algo(;linesearch=lineSearch, kwargs...),
-             Optim.Options(store_trace=true, show_trace=true, iterations=N,
-                           show_every=20, time_limit=timeAl, g_tol=1e-8,
-                           f_tol=1e-4,
-                           allow_f_increases=allowIncrease))
+                      lineSearch=HagerZhang(); show_every=20, kwargs...)
+    constAlgo = algo(;linesearch=lineSearch, kwargs...)
+    optimOption = Optim.Options(store_trace=true, show_trace=true, iterations=N,
+                           show_every=show_every, time_limit=timeAl, g_tol=1e-8,
+                           f_tol=0.0, allow_f_increases=allowIncrease)
+    optimize(Optim.only_fg!(obj∇!), ongoing, constAlgo, optimOption)
 end
 
 function catchAndSwitchLineSearch(e, obj∇!, ongoing, N, target, p, st, λ, timeAl, allowIncrease, algo, lineSearch; kwargs...)
@@ -435,4 +558,94 @@ function catchAndUpλ(e, ongoing, N, target, p, st, λ, timeAl, allowIncrease, a
             end
         end
     end
+end
+
+
+distFromI(ii::CartesianIndex, jj, normType) = norm(ii.I .- jj, normType)
+distFromI(ii, jj, normType) = norm(ii - jj, normType)
+distFromI(ii, jj::Tuple{<:Integer}, normType) = norm(ii - jj[1], normType)
+function computeSingleWeightMatrix(target, p::pathLocs, Pnorm, Nd=1)
+    outDims = map(x -> x[1 + Nd:end], size(target))
+    weights = map(x -> fill(Inf, x...), outDims)
+    n = ndims(target)
+    for (layerI, jj) in enumerate(p.indices)
+        if jj !== nothing
+            layInds = eachindex(view(weights[layerI], axes(weights[layerI])...))
+            weights[layerI][:] = map(ii -> distFromI(ii, jj[1 + n:end - 1], Pnorm), layInds)
+        end
+    end
+    return weights
+end
+function computeWeightMatrices(target, pathCollection, distanceNorm)
+    allWeights = map(p -> computeSingleWeightMatrix(target, p, distanceNorm), pathCollection)
+    # find the minimal distance to each location
+    netWeight = map(x -> zeros(size(x)), allWeights[1]) # set weights to zero initally
+    for layI in 1:length(netWeight) # iterate over layers
+        nDimsWeight = ndims(allWeights[1][layI]) # the ndims of this layer
+        joined = cat([allWeights[pathInd][layI] for pathInd = 1:length(allWeights)]..., dims=nDimsWeight + 1)
+        shortestDistance = minimum(joined, dims=nDimsWeight + 1) # closest pathLoc in this layer
+        netWeight[layI][:] = shortestDistance
+    end
+    return netWeight
+end
+function weightByDistance(target, pathCollection, St, distanceNorm=1.0, elementNorm=2.0)
+    netWeight = computeWeightMatrices(target, pathCollection, distanceNorm)
+    to = target.output
+    usedLayers = [i - 1 for i = 1:length(to) if netWeight[i][1] != Inf]
+    function objFun(x)
+        Stx = St(x)
+        total = 0.0
+        # minimize the irrelevant locations
+        for ii in usedLayers
+            w = netWeight[ii + 1] # just a matrix
+            total += sum(reshape(w, (1, size(w)...)) .* (Stx[ii] .- target[ii]).^elementNorm)
+        end
+        # maximize the relevant ones
+        onPath = mapreduce(p -> sum((Stx[p] .- target[p]).^elementNorm), +,  pathCollection)
+        return total + onPath
+    end
+end
+
+
+
+"""
+    adjustPopulation!(setProbW, popMat)
+given a BlackBoxOptim `OptController` with some kind of population based method, set the population to be the matrix given in `popMat`; each column of `popMat` is a different individual.
+"""
+function adjustPopulation!(setProbW, popMat)
+    for i = 1:size(popMat, 2)
+        setProbW.optimizer.population[i] = copy(popMat[:,i])
+    end
+end
+
+"""
+    bandpassed,objValue, freqInd = BandpassStayInFourier(x,FourierObj)
+given a dct representation of a signal `x` and an objective function `FourierObj` which operates on the dct representation of a signal, find the frequency index a super naive way of finding a bandpass threshold so that x (which is represented as dct of the target)  FourierObj
+"""
+function BandpassStayInFourier(x, FourierObj)
+    flattenFrom(x, i) = cat(x[1:i,axes(x)[2:end]...], zeros(size(x, 1) - i), dims=1)
+    evalFilters = [FourierObj(flattenFrom(x, ncut)) for ncut = 2:size(x, 1)]
+    cutFreq = argmin(evalFilters)
+    return flattenFrom(x, cutFreq + 1), evalFilters[cutFreq], cutFreq + 1
+end
+
+
+
+"""
+if sortIndArray isn't defined, it comes from calling sortperm on the list of
+scores, e.g.
+    scores = [FourierObj(x) for x in eachslice(spacePop, dims=2)]
+    sortIndArray = sortperm(scores)
+"""
+function dampenAboveBestHardbandpass(freqPop, sortIndArray, FourierObj, dampenAmount=.1)
+    flattened, val, freqI = BandpassStayInFourier(freqPop[:,sortIndArray[1]], FourierObj)
+    newFreqPop = copy(freqPop)
+    newFreqPop[freqI + 1:end,:] .*= dampenAmount
+    return newFreqPop
+end
+
+function saveSerial(name, object...)
+    fh = open(name, "w")
+    serialize(fh, object...)
+    close(fh)
 end
