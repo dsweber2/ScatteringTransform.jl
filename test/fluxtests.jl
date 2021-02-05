@@ -4,7 +4,7 @@ i=40; s =6//5
 nExtraDims = 2
 xExtraDims = 3
 k = 4; N=2
-i=25; s = subsampRates[1]; xExtraDims= 2; k =windowSize[1]; (N,nExtraDims) = NdimsExtraDims[1]
+i=25; s = 2//1; nExtraDims = 2; xExtraDims= 2; k = 3; N=1
 import ScatteringTransform:stopAtExactly_WithRate_
 @testset "testing pooling" begin
     subsampRates = [3//2, 2, 5//2, 6//5]
@@ -95,7 +95,7 @@ end
     @test ndims(stEx)==2
     resultSize = ((66, 66, 1, 1), (22, 22, 48, 1), (8, 8, 48, 48, 1))
     @test stEx.outputSizes == resultSize
-    @test ([size(s) for s in scat.output]...,) == stEx.outputSizes 
+    @test ([size(s) for s in scat.output]...,) == stEx.outputSizes
 end
 
 @testset "1D integer pooling" begin
@@ -262,10 +262,10 @@ end
     # catting paths (may result in extra indices grabbed)
     pathsByHand = (pathLocs(0,40:46,exs=1), pathLocs(1,(24:26,4),exs=2),
                    pathLocs(1,(29:31,6),exs=1:2),
-                   pathLocs(2,(11:14,10,1), exs=1), 
+                   pathLocs(2,(11:14,10,1), exs=1),
                    pathLocs(2, (11:15, 3, 5:7), exs=1))
     joint = cat(pathsByHand...)
-    
+
     # nonZeroPaths
     ex = ScatteredOut((zeros(50,1,2), zeros(34,13,2), zeros(23,11,13,2)))
     for (ii, p) in enumerate(pathsByHand)
@@ -278,7 +278,7 @@ end
     @test findall(paths.indices[2]) == [CartesianIndex(29, 6, 1),CartesianIndex(30, 6, 1),CartesianIndex(31, 6, 1),CartesianIndex(24, 4, 2),CartesianIndex(25, 4, 2),CartesianIndex(26, 4, 2),CartesianIndex(29, 6, 2),CartesianIndex(30, 6, 2),CartesianIndex(31, 6, 2)]
     @test findall(paths.indices[3]) == [CartesianIndex(11, 10, 1, 1),CartesianIndex(12, 10, 1, 1),CartesianIndex(13, 10, 1, 1),CartesianIndex(14, 10, 1, 1),CartesianIndex(11, 3, 5, 1),CartesianIndex(12, 3, 5, 1),CartesianIndex(13, 3, 5, 1),CartesianIndex(14, 3, 5, 1),CartesianIndex(15, 3, 5, 1),CartesianIndex(11, 3, 6, 1),CartesianIndex(12, 3, 6, 1),CartesianIndex(13, 3, 6, 1),CartesianIndex(14, 3, 6, 1),CartesianIndex(15, 3, 6, 1),CartesianIndex(11, 3, 7, 1),CartesianIndex(12, 3, 7, 1),CartesianIndex(13, 3, 7, 1),CartesianIndex(14, 3, 7, 1),CartesianIndex(15, 3, 7, 1)]
     @test ex[paths][3] == [fill(4.0, 4)...; fill(-5.0, 15)...]
-    
+
     # setindex using a boolean array instead of a normal one
     mostlyNull = ScatteredOut((zeros(50,1,2), zeros(34,13,2), zeros(23,11,13,2)))
     newValues = randn(35)
