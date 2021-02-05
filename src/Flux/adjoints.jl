@@ -7,8 +7,8 @@ end
 
 Zygote.@adjoint function getindex(F::T, i::Integer) where T <: Scattered
     function getInd_rrule(Ȳ)
-        zeroNonRefed = map(ii -> ii - 1 == i ? Ȳ[1] : zeros(eltype(F.output[ii]),
-                                                  size(F.output[ii])...),
+        zeroNonRefed = map(ii -> ii - 1 == i ? Ȳ : zeros(eltype(F.output[ii]),
+                                                        size(F.output[ii])...),
                            (1:length(F.output)...,))
         ∂F = T(F.m, F.k, zeroNonRefed)
         return ∂F, nothing

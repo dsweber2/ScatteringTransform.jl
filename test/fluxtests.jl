@@ -209,10 +209,10 @@ end
 
     # setindex (some more in the nonZero paths section)
     p = pathLocs(2, (4:9, 5))
-    newVal = randn(23,6,1) 
+    newVal = randn(23,6,1)
     ex[p] = newVal
     @test ex[p] ≈ newVal #TODO broken
-    
+
     p = pathLocs(2, (4:9, 5), 1, (3:5,))
     newVal = (randn(34,3,1), randn(23,6,1))
     ex[p] = newVal
@@ -222,13 +222,13 @@ end
     p = pathLocs(0,40:46)
     ex[p] .= 1
     @test minimum(ex[p] .≈ 1) #TODO broken
-    
+
     # single entries behave a bit strangely
     p = pathLocs(0, 3)
     newVal = randn()
     ex[p] = newVal
     @test minimum(ex[p] .≈ newVal)
-    
+
 
     # getindex using ints and arrays
     @test ex[0] == ex.output[1]
@@ -309,5 +309,36 @@ end
         ii+=1
     end
     @test all(addToNext.indices .== addFrom.indices)
+end
+Sx = ScatteredOut((randn(16,1,1), randn(11,32,1), randn(7, 27, 32, 1)))
+@testset "getindex gradients" begin
+# testing Zygote.@adjoint function getindex(F::T, i::Integer) where T <: Scattered
+    @testset "Integer Access" begin
+        # second layer
+        ∇ = gradient(Sx -> Sx[2][2,3,5,1], Sx)[1]
+        finalLayer = zeros(7,27,32,1); finalLayer[2,3,5,1] = 1
+        almostAllZeros = ScatteredOut((zeros(16,1,1), zeros(11,32,1), finalLayer))
+        @test ∇ == almostAllZeros
+        # first layer
+        ∇ = gradient(Sx -> Sx[1][5,8,1], Sx)[1]
+        firstLayer = zeros(11,32,1); firstLayer[5,8,1] = 1
+        almostAllZeros = ScatteredOut((zeros(16,1,1), firstLayer, zeros(7, 27, 32, 1)))
+        @test ∇ == almostAllZeros
+        # zeroth layer
+        ∇ = gradient(Sx -> Sx[0][3,1,1], Sx)[1]
+        zeroLayer = zeros(16,1,1); zeroLayer[3,1,1] = 1
+        almostAllZeros = ScatteredOut((zeroLayer, zeros(11,32,1), zeros(7, 27, 32, 1)))
+        @test ∇ == almostAllZeros
+    end
+    @testset "PathLocs Access" begin
+        p = pathLocs(0,(5))
+        ∇ = gradient(Sx -> Sx[p][1], Sx)[1]
+        @test ∇[0][5] ≈ 1
+        p = pathLocs(0,(:))
+        ∇ = gradient(Sx -> Sx[p][4], Sx)[1]
+        @test ∇[0][4] ≈ 1
+        y,∂ = pullback(Sx -> Sx[p], Sx)
+        @test ∂(y)[1][p] ≈ y
+    end
 end
 end
