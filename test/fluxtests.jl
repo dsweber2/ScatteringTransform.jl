@@ -15,22 +15,30 @@ import ScatteringTransform:stopAtExactly_WithRate_
         x = ifGpu(randn(ntuple(x->i, N)...,rand(2:10, xExtraDims)...)); size(x)
         r = RationPool(ntuple(x->s, N),k,nExtraDims=nExtraDims)
         @test length(r.m.k) == length(r.resSize)+nExtraDims-2
-        nPoolDims(r)
         Nneed = ndims(r.m)+2
         Sx = r(x);
         @test size(Sx)==(poolSize(r, size(x))..., size(x)[N+1:end]...)
         # does it take the mean we expect?
-        chosenLocs = stopAtExactly_WithRate_(i-k+1,s)
+        chosenLocs = stopAtExactly_WithRate_(i-k+1, s)
         loc = chosenLocs[5]
-        neighborhood = 0:k-1
-        neighborhood = ntuple(x->loc .+ neighborhood, N)
-        @test Sx[ntuple(x->5, N)...,selectXDims...] ≈ 
-            mean(x[neighborhood...,selectXDims...])
+        neighborhood = Int.((1:k) .- ceil(k/2))
+        neighborhoodCent = ntuple(x->loc .+ neighborhood, N)
+        neighborhoodLowered = ntuple(x->(loc-1) .+ neighborhood, N)
+        neighborhoodRaised = ntuple(x->(loc +1) .+ neighborhood, N)
+        # the averaging neighborhood is a little bit hard to map, but it should
+        # be roughly centered correctly
+        cent = Sx[ntuple(x->5, N)...,selectXDims...] ≈ mean(x[neighborhoodCent...,selectXDims...])
+        lowered = Sx[ntuple(x->5, N)...,selectXDims...] ≈ mean(x[neighborhoodLowered...,selectXDims...])
+        raised = Sx[ntuple(x->5, N)...,selectXDims...] ≈ mean(x[neighborhoodRaised...,selectXDims...])
+        @test cent || lowered || raised
         # which entries matter for the 5th entry, according to the gradient?
         ∇ = gradient(x->r(x)[ntuple(x->5, N)..., selectXDims...],x);
-        δ = zeros(size(x)); δ[neighborhood..., selectXDims...] .= 1/k^N
-        @test findall(∇[1].!=0) == findall(δ.!=0)
-        @test ∇[1] ≈ δ
+        δCent = zeros(size(x)); δCent[neighborhoodCent..., selectXDims...] .= 1/k^N
+        δLowered = zeros(size(x)); δLowered[neighborhoodLowered..., selectXDims...] .= 1/k^N
+        δRaised = zeros(size(x)); δRaised[neighborhoodRaised..., selectXDims...] .= 1/k^N
+        ∇Locs = findall(∇[1].!=0)
+        @test (∇Locs == findall(δCent.!=0)) || (∇Locs == findall(δLowered.!=0)) || (∇Locs == findall(δRaised.!=0))
+        @test ∇[1] ≈ δCent || ∇[1] ≈ δLowered || ∇[1] ≈ δRaised
     end
 end
 

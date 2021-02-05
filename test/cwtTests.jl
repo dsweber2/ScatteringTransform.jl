@@ -62,7 +62,6 @@ inn = inputs[1]; wave = waves[1]; sb=scalingfactors[1];(ave,aveLen)=averagingTyp
                 for (ave, aveLen) in averagingTypes
                     for comp in precomputed
                         waveConst = CWT(wave, sb, DEFAULT_BOUNDARY, ave, aveLen)
-                        println("$(wave), $(sb), $(ave), $(size(inn))")
                         if comp
                             daughters,ω = Wavelets.computeWavelets(size(inn,1), waveConst)
                             output = cwt(inn, waveConst, daughters)

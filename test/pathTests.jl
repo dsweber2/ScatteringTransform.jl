@@ -6,13 +6,12 @@
 
     p = pathLocs(1,1) # an object that we can use as an index into the output
     @test output[p] ≈ output[1][:,1,1]
-    p = pathLocs(2,[1,1])
-    output[p]
-    @test output[p] ≈ output[2][:,1,1]
-    p = pathLocs([1,2])
-    @test output[p] ≈ output[2][:,2,1]
-    p = pathLocs([2,1])
-    @test output[p] ≈ output[2][:,1 + 9,1]
-    p = pathLocs([1,:])
-    @test output[p] ≈ output[2][:,1:9,1]
+    p = pathLocs(2,(1,1))
+    @test output[p] ≈ output[2][:,1,1,1]
+    p = pathLocs(2, (1,2))
+    @test output[p] ≈ output[2][:,1,2,1]
+    p = pathLocs(2, (2,1))
+    @test output[p] ≈ output[2][:,2,1,1]
+    p = pathLocs(2, (1,:))
+    @test output[p] ≈ output[2][:,1,1:13,1]
 end

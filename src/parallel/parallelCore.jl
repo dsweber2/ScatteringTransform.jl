@@ -14,7 +14,7 @@ export sizes, bsplineType, bilinearType
 include("modifiedTransforms.jl")
 include("Utils.jl")
 export calcuateSizes, calculateThinStSizes, createFFTPlans, remoteMultiply,
-    createRemoteFFTPlan, computeAllWavelets, plotAllWavelets
+    createRemoteFFTPlan, computeAllWavelets, plotAllWavelets, getQ
 include("nonlinearities.jl")
 export spInverse, aTanh, Tanh, ReLU, piecewiseLinear, plInverse
 include("transform.jl")

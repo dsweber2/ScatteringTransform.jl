@@ -29,18 +29,11 @@ function roll(layers::stParallel{K, 1}, results::AbstractArray{T,N}, X;
                                                                  percentage)
     @info "" n' q' dataSizes' outputSizes' resultingSize'
     outerAxes = axes(X)[2:end]
-    println(outerAxes)
     addedLayers = parallel.getListOfScaleDims(layers,n)
     for i = 1:depth(layers)+1
         concatStart = sum([resultingSize[m]*prod(outputSizes[m][2:end-ndims(X)+1]) for m=1:i-1]) + 1
-        println(outputSizes[1:i-1],concatStart)
         for js in indexOverScales(addedLayers,i)
             j = parallel.linearFromTuple(js, addedLayers[i])
-            if i==8
-                println("js=$js, j=$j")
-                println(concatStart .+ j*resultingSize[i] .+ (0:(resultingSize[i]-1)))
-                println(j*resultingSize[i])
-            end
             accessed = results[concatStart .+
                                            j*resultingSize[i] .+
                                            (0:(resultingSize[i]-1)),
