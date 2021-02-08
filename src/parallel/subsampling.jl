@@ -20,39 +20,37 @@ maximum(A::Array{Complex{Float64}}) = A[indmax(abs(A))]
 Use bilinear interpolation to evaluate the points off-grid. This is linear in x and linear in y, but quadratic in the pair.
 """
 function resample(input::AbstractArray{T,2}, rate,
-                  samplingType::bsplineType; newSize =
-                  (-1,-1)) where T<:Number
+                  samplingType::bsplineType; newSize=(-1, -1)) where T <: Number
     Nin = size(input)
     # if the rate results in a non-integer number of samples, round up.
-    if rate > 0.0 || newSize[1]<=0
-        newSize = (Int64(ceil(size(input,1)/rate)),
-                   Int64(ceil(size(input,2)/rate)))
+    if rate > 0.0 || newSize[1] <= 0
+        newSize = (Int64(ceil(size(input, 1) / rate)),
+                   Int64(ceil(size(input, 2) / rate)))
     end
-    if newSize[1]>1
-        xInds = range(1, stop = Nin[1], length = newSize[1])
+    if newSize[1] > 1
+        xInds = range(1, stop=Nin[1], length=newSize[1])
     else
-        xInds = floor(Int,Nin[1]+1)/2
+        xInds = floor(Int, Nin[1] + 1) / 2
     end
-    if newSize[2]>1
-        yInds = range(1, stop = Nin[2], length = newSize[2])
+    if newSize[2] > 1
+        yInds = range(1, stop=Nin[2], length=newSize[2])
     else
-        yInds = floor(Int,Nin[2]+1)/2
+        yInds = floor(Int, Nin[2] + 1) / 2
     end
     itp = interpolate(input, BSpline(Cubic(Natural(OnGrid()))))
-    output = T.(itp(xInds,yInds))
+    output = T.(itp(xInds, yInds))
 end
 
 function resample(input::AbstractArray{T,1}, rate,
-                  samplingType::bsplineType; newSize =
-                  (-1,)) where T<:Number
+                  samplingType::bsplineType; newSize=(-1,)) where T <: Number
     Nin = size(input)
     # if the rate results in a non-integer number of samples, round up.
-    if rate!=0.0 || newSize[1]<=0
-        newSize = Int64(ceil(size(input, 1)/rate))
+    if rate != 0.0 || newSize[1] <= 0
+        newSize = Int64(ceil(size(input, 1) / rate))
     else
         newSize = newSize[1]
     end
-    inds = range(1, stop = Nin[1], length = newSize)
+    inds = range(1, stop=Nin[1], length=newSize)
     itp = interpolate(input, BSpline(Cubic(Natural(OnGrid()))))
     output = itp(inds)
 end
@@ -62,26 +60,26 @@ end
 
     Use bilinear interpolation to evaluate the points off-grid. This is linear in x and linear in y, but quadratic in the pair.
     """
-function resample(input::AbstractArray{T,2}, rate, samplingType::bilinearType; newSize = (-1,-1)) where T<:Number
+function resample(input::AbstractArray{T,2}, rate, samplingType::bilinearType; newSize=(-1, -1)) where T <: Number
     Nin = size(input)
     # if the rate results in a non-integer number of samples, round up.
     if rate != 0.0 || newSize[1] <= 0
-        newSize = (Int(ceil(size(input,1)/rate)),Int(ceil(size(input,2)/rate)))
+        newSize = (Int(ceil(size(input, 1) / rate)), Int(ceil(size(input, 2) / rate)))
     end
-    xInds = range(1, stop = Nin[1], length = newSize[1])
-    yInds = range(1, stop = Nin[2], length = newSize[2])
+    xInds = range(1, stop=Nin[1], length=newSize[1])
+    yInds = range(1, stop=Nin[2], length=newSize[2])
     output = zeros(T, newSize)
-    for (i,x)=enumerate(xInds), (j,y)=enumerate(yInds)
+    for (i, x) in enumerate(xInds), (j, y) in enumerate(yInds)
         xi = (modf(x)[1], Int(modf(x)[2]))
         yi = (modf(y)[1], Int(modf(y)[2]))
-        if xi[2]<Nin[1] && yi[2]<Nin[2]
-            output[i,j] = (1-xi[1])*(1-yi[1])*input[xi[2],yi[2]] + xi[1]*(1-yi[1])*input[xi[2]+1,yi[2]] + (1-xi[1])*yi[1]*input[xi[2],yi[2]+1] + xi[1]*yi[1]*input[xi[2]+1,yi[2]+1]
-        elseif yi[2]<Nin[2]
+        if xi[2] < Nin[1] && yi[2] < Nin[2]
+            output[i,j] = (1 - xi[1]) * (1 - yi[1]) * input[xi[2],yi[2]] + xi[1] * (1 - yi[1]) * input[xi[2] + 1,yi[2]] + (1 - xi[1]) * yi[1] * input[xi[2],yi[2] + 1] + xi[1] * yi[1] * input[xi[2] + 1,yi[2] + 1]
+        elseif yi[2] < Nin[2]
             # just a linear interpolation vertically, as we're on an edge
-            output[i,j] = (1-yi[1])*input[xi[2],yi[2]] + yi[1]*input[xi[2],yi[2]+1]
-        elseif xi[2]<Nin[1]
+            output[i,j] = (1 - yi[1]) * input[xi[2],yi[2]] + yi[1] * input[xi[2],yi[2] + 1]
+        elseif xi[2] < Nin[1]
             # just a linear interpolation horizontally, as we're on an edge
-            output[i,j] = (1-xi[1])*input[xi[2],yi[2]] + xi[1]*input[xi[2]+1,yi[2]]
+            output[i,j] = (1 - xi[1]) * input[xi[2],yi[2]] + xi[1] * input[xi[2] + 1,yi[2]]
         else
             # we're just at the final gridpoint, stupid simple
             output[i,j] = input[xi[2],yi[2]]
@@ -91,21 +89,20 @@ function resample(input::AbstractArray{T,2}, rate, samplingType::bilinearType; n
 end
 
 # provide default behaviour, which is bspline subsampling
-function resample(input::AbstractArray{T,1}, rate; newSize = 
-                  (-1,)) where T<:Number
+function resample(input::AbstractArray{T,1}, rate; newSize=(-1,)) where T <: Number
     resample(input, rate, bsplineType(); newSize=newSize)
 end
-resample(input::AbstractArray{T,2}, rate; newSize = (-1,-1)) where T<:Number = resample(input, rate, bsplineType(); newSize=newSize)
-function resample(input::AbstractArray{T,N}, rate; newSize = (-1,-1)) where {T<:Number, N}
+resample(input::AbstractArray{T,2}, rate; newSize=(-1, -1)) where T <: Number = resample(input, rate, bsplineType(); newSize=newSize)
+function resample(input::AbstractArray{T,N}, rate; newSize=(-1, -1)) where {T <: Number,N}
     if rate != 0.0 || newSize[1] <= 0
-        newSize = (Int(ceil(size(input,1)/rate)),
-                   Int(ceil(size(input,2)/rate)))
+        newSize = (Int(ceil(size(input, 1) / rate)),
+                   Int(ceil(size(input, 2) / rate)))
     end
     outerAxes = axes(input)[3:end]
     newResult = zeros(T, newSize..., outerAxes...)
     for outer in eachindex(view(input, 1, 1, outerAxes...))
         newResult[:, :, outer] = resample(view(input, :, :, outer), rate,
-                                          bsplineType(); newSize = newSize)
+                                          bsplineType(); newSize=newSize)
     end
     return newResult
 end
@@ -117,27 +114,27 @@ end
 """
     output = maxPooling(input::Array{T,2}, rate::Float64) where T<: Number
 """
-function maxPooling(input::Array{T,2}, rate::Float64) where T<: Number
-  rows = Int32(ceil(size(input,1) ./2.0))
-  cols = Int32(ceil(size(input,2) ./2.0))
-  output = zeros(T,rows,cols)
-  for i=1:rows-1, j=1:cols-1
-    rowcoord = Int(floor(rate*(i-1)))+1:Int(floor(rate*i))
-    colcoord = Int(floor(rate*(j-1)))+1:Int(floor(rate*j))
+function maxPooling(input::Array{T,2}, rate::Float64) where T <: Number
+  rows = Int32(ceil(size(input, 1) ./ 2.0))
+  cols = Int32(ceil(size(input, 2) ./ 2.0))
+  output = zeros(T, rows, cols)
+  for i in 1:rows - 1, j in 1:cols - 1
+    rowcoord = Int(floor(rate * (i - 1))) + 1:Int(floor(rate * i))
+    colcoord = Int(floor(rate * (j - 1))) + 1:Int(floor(rate * j))
     output[i,j] = maximum(input[rowcoord,colcoord])
   end
 
   # A little bit extra on the bottom
-  rowcoord = Int(floor(rate*(rows-1)))+1:size(input,1)
-  for j=1:cols-1
-    colcoord = Int(floor(rate*(j-1)))+1:Int(floor(rate*j))
+  rowcoord = Int(floor(rate * (rows - 1))) + 1:size(input, 1)
+  for j = 1:cols - 1
+    colcoord = Int(floor(rate * (j - 1))) + 1:Int(floor(rate * j))
     output[end,j] = maximum(input[rowcoord,colcoord])
   end
 
   # A little bit extra on the right
-  colcoord = Int(floor(rate*(cols-1)))+1:size(input,2)
-  for i=1:rows-1
-    rowcord = Int(floor(rate*(i-1)))+1:Int(floor(rate*i))
+  colcoord = Int(floor(rate * (cols - 1))) + 1:size(input, 2)
+  for i = 1:rows - 1
+    rowcord = Int(floor(rate * (i - 1))) + 1:Int(floor(rate * i))
     output[i,end] = maximum(input[rowcoord,colcoord])
   end
 
@@ -151,32 +148,32 @@ end
 
   Use linear interpolation to evaluate the points off-grid for a2D scattering transform.
 """
-function bilinear(input::Array{S,2}, rate::T) where {S<:Number,T<:Real}
+function bilinear(input::Array{S,2}, rate::T) where {S <: Number,T <: Real}
   Nin = size(input)
-  newSize = (ceil(Int, size(input, 1)/rate), ceil(Int, size(input, 2)/rate))
+  newSize = (ceil(Int, size(input, 1) / rate), ceil(Int, size(input, 2) / rate))
   evalPoints = Array{Tuple{Float64,Float64}}(newSize)
-  output = zeros(Complex64,newSize)
-  for (i, x)=enumerate(linspace(1, Nin[1], newSize[1])),  (j,
-                                                           y)=enumerate(linspace(1,
+  output = zeros(Complex64, newSize)
+  for (i, x) in enumerate(linspace(1, Nin[1], newSize[1])),  (j,
+                                                           y) in enumerate(linspace(1,
                                                                                  Nin[2],
                                                                                  newSize[2]))
-    evalPoints[i,j] = (x,y)
+    evalPoints[i,j] = (x, y)
     xi = (modf(x)[1], Int(modf(x)[2]))
     yi = (modf(y)[1], Int(modf(y)[2]))
-    if xi[2]<Nin[1] && yi[2]<Nin[2]
-    output[i,j] = (1-xi[1])*(1-yi[1])*input[xi[2],yi[2]] + xi[1]*(1-yi[1])*input[xi[2]+1,yi[2]] + (1-xi[1])*yi[1]*input[xi[2],yi[2]+1] + xi[1]*yi[1]*input[xi[2]+1,yi[2]+1]
-    elseif yi[2]<Nin[2]
+    if xi[2] < Nin[1] && yi[2] < Nin[2]
+    output[i,j] = (1 - xi[1]) * (1 - yi[1]) * input[xi[2],yi[2]] + xi[1] * (1 - yi[1]) * input[xi[2] + 1,yi[2]] + (1 - xi[1]) * yi[1] * input[xi[2],yi[2] + 1] + xi[1] * yi[1] * input[xi[2] + 1,yi[2] + 1]
+    elseif yi[2] < Nin[2]
       # just a linear interpolation vertically, as we're on an edge
-      output[i,j] = (1-yi[1])*input[xi[2],yi[2]] + yi[1]*input[xi[2],yi[2]+1]
-    elseif xi[2]<Nin[1]
+      output[i,j] = (1 - yi[1]) * input[xi[2],yi[2]] + yi[1] * input[xi[2],yi[2] + 1]
+    elseif xi[2] < Nin[1]
       # just a linear interpolation horizontally, as we're on an edge
-      output[i,j] = (1-xi[1])*input[xi[2],yi[2]] + xi[1]*input[xi[2]+1,yi[2]]
+      output[i,j] = (1 - xi[1]) * input[xi[2],yi[2]] + xi[1] * input[xi[2] + 1,yi[2]]
     else
       # we're just at the final gridpoint, stupid simple
       output[i,j] = input[xi[2],yi[2]]
     end
   end
-  output
+output
 end
 
 @doc """
@@ -184,13 +181,13 @@ end
 
   subsample using a quadratic bspline interpolation, with reflection boundary conditions. rate must be ≧ 1. If absolute is true, treat rate as just the total number of desired samples instead.
 """
-function bspline(input::Array{S,1}, rate::T; absolute::Bool=false) where {S<:Number, T<:Real}
-  @assert rate>=1
-  itp = interpolate(input,BSpline(Quadratic(Reflect(OnGrid()))))
+function bspline(input::Array{S,1}, rate::T; absolute::Bool=false) where {S <: Number,T <: Real}
+  @assert rate >= 1
+  itp = interpolate(input, BSpline(Quadratic(Reflect(OnGrid()))))
   if absolute
-    return itp(range(1, stop = size(input,1), length = rate))
+    return itp(range(1, stop=size(input, 1), length=rate))
   else
-    return itp(range(1, stop = size(input,1), length = floor(Int,length(input) ./rate)))
+    return itp(range(1, stop=size(input, 1), length=floor(Int, length(input) ./ rate)))
   end
 end
 # TODO: figure out what's wrong with Quadratic(Reflect() and re-implement it
@@ -202,17 +199,17 @@ given a subsampling rate, a subsampling method func, and an initial size
 tuple sizeX, return an array of sizes as used by the scattering(1,2)D
 constructors
 """
-function sizes(func, rate, sizeX) 
-    if typeof(sizeX)<:Tuple
+function sizes(func, rate, sizeX)
+    if typeof(sizeX) <: Tuple
         sizeX = sizeX[1]
     end
     if typeof(func) <: bsplineType
-        subsamp = zeros(Int,length(rate)+1); subsamp[1] = sizeX[1]
-        for (i,rat) in enumerate(rate)
-            subsamp[i+1] = ceil(Int, subsamp[i] ./rat)
+        subsamp = zeros(Int, length(rate) + 1); subsamp[1] = sizeX[1]
+        for (i, rat) in enumerate(rate)
+            subsamp[i + 1] = ceil(Int, subsamp[i] ./ rat)
         end
     elseif typeof(func) <: bilinearType
-        subsamp = [Int( foldl((x,y)->ceil(x/y), sizeX, rate[1:i])) for i=0:length(rate)-1]
+        subsamp = [Int(foldl((x, y) -> ceil(x / y), sizeX, rate[1:i])) for i = 0:length(rate) - 1]
     else
         error("Sorry, that hasn't been implemented yet")
     end

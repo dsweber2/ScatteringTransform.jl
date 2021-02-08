@@ -171,30 +171,30 @@ end
     @test (34:53, 34:53, 1, :)==parseOne((0,(34:53, 34:53)),2,exs)
     @test (:,:,:)==parseOne((0,:),1,exs)
     @test (:,:,:,:)==parseOne((0,:),2,exs)
-    @test (4:35,1,1:10) == parseOne((0,(4:35,1,1:10)),1,exs)
+    @test (4:35,1,1:10) == parseOne((0, (4:35,1,1:10)),1,exs)
     @test (4:35,1,1,1:10) == parseOne((0,(4:35,1,1,1:10)),2,exs)
     # layer 1
     @test (:, 34:53, :) == parseOne((1,34:53),1,exs)
     @test (:, 5, :) == parseOne((1,5),1,exs)
-    @test (:, :, 34:53, :)==parseOne((1,34:53),2,exs)
+    @test (:, :, 34:53, :)== parseOne((1,34:53),2,exs)
     @test (:,:, 5, :) == parseOne((1,5),2,exs)
-    @test (:,:,:)==parseOne((1,:),1,exs)
-    @test (:,:,:,:)==parseOne((1,:),2,exs)
+    @test (:,:,:) == parseOne((1,:),1,exs)
+    @test (:,:,:,:) == parseOne((1,:),2,exs)
     @test (4:35,1,1:10) == parseOne((1,(4:35,1,1:10)),1,exs)
     @test (4:35,1,1,1:10) == parseOne((1,(4:35,1,1,1:10)),2,exs)
     # layer 2
     @test (:, :, 34:53, :) == parseOne((2,34:53),1,exs)
-    @test (:, :, :, 34:53, :)==parseOne((2,34:53),2,exs)
+    @test (:, :, :, 34:53, :) == parseOne((2,34:53),2,exs)
     @test (:, 34:53, 5, :) == parseOne((2,(34:53,5)),1,exs)
-    @test (:, :, 34:53, 5, :)==parseOne((2,(34:53,5)),2,exs)
-    @test (:,:,:,:)==parseOne((2,:),1,exs)
-    @test (:,:,:,:,:)==parseOne((2,:),2,exs)
+    @test (:, :, 34:53, 5, :) == parseOne((2,(34:53,5)),2,exs)
+    @test (:,:,:,:) == parseOne((2,:),1,exs)
+    @test (:,:,:,:,:) == parseOne((2,:),2,exs)
     @test (4:35,1,1:10,1,:) == parseOne((2,(4:35,1,1:10)),1,exs)
     @test (4:35,1,1,1:10,1,:) == parseOne((2,(4:35,1,1,1:10)),2,exs)
 
     # actual pathLocs construction
-    @test ((:,:,:),(:,3:4,:), (:,5,:,:))==pathLocs(1,3:4, 0,:, 2,(5,:)).indices
-    @test ((:,:,:),nothing, (:,5,:,:))==pathLocs(0,:, 2,(5,:)).indices
+    @test ((:,:,:),(:,3:4,:), (:,5,:,:)) == pathLocs(1,3:4, 0,:, 2,(5,:)).indices
+    @test ((:,:,:),nothing, (:,5,:,:)) == pathLocs(0,:, 2,(5,:)).indices
 
     # pathLocs usage
     ex = ScatteredOut((randn(50,1,1), randn(34,13,1), randn(23,11,13,1)))

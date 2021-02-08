@@ -1,5 +1,5 @@
-abstract type scatteringTransform{Dimension, Depth} end
-struct stFlux{Dimension, Depth, ChainType,D,E,F} <: scatteringTransform{Dimension, Depth}
+abstract type scatteringTransform{Dimension,Depth} end
+struct stFlux{Dimension,Depth,ChainType,D,E,F} <: scatteringTransform{Dimension,Depth}
     mainChain::ChainType
     normalize::Bool
     outputSizes::D
@@ -9,14 +9,14 @@ end
 
 import Base.ndims
 ndims(s::scatteringTransform{D}) where D = D
-nPathDims(ii) = 1+max(min(ii-2,1),0) # the number of path dimensions at layer ii (zeroth
+nPathDims(ii) = 1 + max(min(ii - 2, 1), 0) # the number of path dimensions at layer ii (zeroth
 # is ii=1)
-depth(s::scatteringTransform{Dim,Depth}) where {Dim, Depth} = Depth
+depth(s::scatteringTransform{Dim,Depth}) where {Dim,Depth} = Depth
 function Base.show(io::IO, st::stFlux{Dim,Dep}) where {Dim,Dep}
     layers = st.mainChain.layers
     σ = layers[1].σ
     Nd = ndims(st)
-    nFilters = [size(layers[i].weight,3)-1 for i=1:3:(3*Dim)]
+    nFilters = [size(layers[i].weight, 3) - 1 for i = 1:3:(3 * Dim)]
     batchSize = getBatchSize(layers[1])
     print(io, "stFlux{$(Dep), Nd=$(Nd), filters=$(nFilters), σ = " *
           "$(σ), batchSize = $(batchSize), normalize = $(st.normalize)}")
@@ -41,8 +41,8 @@ end
        only `fullType()` is functional.
 - `fftPlans = false` if not `false`, it should be a 2D array of `Future`s, where the first index is the layer, and the second index the core. See `createFFTPlans` if you want to do this.
 """
-struct stParallel{T, Dimension, Depth, subsampType, outType} <: scatteringTransform{Dimension, Depth}
-    n::Tuple{Vararg{Int, Dimension}} # the dimensions of a single entry
+struct stParallel{T,Dimension,Depth,subsampType,outType} <: scatteringTransform{Dimension,Depth}
+    n::Tuple{Vararg{Int,Dimension}} # the dimensions of a single entry
     shears::Array{T,1} # the array of the transforms; the final of these is
     # used only for averaging, so it has length m+1
     subsampling::subsampType # for each layer, the rate of
@@ -66,9 +66,9 @@ end
 
 """
     listVargs = processArgs(m, varargs)
-method to go from arguments given to the scattering transform constructor to 
+method to go from arguments given to the scattering transform constructor to
 those for the frame transform, e.g. shearlets or wavelet. `listVargs` is a list
-of length `m` of one argument from each of vargs, with insufficiently long 
+of length `m` of one argument from each of vargs, with insufficiently long
 entries filled in by repeating the last value. An example:
 ```
 julia> varargs
@@ -101,19 +101,19 @@ pairs(::NamedTuple) with 3 entries:
 """
 function processArgs(m, varargs)
     keysVarg = keys(varargs)
-    valVarg = map(v->makeTuple(m,v), values(varargs))
-    pairedArgs = Iterators.Pairs(valVarg,keysVarg)
-    listVargs = ntuple(i -> Iterators.Pairs(map(x->x[i],valVarg), keysVarg), m)
+    valVarg = map(v -> makeTuple(m, v), values(varargs))
+    pairedArgs = Iterators.Pairs(valVarg, keysVarg)
+    listVargs = ntuple(i -> Iterators.Pairs(map(x -> x[i], valVarg), keysVarg), m)
 end
 
 function makeTuple(m, v::Tuple)
     if length(v) >= m
         return v
     end
-    return (v...,ntuple(i->v[end], m-length(v))...)
+    return (v..., ntuple(i -> v[end], m - length(v))...)
 end
 makeTuple(m, v::AbstractArray) = makeTuple(m, (v...,))
-makeTuple(m, v) = ntuple(i->v, m)
+makeTuple(m, v) = ntuple(i -> v, m)
 
 
 
@@ -133,6 +133,6 @@ makeTuple(m, v) = ntuple(i->v, m)
 #                    (:normalization,Inf),
 #                    (:decreasing, 4.0))
 #     for (key,val) in DefaultList
-        
+
 #     end
 # end
