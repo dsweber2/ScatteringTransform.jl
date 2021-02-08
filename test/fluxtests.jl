@@ -1,4 +1,4 @@
-@testset "Flux Scattering Transform methods"
+@testset "Flux Scattering Transform methods" begin
 ifGpu = identity
 i=40; s =6//5
 nExtraDims = 2
@@ -55,9 +55,9 @@ end
     @test minimum(abs.(res.output[1])) > 0
     @test size(res.output[2]) == (10, 10, 144, 2)
     @test minimum(abs.(res.output[2])) > 0
-    @test size(res.output[3]) == (6, 6, 16, 144, 2)
+    @test size(res.output[3]) == (7, 7, 16, 144, 2)
     @test minimum(abs.(res.output[3])) > 0
-    totalSize = 16*16*3 + 10*10*144 + 6*6*16*144
+    totalSize = 16*16*3 + 10*10*144 + 7*7*16*144
     smooshed = ScatteringTransform.flatten(res);
     @test size(smooshed) ==(totalSize, 2)
 end
@@ -69,11 +69,11 @@ end
     @test length(res.output)== 2+1
     @test size(res.output[1]) == (32, 3, 2)
     @test minimum(abs.(res.output[1])) > 0
-    @test size(res.output[2]) == (20, 3*11, 2)
+    @test size(res.output[2]) == (22, 3*11, 2)
     @test minimum(abs.(res.output[2])) > 0
-    @test size(res.output[3]) == (13, 8, 3*11, 2)
+    @test size(res.output[3]) == (14, 8, 3*11, 2)
     @test minimum(abs.(res.output[3])) > 0
-    totalSize = 32*3 + 20*3*11 + 13*8*3*11
+    totalSize = 32*3 + 22*3*11 + 14*8*3*11
     smooshed = ScatteringTransform.flatten(res);
     @test size(smooshed) == (totalSize, 2)
 end
@@ -302,7 +302,6 @@ end
     @test findall(addToNext.indices[3]) == findall(addFrom.indices[3])[1:1]
     ii=2
     while addTo!=addToNext && ii <=24
-        global addToNext, addTo,ii
         addTo = addToNext
         addToNext = addNextPath(addTo, addFrom)
         @test findall(addToNext.indices[3]) == findall(addFrom.indices[3])[1:ii]

@@ -12,4 +12,4 @@ using Zygote
 include("planTests.jl")
 include("cwtTests.jl")
 include("pathTests.jl")
-include("fluxtest.jl")
+include("fluxtests.jl")

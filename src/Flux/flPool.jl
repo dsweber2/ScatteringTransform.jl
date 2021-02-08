@@ -73,8 +73,8 @@ end
     poolSize(k, sizes)
 if we're pooling at rates `k` in each dimension (e.g. `(3//2, 3//2)`), how many entries should we expect in the next layer
 """
-function poolSize(r::RationPool, sizes) 
-    resSize = [x for x in r.resSize if x>1]
+function poolSize(r::RationPool, sizes)
+    resSize = [x for x in r.resSize]
     [poolSingle(resSize[i], sizes[i]) for i in 1:length(resSize)]
 end
 
