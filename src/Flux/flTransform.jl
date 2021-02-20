@@ -78,7 +78,7 @@ function stFlux(inputSize::NTuple{N}, m; trainable=false,
                     in enumerate(listOfSizes)]...,)
 
     # record the settings used pretty kludgy
-    settings = (:outputPool => outputPool, :poolBy => poolBy, :σ => σ, argsToEach...)
+    settings = Dict(:outputPool => outputPool, :poolBy => poolBy, :σ => σ, (argsToEach...)...)
     return stFlux{Nd,m,typeof(chacha),typeof(outputSizes),typeof(outputPool),typeof(settings)}(chacha, normalize,
                                     outputSizes, outputPool, settings)
 end

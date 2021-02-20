@@ -22,11 +22,11 @@ import ScatteringTransform:stopAtExactly_WithRate_
         chosenLocs = stopAtExactly_WithRate_(i-k+1, s)
         loc = chosenLocs[5]
         neighborhood = Int.((1:k) .- ceil(k/2))
+        # the averaging neighborhood is a little bit hard to map, but it should
+        # be centered correctly (possibly 1 larger, possibly 1 smaller)
         neighborhoodCent = ntuple(x->loc .+ neighborhood, N)
         neighborhoodLowered = ntuple(x->(loc-1) .+ neighborhood, N)
         neighborhoodRaised = ntuple(x->(loc +1) .+ neighborhood, N)
-        # the averaging neighborhood is a little bit hard to map, but it should
-        # be roughly centered correctly
         cent = Sx[ntuple(x->5, N)...,selectXDims...] ≈ mean(x[neighborhoodCent...,selectXDims...])
         lowered = Sx[ntuple(x->5, N)...,selectXDims...] ≈ mean(x[neighborhoodLowered...,selectXDims...])
         raised = Sx[ntuple(x->5, N)...,selectXDims...] ≈ mean(x[neighborhoodRaised...,selectXDims...])
@@ -310,7 +310,7 @@ end
     @test all(addToNext.indices .== addFrom.indices)
 end
 Sx = ScatteredOut((randn(16,1,1), randn(11,32,1), randn(7, 27, 32, 1)))
-@testset "getindex gradients" begin
+@testset "Scattering gradients" begin
 # testing Zygote.@adjoint function getindex(F::T, i::Integer) where T <: Scattered
     @testset "Integer Access" begin
         # second layer
@@ -339,5 +339,8 @@ Sx = ScatteredOut((randn(16,1,1), randn(11,32,1), randn(7, 27, 32, 1)))
         y,∂ = pullback(Sx -> Sx[p], Sx)
         @test ∂(y)[1][p] ≈ y
     end
+    sampleData = (randn(10,1,3), randn(10,5,1,3), randn(10,5,5,1,3))
+    y, Δ = pullback(x->ScatteredOut(x), sampleData)
+    @test Δ(y)[1] == sampleData
 end
 end

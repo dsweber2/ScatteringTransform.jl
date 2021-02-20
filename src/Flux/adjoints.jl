@@ -4,6 +4,12 @@ Zygote.@adjoint function ScatteredOut(output, k=1)
     end
     ScatteredOut(output, k), ∇scattered
 end
+Zygote.@adjoint function ScatteredOut(m, k, output)
+    function ∇scattered(δ)
+        return (nothing, nothing, δ.output)
+    end
+    ScatteredOut{eltype(output),length(output)}(m, k, output), ∇scattered
+end
 
 Zygote.@adjoint function getindex(F::T, i::Integer) where T <: Scattered
     function getInd_rrule(Ȳ)

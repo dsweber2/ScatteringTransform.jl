@@ -1,11 +1,17 @@
 # how should we apply a function recursively to the stFlux type? to each part of the chain, of course
-import FourierFilterFlux.functor
-import Flux.functor
-function functor(stf::stFlux{Dimension,Depth,ChainType,D,E,F}) where {Dimension,Depth,ChainType,D,E,F}
-    return (stf.mainChain...,), y -> begin
-        stFlux{Dimension,Depth,typeof(Chain(y...)),D,E,F}(Chain(y...), stf.normalize, stf.outputSizes, stf.outputPool, stf.settings)
+function mapEvery3(ii, x)
+    if ii % 3 == 1
+        cu(x)
+    else
+        x
     end
 end
+import CUDA.cu
+function cu(stf::stFlux{Dimension,Depth,ChainType,D,E,F}) where {Dimension,Depth,ChainType,D,E,F}
+    newChain = Chain((map(iix -> mapEvery3(iix...), enumerate(stf.mainChain)))...)
+    return stFlux{Dimension,Depth,typeof(newChain),D,E,F}(newChain, stf.normalize, stf.outputSizes, stf.outputPool, stf.settings)
+end
+
 
 
 """

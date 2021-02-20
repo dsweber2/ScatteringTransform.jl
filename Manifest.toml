@@ -373,7 +373,7 @@ version = "0.10.16"
 deps = ["AbstractFFTs", "Adapt", "CUDA", "ContinuousWavelets", "FFTW", "FillArrays", "Flux", "LinearAlgebra", "NNlib", "RecipesBase", "Reexport", "ScikitLearn", "Shearlab", "Wavelets", "Zygote"]
 git-tree-sha1 = "e82d5b9f0ca7e06f3af004e9b7136a2e1f789bad"
 repo-rev = "master"
-repo-url = "https://github.com/dsweber2/FourierFilterFlux.jl.git"
+repo-url = "https://github.com/dsweber2/FourierFilterFlux.jl"
 uuid = "3d7dfd45-6c90-4c9b-b697-194a05757159"
 version = "0.1.0"
 

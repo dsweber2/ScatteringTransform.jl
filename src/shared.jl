@@ -14,7 +14,7 @@ nPathDims(ii) = 1 + max(min(ii - 2, 1), 0) # the number of path dimensions at la
 depth(s::scatteringTransform{Dim,Depth}) where {Dim,Depth} = Depth
 function Base.show(io::IO, st::stFlux{Dim,Dep}) where {Dim,Dep}
     layers = st.mainChain.layers
-    σ = layers[1].σ
+    σ = st.settings[:σ]
     Nd = ndims(st)
     nFilters = [size(layers[i].weight, 3) - 1 for i = 1:3:(3 * Dim)]
     batchSize = getBatchSize(layers[1])

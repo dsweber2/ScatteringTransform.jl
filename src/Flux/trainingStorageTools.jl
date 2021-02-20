@@ -113,52 +113,57 @@ function makeObjFun(target::AbstractArray, st, kwargs...)
     makeObjFun(roll(target, st), st, kwargs...)
 end
 
-function fitReverseSt(N, initGuess; opt=Momentum(), ifGpu=identity, obj=nothing,
-                      keepWithin=-1, stochastic=false, errTol=1e5, timeLimit=Year(10), adjust=false)
+function fitReverseSt(N, initGuess; opt=Momentum(), ifGpu=identity, obj=nothing, keepWithin=-1, stochastic=false, errTol=1e5, timeLimit=Year(10), adjust=false, kwargs...)
     ongoing = copy(initGuess |> ifGpu);
     pathOfDescent = zeros(Float64, size(ongoing, 1), 1, size(initGuess, 3), N + 1) |> ifGpu;
     println("initial objective function is $(obj(ongoing))")
     pathOfDescent[:,:,:,1] = ongoing |> ifGpu;
     err = zeros(Float64, N + 1); err[1] = obj(pathOfDescent[:,:,:,1])
-    return justTrain(N, pathOfDescent, err, 1, ongoing, opt=opt, ifGpu=ifGpu,
+    return justTrain(N, pathOfDescent, err, 1, ongoing; opt=opt, ifGpu=ifGpu,
                       obj=obj, keepWithin=keepWithin, stochastic=stochastic,
-                      errTol=errTol, timeLimit=timeLimit, adjust=adjust)
+                      errTol=errTol, timeLimit=timeLimit, adjust=adjust, kwargs...)
 end
 
 function adjustStepSizeBasedOnVariance!(err, opt, ii)
     aveErrChange = (mean(err[ii - 22:ii - 18]) - mean(err[ii - 3:ii])) / err[ii]
     # if the err is flat (less than a .1% change over the past 20 steps), change the step size
-    if ii > 30 &&  aveErrChange < 1e-6
+    if (ii > 30) && (ii % 30 == 0) &&  (aveErrChange < 1e-6)
         # if it varies too much, or has been overall increasing, decrease the step, otherwise, increase
-        if (count(abs.(err[ii - 20:ii] .- mean(err[ii - 20:ii])) ./ err[ii] .> .03) > 5 ||
+        if (count(abs.(err[ii - 20:ii] .- mean(err[ii - 20:ii])) ./ err[ii] .> .0003) > 5 ||
             aveErrChange < 0 )
             # println("$(mean(err[ii - 22:ii - 18]))  $(mean(err[ii - 3:ii]))")
             opt.eta = opt.eta * .9
-        else
-            opt.eta = opt.eta / .9
         end
     end
 end
 
 function justTrain(N, pathOfDescent, err, prevLen, ongoing; opt=Momentum(),
                    ifGpu=identity, obj=obj, keepWithin=-1, stochastic=false,
-                   errTol=1e5, timeLimit=Year(10), adjust=false, record=true)
+                   errTol=1e5, timeLimit=Year(10), adjust=false, record=true,
+                   relErrEnd=1e-7,relGradNorm=0)
     endTime = now() + timeLimit
     for ii in (prevLen + 1):(prevLen + N)
         err[ii] = obj(ongoing)
         if err[ii] > errTol || isnan(err[ii])
             println("way too big at $(ii), aborting")
             break
-        elseif err[ii] / err[1] < 1e-7
+        elseif err[ii] / err[1] < relErrEnd
             println("oh, we actually finished?")
             err = err[1:ii]
-            pathOfDescent = pathOfDescent[:,:,:,1:end - (N - ii + 1)]
-            return (pathOfDescent, err)
+            pathOfDescent = pathOfDescent[:,:,:,1:(ii - 1)]
+            return (pathOfDescent, err, opt)
         end
         if ii % 10 == 0
             println("$ii rel err: $(err[ii] / err[1]), abs err: $(err[ii]), η=$(opt.eta)")
         end
         ∇ = gradient(obj, ongoing)
+        if norm(∇[1]) <= relGradNorm
+            println("oh, we actually finished?")
+            err = err[1:ii]
+            pathOfDescent = pathOfDescent[:,:,:,1:(ii - 1)]
+            return (pathOfDescent, err, opt)
+        end
+
         if adjust && ii > 30
             adjustStepSizeBasedOnVariance!(err, opt, ii)
         end
@@ -168,9 +173,11 @@ function justTrain(N, pathOfDescent, err, prevLen, ongoing; opt=Momentum(),
         if keepWithin > 0 && sz > keepWithin
             ongoing = ongoing / norm(ongoing) * keepWithin
         end
+
         if stochastic
-            ongoing += opt.eta * 1 * norm(∇, 1) * randn(size(ongoing)...)
+            ongoing += opt.eta * .01 * norm(∇, 1) * randn(size(ongoing)...)
         end
+
         if record
             pathOfDescent[:,:,:,ii] = ongoing
         else
@@ -189,7 +196,7 @@ end
 
 function continueTrain(N, pathOfDescent, err; opt=Momentum, ifGpu=identity,
                        obj=obj, keepWithin=-1,stochastic=false, errTol=1e5,
-                       timeLimit=Year(10), adjust=false, record=true)
+                       timeLimit=Year(10), adjust=false, record=true,kwargs...)
     prevLen = size(pathOfDescent, 4)
     currentGuess = pathOfDescent[:,:,:,end] |> ifGpu;
     if record
@@ -201,9 +208,9 @@ function continueTrain(N, pathOfDescent, err; opt=Momentum, ifGpu=identity,
                                                                1), 1, size(pathOfDescent, 3), 1), dims=4)
     end
     err = cat(err, zeros(Float64, N), dims=1)
-    return justTrain(N, pathOfDescent, err, prevLen, currentGuess, opt=opt, ifGpu=ifGpu,
+    return justTrain(N, pathOfDescent, err, prevLen, currentGuess; opt=opt, ifGpu=ifGpu,
                       obj=obj, keepWithin=keepWithin, stochastic=stochastic,
-                     errTol=errTol, timeLimit=timeLimit, adjust=adjust)
+                     errTol=errTol, timeLimit=timeLimit, adjust=adjust,kwargs...)
 end
 
 
@@ -326,8 +333,7 @@ function fitByPerturbing(N, initGuess, p,target, st;  timeAl=-1,
     for j = 1:NAttempts
         println("perturbing for the $(j)th time. rate = $(rate)")
         # generate the next example
-        (pert, minObj, tooMany), timeUsed, _ = @timed perturb(perturbedRes.minimizer, obj, rate,
-                                                             NSamples, noiseType, tooMany)
+        (pert, minObj, tooMany), timeUsed, _ = @timed perturb(perturbedRes.minimizer, obj, rate, NSamples, noiseType, tooMany)
         println(minObj)
         totalUsed += timeUsed
         oldRes = perturbedRes
