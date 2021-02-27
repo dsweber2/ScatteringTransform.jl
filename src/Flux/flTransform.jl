@@ -19,7 +19,7 @@ magnitude variance.
 """
 function stFlux(inputSize::NTuple{N}, m; trainable=false,
                              normalize=true, outputPool=2,
-                             poolBy=3 // 2, σ=abs, kwargs...) where {N}
+                             poolBy=3 // 2, σ=abs, flatten=false, kwargs...) where {N}
     # N determines the number of spatial dimensions
     Nd = N - 2;
     if length(outputPool) == 1 # replicate for each dimension and layer
@@ -78,7 +78,7 @@ function stFlux(inputSize::NTuple{N}, m; trainable=false,
                     in enumerate(listOfSizes)]...,)
 
     # record the settings used pretty kludgy
-    settings = Dict(:outputPool => outputPool, :poolBy => poolBy, :σ => σ, (argsToEach...)...)
+    settings = Dict(:outputPool => outputPool, :poolBy => poolBy, :σ => σ, :flatten => flatten, (argsToEach...)...)
     return stFlux{Nd,m,typeof(chacha),typeof(outputSizes),typeof(outputPool),typeof(settings)}(chacha, normalize,
                                     outputSizes, outputPool, settings)
 end
@@ -98,7 +98,15 @@ end
 function (st::stFlux)(x::T) where {T <: AbstractArray}
     mc = st.mainChain.layers
     res = applyScattering(mc, x, ndims(st), st, 0)
-    return ScatteredOut(res, ndims(mc[1]))
+    if st.settings[:flatten]
+        k = ndims(st)
+        netSizes = [prod(size(r)[1:nPathDims(ii) + k]) for (ii, r) in enumerate(res)]
+        batchSize = size(res[1])[end]
+        singleExampleSize = sum(netSizes)
+        return cat((reshape(x, (netSizes[i], batchSize)) for (i, x) in enumerate(res))..., dims=1)
+    else
+        return ScatteredOut(res, ndims(mc[1]))
+    end
 end
 
 

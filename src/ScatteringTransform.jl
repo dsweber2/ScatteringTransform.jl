@@ -112,8 +112,4 @@ export loadSyntheticMatFile, transformFolder, flatten
 include("Flux/adjoints.jl")
 include("Flux/interpretationTools.jl")
 export ∇st, plotFirstLayer1D, gifFirstLayer, plotSecondLayer, addNextPath
-include("Flux/trainingStorageTools.jl")
-export buildRecord, expandRecord!, addCurrent!, makeObjFun, makeNormMatchObjFun, fitReverseSt,
-    justTrain, maximizeSingleCoordinate, fitByPerturbing, perturb, genNoise,
-    chooseLargest, continueTrain, fitUsingOptim
 end # end Module

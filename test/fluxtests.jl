@@ -76,6 +76,11 @@ end
     totalSize = 32*3 + 22*3*11 + 14*8*3*11
     smooshed = ScatteringTransform.flatten(res);
     @test size(smooshed) == (totalSize, 2)
+    sst1 = stFlux(size(init), 2, poolBy=3//2, outputPool=(2,),flatten=true)
+    res1 = sst1(init)
+    @test res1 isa Array{Float64, 2}
+    @test size(res1) == (32*3 + 22*3*11 + 14*8*33, 2)
+    @test res1[1:32*3,1] ≈ reshape(res[0][:,:,1], (32*3,))
 end
 
 # integer pooling rate
@@ -342,5 +347,27 @@ Sx = ScatteredOut((randn(16,1,1), randn(11,32,1), randn(7, 27, 32, 1)))
     sampleData = (randn(10,1,3), randn(10,5,1,3), randn(10,5,5,1,3))
     y, Δ = pullback(x->ScatteredOut(x), sampleData)
     @test Δ(y)[1] == sampleData
+
+    # gpu tests
+    if CUDA.functional()
+        using FourierFilterFlux:cu
+        init = 10 .+ randn(64, 3, 2);
+        initC = cu(init);
+        sst = stFlux(size(init), 2, poolBy=3//2, outputPool=(2,))
+        sstC = cu(sst)
+        resC = sstC(initC)
+        res = sst(init)
+        @test resC[1] isa CuArray
+        @test cpu(resC[1]) ≈ res[1]
+        gradient(x -> sstC(x)[1][1],initC)
+        gradient(x -> sst(x)[1][1],init)
+        mc = sstC.mainChain
+        typeof(mc[1])
+        gradient(x->abs(mc[1](x)[1]), initC)
+        gradient()
+        sst(cpu(init))
+        w = ConvFFT((100,), nConvDims=1)
+        ScatteringTransform.FourierFilterFlux.cu(w).fftPlan
+    end
 end
 end

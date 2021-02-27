@@ -7,6 +7,7 @@ function mapEvery3(ii, x)
     end
 end
 import CUDA.cu
+import FourierFilterFlux.cu
 function cu(stf::stFlux{Dimension,Depth,ChainType,D,E,F}) where {Dimension,Depth,ChainType,D,E,F}
     newChain = Chain((map(iix -> mapEvery3(iix...), enumerate(stf.mainChain)))...)
     return stFlux{Dimension,Depth,typeof(newChain),D,E,F}(newChain, stf.normalize, stf.outputSizes, stf.outputPool, stf.settings)
