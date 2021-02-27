@@ -98,7 +98,7 @@ end
 function (st::stFlux)(x::T) where {T <: AbstractArray}
     mc = st.mainChain.layers
     res = applyScattering(mc, x, ndims(st), st, 0)
-    if st.settings[:flatten]
+    if get(st.settings, :flatten, false)
         k = ndims(st)
         netSizes = [prod(size(r)[1:nPathDims(ii) + k]) for (ii, r) in enumerate(res)]
         batchSize = size(res[1])[end]

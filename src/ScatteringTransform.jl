@@ -42,7 +42,7 @@ scatteringTransform(inputSize,m; kwargs...) =
     scatteringTransform(inputSize, m, stFlux; kwargs...)
 
 include("Flux/flUtilities.jl")
-export getWavelets, flatten, roll, importantCoords, batchOff
+export getWavelets, flatten, roll, importantCoords, batchOff, getParameters
 include("parallel/parallelCore.jl") # there's enough weird stuff going on in
 # here that I'm isolating it in a module
 using .parallel

@@ -129,3 +129,47 @@ function batchOff(stack, x, batchSize)
                                                          dims=4))[:, 1:(size(x, 4) - (nRounds - 1) * batchSize)]
     return result
 end
+
+
+"""
+given a st object and a symbol `s` representing a possible keyword, e.g. :Q, or :β, return the value for this transform. It may be in st.settings, or, if it is a default value, it is looked up.
+"""
+function getParameters(st, s)
+    get(st.settings, s, default(s))
+end
+
+function default(s)
+    if s == :dType
+        Float32
+    elseif s == :σ
+        identity
+    elseif s == :trainable
+        false
+    elseif s == :plan
+        true
+    elseif s == :init
+        Flux.glorot_normal
+    elseif s == :bias
+        false
+    elseif s == :convBoundary
+        Sym()
+    elseif s == :cw
+        Morlet()
+    elseif s == :averagingLayer
+        false
+    elseif s == :Q
+        8
+    elseif s == :boundary
+        SymBoundary()
+    elseif s == :averagingType
+        Father()
+    elseif s == :averagingLength
+        4
+    elseif s == :frameBound
+        1
+    elseif s == :p
+        Inf
+    elseif s == :β
+        4
+    end
+end
