@@ -133,11 +133,11 @@ function plotSecondLayer(stw, st; title="Second Layer results", xVals=-1, yVals=
     end
     if title == ""
         plt = heatmap(toHeat; yticks=(1:n, freqs[2]), xticks=(1:m, freqs[1]), tick_direction=:out, rotation=30,
-                      xlabel="Layer 1 index", ylabel="Layer 2 index",c=c,kwargs...)
+                      xlabel="Layer 1 frequency", ylabel="Layer 2 frequency",c=c,kwargs...)
     else
         plt = heatmap(toHeat; yticks=(1:n, freqs[2]), xticks=(1:m, freqs[1]), tick_direction=:out,  rotation=30,
-                      title=title, xlabel="Layer 1 index",
-                      ylabel="Layer 2 index", c=c,kwargs...)
+                      title=title, xlabel="Layer 1 frequency",
+                      ylabel="Layer 2 frequency", c=c,kwargs...)
     end
     nPlot = 2
     bottom = min(minimum(toHeat), subClims[1])
