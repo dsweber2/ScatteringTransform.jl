@@ -94,15 +94,17 @@ also as a tuple. Default values are `xVals = (.037, .852), yVals = (.056, .939)`
 If you have no colorbar, set `xVals = (.0015, .997), yVals = (.002, .992)`
 In the case that arbitrary space has been introduced, if you have a title, use `xVals = (.037, .852), yVals = (.056, .939)`, or if you have no title, use `xVals = (.0105, .882), yVals = (.056, .939)`
 """
-function plotSecondLayer(stw::ScatteredOut; kwargs...)
-    plotSecondLayer(stw[2];kwargs...)
+function plotSecondLayer(stw::ScatteredOut, st; kwargs...)
+    plotSecondLayer(stw[2], st;kwargs...)
 end
 
-function plotSecondLayer(stw; title="Second Layer results", xVals=-1, yVals=-1,
+function plotSecondLayer(stw, st; title="Second Layer results", xVals=-1, yVals=-1,
                          logPower=true, toHeat=nothing, c=cgrad(:viridis, [0,.9]),
-                         threshold=0, linePalette=:greys, minLog=NaN,
-                         subClims=(Inf, -Inf), kwargs...)
+                         threshold=0, freqsigdigits=3, linePalette=:greys, minLog=NaN,
+                         subClims=(Inf, -Inf), δt=1000, kwargs...)
     n, m = size(stw)[2:3]
+    freqs = getMeanFreq(st, δt)
+    freqs = map(x -> round.(x, sigdigits=freqsigdigits), freqs)
     gr(size=2.5 .* (280, 180))
     if !(typeof(c) <: PlotUtils.ContinuousColorGradient)
         c = cgrad(c)
@@ -110,7 +112,7 @@ function plotSecondLayer(stw; title="Second Layer results", xVals=-1, yVals=-1,
     if xVals == -1  &&  title == ""
         xVals = (.0105, .882)
     elseif xVals == -1
-        xVals = (.0005, .889)
+        xVals = (.002, .880)
     end
     Δx = xVals[2] - xVals[1]
     xrange = range(xVals[1] + Δx / m - Δx / (m + 3),
@@ -130,10 +132,10 @@ function plotSecondLayer(stw; title="Second Layer results", xVals=-1, yVals=-1,
         end
     end
     if title == ""
-        plt = heatmap(toHeat; yticks=1:n, xticks=1:m, tick_direction=:out,
+        plt = heatmap(toHeat; yticks=(1:n, freqs[2]), xticks=(1:m, freqs[1]), tick_direction=:out, rotation=30,
                       xlabel="Layer 1 index", ylabel="Layer 2 index",c=c,kwargs...)
     else
-        plt = heatmap(toHeat; yticks=1:n, xticks=1:m, tick_direction=:out,
+        plt = heatmap(toHeat; yticks=(1:n, freqs[2]), xticks=(1:m, freqs[1]), tick_direction=:out,  rotation=30,
                       title=title, xlabel="Layer 1 index",
                       ylabel="Layer 2 index", c=c,kwargs...)
     end

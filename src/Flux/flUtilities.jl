@@ -25,6 +25,19 @@ function getWavelets(sc::stFlux)
     # have ConvFFTs, and then return the wavelets of those
 end
 
+import ContinuousWavelets:getMeanFreq
+"""
+    getMeanFreq(sc::stFlux{1}, δt=1000)
+Get a list of the mean frequencies for the filter bank in each layer. Note that δt gives the sampling rate for the input only, and that it decreases at each subsequent layer.
+"""
+function getMeanFreq(sc::stFlux{1}, δt=1000)
+    waves = getWavelets(sc)
+    shrinkage = [size(waves[i + 1], 1) / size(waves[i], 1) for i = 1:length(waves) - 1]
+    δts = δt * [1, shrinkage...]
+    map(getMeanFreq, waves, δts)
+end
+
+
 """
     output = flatten(scatRes)
 given a scattered, it produces a single vector containing the entire transform in order, i.e. the same format as output by thinSt.

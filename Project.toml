@@ -1,7 +1,7 @@
 name = "ScatteringTransform"
 uuid = "eadaac29-8b6b-5395-80fd-9ce36bb46293"
 author = ["David Weber <david.weber2@gmail.com>"]
-version = "0.4.1"
+version = "0.4.2"
 
 [deps]
 AbstractFFTs = "621f4979-c628-5d54-868e-fcf4e3e8185c"

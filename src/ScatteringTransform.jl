@@ -33,6 +33,7 @@ include("Flux/flPool.jl")
 export RationPool, nPoolDims, outdims, poolSize
 include("Flux/flTransform.jl")
 export normalize
+export cu
 
 function scatteringTransform(inputSize, m, backend::UnionAll; kwargs...)
     backend(inputSize, m; kwargs...)
@@ -42,7 +43,7 @@ scatteringTransform(inputSize,m; kwargs...) =
     scatteringTransform(inputSize, m, stFlux; kwargs...)
 
 include("Flux/flUtilities.jl")
-export getWavelets, flatten, roll, importantCoords, batchOff, getParameters
+export getWavelets, flatten, roll, importantCoords, batchOff, getParameters, getMeanFreq
 include("parallel/parallelCore.jl") # there's enough weird stuff going on in
 # here that I'm isolating it in a module
 using .parallel
