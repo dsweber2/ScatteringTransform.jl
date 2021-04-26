@@ -1,18 +1,29 @@
 # how should we apply a function recursively to the stFlux type? to each part of the chain, of course
-function mapEvery3(ii, x)
+function mapEvery3(to, ii, x)
     if ii % 3 == 1
-        cu(x)
+        adapt(to, x)
     else
         x
     end
 end
 import CUDA.cu
 import FourierFilterFlux.cu
-function cu(stf::stFlux{Dimension,Depth,ChainType,D,E,F}) where {Dimension,Depth,ChainType,D,E,F}
-    newChain = Chain((map(iix -> mapEvery3(iix...), enumerate(stf.mainChain)))...)
+import Adapt.adapt
+function adapt(to, stf::stFlux{Dimension,Depth,ChainType,D,E,F}) where {Dimension,Depth,ChainType,D,E,F}
+    newChain = Chain((map(iix -> mapEvery3(to, iix...), enumerate(stf.mainChain)))...)
     return stFlux{Dimension,Depth,typeof(newChain),D,E,F}(newChain, stf.normalize, stf.outputSizes, stf.outputPool, stf.settings)
 end
 
+function adapt(to, stResult::ScatteredFull{T,N}) where {T,N}
+    data = adapt(to, stResult.data)
+    output = adapt(to, stResult.output)
+    return ScatteredFull{eltype(data),N}(stResult.m, stResult.k, data, output)
+end
+
+function adapt(to, stResult::ScatteredOut{T,N}) where {T,N}
+    output = adapt(to, stResult.output)
+    return ScatteredOut{eltype(output),N}(stResult.m, stResult.k, output)
+end
 
 
 """
@@ -20,9 +31,13 @@ wave1, wave2, wave3, ... = getWavelets(sc::stFlux)
 
 just a simple util to get the wavelets from each layer
 """
-function getWavelets(sc::stFlux)
-    map(x -> x.weight, filter(x -> (typeof(x) <: ConvFFT), sc.mainChain.layers)) # filter to only
-    # have ConvFFTs, and then return the wavelets of those
+function getWavelets(sc::stFlux; spaceDomain=false)
+    freqDomain = map(x -> x.weight, filter(x -> (typeof(x) <: ConvFFT), sc.mainChain.layers)) # filter to only have ConvFFTs, and then return the wavelets of those
+    if spaceDomain
+        return freqDomain
+    else
+        return freqDomain
+    end
 end
 
 import ContinuousWavelets:getMeanFreq
@@ -184,5 +199,5 @@ function default(s)
         Inf
     elseif s == :β
         4
-    end
+end
 end
