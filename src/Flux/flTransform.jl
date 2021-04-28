@@ -167,7 +167,6 @@ function breakAndAdapt(St::stFlux{N,D}, x) where {N,D}
         out = 3
         # clear output to force garbage collection, otherwise the gpu may be full
         addr = 1 + (ii - 1) * chunkSize:min(size(x)[end], ii * chunkSize)
-        println(addr)
         tmpX, actualSize = extractAddPadding(x, addr, chunkSize, N)
         out = applyScattering(mc, maybeAdapt(containerType, tmpX), ndims(St), St, 0)
         writeOut!(out, addr, actualSize)
