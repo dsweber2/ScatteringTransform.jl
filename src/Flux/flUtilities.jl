@@ -24,7 +24,7 @@ function adapt(to, stResult::ScatteredOut{T,N}) where {T,N}
     output = adapt(to, stResult.output)
     return ScatteredOut{eltype(output),N}(stResult.m, stResult.k, output)
 end
-
+export adapt
 
 """
 wave1, wave2, wave3, ... = getWavelets(sc::stFlux)

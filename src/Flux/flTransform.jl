@@ -92,14 +92,19 @@ function dispatchLayer(listOfSizes, Nd::Val{2}; varargs...)
 end
 
 
+Base.size(a::Tuple{AbstractFFTs.Plan,AbstractFFTs.Plan}) = size(a[1])
 
 
 # actually apply the transform
-function (st::stFlux)(x::T) where {T <: AbstractArray}
-    mc = st.mainChain.layers
-    res = applyScattering(mc, x, ndims(st), st, 0)
-    if get(st.settings, :flatten, false)
-        k = ndims(st)
+function (St::stFlux{Dimension,Depth})(x::T) where {Dimension,Depth,T <: AbstractArray}
+    mc = St.mainChain.layers
+    if size(x)[end] != getBatchSize(mc[1])
+        res = breakAndAdapt(St, x)
+    else
+        res = applyScattering(mc, x, ndims(St), St, 0)
+    end
+    if get(St.settings, :flatten, false)
+        k = ndims(St)
         netSizes = [prod(size(r)[1:nPathDims(ii) + k]) for (ii, r) in enumerate(res)]
         batchSize = size(res[1])[end]
         singleExampleSize = sum(netSizes)
@@ -107,6 +112,67 @@ function (st::stFlux)(x::T) where {T <: AbstractArray}
     else
         return ScatteredOut(res, ndims(mc[1]))
     end
+end
+
+# adapt changes both the eltype and the container type, while I just want a different container type
+function maybeAdapt(contType, x)
+    if contType <: CuArray && !(typeof(x) <: CuArray)
+        # should be a CuArray but isn't
+        return @views cu(x)
+    elseif contType <: Array && !(typeof(x) <: Array)
+        # should be an Array but isn't
+        return adapt(Array, x)
+    else
+        return x
+    end
+end
+
+"""
+extract x at adr in the last dimension, and make sure that it has a size of chunkSize
+"""
+function extractAddPadding(x, adr, chunkSize, N)
+    justUsing = x[fill(Colon(), N)..., :, adr]
+    if length(adr) < chunkSize
+        actualSize = chunkSize - length(adr)
+        return cat(justUsing, zeros(eltype(justUsing), size(x)[1:end - 1]...,
+                                    actualSize), dims=ndims(justUsing)), length(adr)
+    else
+        return justUsing, chunkSize
+    end
+end
+
+trim(x, actualSize) = x[axes(x)[1:end - 1]..., 1:actualSize]
+function breakAndAdapt(St::stFlux{N,D}, x) where {N,D}
+    mc = St.mainChain.layers
+    chunkSize = size(mc[1].fftPlan)[end]
+    nSteps = ceil(Int, (size(x)[end]) / chunkSize) # the first entry is taken care of already
+    containerType = typeof(St.mainChain[1].weight)
+    xAxes = axes(x)
+    firstAddr = 1 + 0:min(size(x)[end], chunkSize)
+    firstEx, actualSize = extractAddPadding(x, firstAddr, chunkSize, N) # x[xAxes[1:end-1]..., 1:chunkSize]
+    # do the first beforehand to get the sizes
+    out = applyScattering(mc, maybeAdapt(containerType, firstEx), ndims(St), St, 0)
+    # create storage
+    outputs = map(out -> zeros(eltype(out), size(out)[1:end - 1]..., size(x)[end]...), out)
+    # util to write out to outputs at location batchInds
+    function writeOut!(out, batchInds, actualSize)
+        for jj in 1:length(out)
+            mA = maybeAdapt(typeof(x), out[jj])
+            oAx = axes(outputs[jj])
+            @views outputs[jj][oAx[1:end - 1]..., batchInds] = trim(mA, actualSize)
+        end
+    end
+    writeOut!(out, firstAddr, actualSize) # write the first batch out
+    for ii = 2:nSteps
+        out = 3
+        # clear output to force garbage collection, otherwise the gpu may be full
+        addr = 1 + (ii - 1) * chunkSize:min(size(x)[end], ii * chunkSize)
+        println(addr)
+        tmpX, actualSize = extractAddPadding(x, addr, chunkSize, N)
+        out = applyScattering(mc, maybeAdapt(containerType, tmpX), ndims(St), St, 0)
+        writeOut!(out, addr, actualSize)
+    end
+    return outputs
 end
 
 
