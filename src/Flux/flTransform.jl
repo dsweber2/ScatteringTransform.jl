@@ -1,9 +1,7 @@
 """
-    stFlux(inputSize::NTuple{N}, m; trainable = false, normalize = true,
-                        outputPool = 2, poolBy= 3//2, σ=abs,
-                        scales=(8,8,8), shearLevels=scales/2, cws=WT.morl,
-                        averagingLengths=[4,4,4],
-                        decreasings=[2,2,2]) where {N}
+    stFlux(inputSize::NTuple{N}, m; trainable=false,
+                             normalize=true, outputPool=2,
+                             poolBy=3 // 2, σ=abs, flatten=false, kwargs...)
     stFlux(inputSize::NTuple{N}, m; trainable = false,
                         normalize = true, outputPool = 2,
                         poolBy= 3//2, σ=abs, scales=(4,4,4),
@@ -118,7 +116,7 @@ end
 function maybeAdapt(contType, x)
     if contType <: CuArray && !(typeof(x) <: CuArray)
         # should be a CuArray but isn't
-        return @views cu(x)
+        return cu(x)
     elseif contType <: Array && !(typeof(x) <: Array)
         # should be an Array but isn't
         return adapt(Array, x)

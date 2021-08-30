@@ -112,5 +112,5 @@ export pathToThinIndex, MatrixAggregator, plotCoordinate, reshapeFlattened,
 export loadSyntheticMatFile, transformFolder, flatten
 include("Flux/adjoints.jl")
 include("Flux/interpretationTools.jl")
-export ∇st, plotFirstLayer1D, gifFirstLayer, plotSecondLayer, addNextPath
+export ∇st, plotFirstLayer1D, gifFirstLayer, plotSecondLayer, addNextPath, jointPlot
 end # end Module

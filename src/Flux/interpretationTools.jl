@@ -98,16 +98,41 @@ function plotSecondLayer(stw::ScatteredOut, st; kwargs...)
     plotSecondLayer(stw[2], st;kwargs...)
 end
 
-function plotSecondLayer(stw, st; title="Second Layer results", xVals=-1, yVals=-1,
-                         logPower=true, toHeat=nothing, c=cgrad(:viridis, [0,.9]),
-                         threshold=0, freqsigdigits=3, linePalette=:greys, minLog=NaN,
-                         subClims=(Inf, -Inf), δt=1000, kwargs...)
+function plotSecondLayer(stw, st; title="Second Layer results", xVals=-1, yVals=-1, logPower=true, toHeat=nothing, c=cgrad(:viridis, [0,.9]), threshold=0, freqsigdigits=3, linePalette=:greys, minLog=NaN, subClims=(Inf, -Inf), δt=1000, firstFreqSpacing=nothing, secondFreqSpacing=nothing, transp=false, labelRot=30, frameTypes=:box, kwargs...)
     n, m = size(stw)[2:3]
     freqs = getMeanFreq(st, δt)
-    freqs = map(x -> round.(x, sigdigits=freqsigdigits), freqs)
+    freqs = map(x -> round.(x, sigdigits=freqsigdigits), freqs)[1:2]
     gr(size=2.5 .* (280, 180))
     if !(typeof(c) <: PlotUtils.ContinuousColorGradient)
         c = cgrad(c)
+    end
+    if toHeat == nothing
+        toHeat = [norm(stw[:,i,j,1]) for i = 1:n,j = 1:m]
+    end
+    if firstFreqSpacing == nothing
+        firstFreqSpacing = 1:m
+    end
+    if secondFreqSpacing == nothing
+        secondFreqSpacing = 1:n
+    end
+    # transp means transpose so that the second layer frequency is along the x-axis
+    if transp
+        xTicksFreq = (secondFreqSpacing, freqs[2][secondFreqSpacing])
+        yTicksFreq = (firstFreqSpacing, freqs[1][firstFreqSpacing])
+        freqs = reverse(freqs)
+        nTmp = n
+        n = m
+        m = nTmp
+        toHeat = toHeat'
+        xInd = 2
+        yInd = 1
+        stw = permutedims(stw, (1, 3, 2))
+    else
+        xTicksFreq = (firstFreqSpacing, freqs[1][firstFreqSpacing])
+        yTicksFreq = (secondFreqSpacing, freqs[2][secondFreqSpacing])
+        (1:m, freqs[1])
+        xInd = 1
+        yInd = 2
     end
     if xVals == -1  &&  title == ""
         xVals = (.0105, .882)
@@ -122,31 +147,28 @@ function plotSecondLayer(stw, st; title="Second Layer results", xVals=-1, yVals=
     end
     Δy = yVals[2] - yVals[1]
     yrange = range(yVals[1] + Δy / n - Δy / (n + 3), stop=yVals[2] - 2 * Δy / (n + 3) + Δy / n, length=n)
-    if toHeat == nothing
-        toHeat = [norm(stw[:,i,j,1]) for i = 1:n,j = 1:m]
-    end
     if logPower
-        toHeat = log.(toHeat)
+        toHeat = log10.(toHeat)
         if !isnan(minLog)
             toHeat = max.(minLog, toHeat)
         end
     end
+    bottom = min(minimum(toHeat), subClims[1])
+    top = max(subClims[2], maximum(toHeat))
+    totalRange = top - bottom
     if title == ""
-        plt = heatmap(toHeat; yticks=(1:n, freqs[2]), xticks=(1:m, freqs[1]), tick_direction=:out, rotation=30,
-                      xlabel="Layer 1 frequency", ylabel="Layer 2 frequency",c=c,kwargs...)
+        plt = heatmap(toHeat; yticks=yTicksFreq, xticks=xTicksFreq, tick_direction=:out, rotation=labelRot,
+                      xlabel="Layer $(xInd) frequency", ylabel="Layer $(yInd) frequency",c=c, clims=(bottom, top), kwargs...)
     else
-        plt = heatmap(toHeat; yticks=(1:n, freqs[2]), xticks=(1:m, freqs[1]), tick_direction=:out,  rotation=30,
-                      title=title, xlabel="Layer 1 frequency",
-                      ylabel="Layer 2 frequency", c=c,kwargs...)
+        plt = heatmap(toHeat; yticks=yTicksFreq, xticks=xTicksFreq, tick_direction=:out,  rotation=labelRot,
+                      title=title, xlabel="Layer $(xInd) frequency", ylabel="Layer $(yInd) frequency", c=c, clims=(bottom, top), kwargs...)
     end
     nPlot = 2
-    bottom = min(minimum(toHeat), subClims[1])
-    totalRange = max(subClims[2], maximum(toHeat)) - bottom
     for i in 1:n, j in 1:m
         if maximum(abs.(stw[:,i,j,:])) > threshold
             plt = plot!(stw[:,i,j,:], legend=false, subplot=nPlot,
                         bg_inside=c[(toHeat[i,j] - bottom) / totalRange],
-                        ticks=nothing, palette=linePalette, frame=:box,
+                        ticks=nothing, palette=linePalette, frame=frameTypes,
                         inset=(1, bbox(xrange[j], yrange[i], Δx / (m + 10),
                                       Δy / (n + 10),:bottom,:left)))
             nPlot += 1
@@ -155,20 +177,58 @@ function plotSecondLayer(stw, st; title="Second Layer results", xVals=-1, yVals=
     plt
 end
 
-function jointPlot(thingToPlot, thingName, cSymbol)
-    clims = (min(minimum.(thingToPlot)...), max(maximum.(thingToPlot)...))
-    toHeat = sum(thingToPlot[2], dims=1)[1,:,:]
-    firstLay = thingToPlot[1]'
+function jointPlot(thingToPlot, thingName, cSymbol, St; sharedColorScaling=:exp, targetExample=1, δt=1000, freqigdigits=3, sharedColorbar=true, extraPlot=nothing, allPositive=false, logPower=false, kwargs...)
+    if sharedColorbar
+        clims = (min(minimum.(thingToPlot)...), max(maximum.(thingToPlot)...))
+        climszero = clims
+        climsfirst = clims
+        climssecond = clims
+        toHeat = [norm(thingToPlot[2][:,i,j,1], Inf) for i = 1:size(thingToPlot[2], 2), j = 1:size(thingToPlot[2], 3)]
+    else
+        climszero = (min(minimum.(thingToPlot[0])...), max(maximum.(thingToPlot[0])...))
+        climsfirst = (min(minimum.(thingToPlot[1])...), max(maximum.(thingToPlot[1])...))
+        climssecond = (min(minimum.(thingToPlot[2])...), max(maximum.(thingToPlot[2])...))
+        toHeat = [norm(thingToPlot[2][:,i,j,1], Inf) for i = 1:size(thingToPlot[2], 2), j = 1:size(thingToPlot[2], 3)]
+    end
+    firstLay = thingToPlot[1][:,:,targetExample]'
+    zeroLay = thingToPlot[0][:,:,targetExample]'
     toHeat[toHeat .== 0] .= -Inf    # we would like zeroes to not actually render
     firstLay[firstLay .== 0] .= -Inf # for either layer
 
-    zeroAt = -clims[1] / (clims[2] - clims[1]) # set the mid color switch to zero
-    c = cgrad(cSymbol, [0,zeroAt])
-    p1 = plotSecondLayer(thingToPlot, title="$(thingName) Second Layer", toHeat=toHeat, logPower=false, c=c, clims=clims, subClims=clims, cbar=false, yticks=1:2:27, xticks=1:2:32, xVals=(.000, .993), yVals=(0.0, 0.994))
-    p2 = heatmap(firstLay, c=c, title="$(thingName) First Layer", xlabel="location", ylabel="frequency", clims=clims, cbar=false)
-    colorbarOnly = scatter([0,0], [0,1], zcolor=[0,3], clims=clims, xlims=(1, 1.1), xshowaxis=false, yshowaxis=false, label="", c=c, grid=false, framestyle=:none)
-    lay = @layout [grid(1, 2) a{.04w}]
-    plot(p1, p2, colorbarOnly, layout=lay)
+    # adjust the other parts to be log if logPower is true
+    if logPower && allPositive
+        absThing = map(x -> abs.(x), (thingToPlot[0], thingToPlot[1], thingToPlot[2]))
+        clims = (min(minimum.(absThing)...), max(maximum.(absThing)...))
+        firstLay = log10.(firstLay)
+        zeroLay = log10.(abs.(zeroLay))
+        climszero = log10.(clims)
+        climsfirst = log10.(clims)
+        climssecond = log10.(clims)
+    elseif logPower
+        error("not currently plotting log power and negative values")
+    end
+
+    if allPositive
+        c = cgrad(cSymbol, scale=sharedColorScaling)
+        cSecond = cgrad(cSymbol)
+    else
+        zeroAt = -climssecond[1] / (climssecond[2] - climssecond[1]) # set the mid color switch to zero
+        c = cgrad(cSymbol, [0,zeroAt], scale=sharedColorScaling)
+        cSecond = cgrad(cSymbol, [0,zeroAt])
+    end
+
+    p2 = plotSecondLayer(thingToPlot[2][:,:,:,targetExample], St; title="Second Layer", toHeat=toHeat, logPower=logPower, c=c, clims=climssecond, subClims=climssecond, cbar=false, xVals=(.000, .993), yVals=(0.0, 0.994), transp=true, kwargs...)
+    freqs = getMeanFreq(St, δt)
+    freqs = map(x -> round.(x, sigdigits=freqigdigits), freqs)
+    p1 = heatmap(firstLay, c=c, title="First Layer", clims=climsfirst, cbar=false, yticks=((1:size(firstLay, 1)), ""), xticks=((1:size(firstLay, 2)), ""), bottom_margin=-10Plots.px)
+    p0 = heatmap(zeroLay, c=c, xlabel="location\nZeroth Layer", clims=climszero, cbar=false, yticks=nothing, top_margin=-10Plots.px, bottom_margin=10Plots.px)
+    colorbarOnly = scatter([0,0], [0,1], zcolor=[0,3], clims=climssecond, xlims=(1, 1.1), xshowaxis=false, yshowaxis=false, label="", c=c, grid=false, framestyle=:none)
+    if extraPlot == nothing
+        extraPlot = plot(legend=false, grid=false, foreground_color_subplot=:white, top_margin=-10Plots.px)
+    end
+    titlePlot = plot(title=thingName, grid=false, showaxis=false, xticks=nothing, yticks=nothing, bottom_margin=-10Plots.px)
+    lay = @layout [o{.00001h}; [[a b; c{.1h} d{.1h}] b{.04w}]]
+    plot(titlePlot, p2, p1, extraPlot, p0, colorbarOnly, layout=lay)
 end
 
 """
