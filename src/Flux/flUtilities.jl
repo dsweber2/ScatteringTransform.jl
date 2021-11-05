@@ -6,8 +6,11 @@ function mapEvery3(to, ii, x)
         x
     end
 end
-import CUDA.cu
 import FourierFilterFlux.cu
+function cu(stf::stFlux{Dimension,Depth,ChainType,D,E,F}) where {Dimension,Depth,ChainType,D,E,F}
+    newChain = Chain((map(iix -> (iix[1] % 3 == 1 ? cu(iix[2]) : iix[2]), enumerate(stf.mainChain)))...)
+    return stFlux{Dimension,Depth,typeof(newChain),D,E,F}(newChain, stf.normalize, stf.outputSizes, stf.outputPool, stf.settings)
+end
 import Adapt.adapt
 function adapt(to, stf::stFlux{Dimension,Depth,ChainType,D,E,F}) where {Dimension,Depth,ChainType,D,E,F}
     newChain = Chain((map(iix -> mapEvery3(to, iix...), enumerate(stf.mainChain)))...)
@@ -200,4 +203,16 @@ function default(s)
     elseif s == :β
         4
 end
+end
+
+import Base.size
+function size(st::stFlux)
+    l = st.mainChain[1]
+    if typeof(l.fftPlan) <: Tuple
+        sz = l.fftPlan[2].sz
+    else
+        sz = l.fftPlan.sz
+    end
+    es = originalSize(sz[1:ndims(l.weight) - 1], l.bc)
+    return es
 end
