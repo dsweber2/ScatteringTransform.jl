@@ -62,6 +62,7 @@ end
     @test size(smooshed) ==(totalSize, 2)
 end
 
+nFilters = [1,9,9]
 @testset "1D basics" begin
     init = ifGpu(10 .+ randn(64, 3, 2));
     sst = stFlux(size(init), 2, poolBy=3//2, outputPool=(2,))
@@ -69,17 +70,17 @@ end
     @test length(res.output)== 2+1
     @test size(res.output[1]) == (32, 3, 2)
     @test minimum(abs.(res.output[1])) > 0
-    @test size(res.output[2]) == (22, 3*11, 2)
+    @test size(res.output[2]) == (22, 3*nFilters[2], 2)
     @test minimum(abs.(res.output[2])) > 0
-    @test size(res.output[3]) == (14, 8, 3*11, 2)
+    @test size(res.output[3]) == (14, nFilters[3], 3*nFilters[2], 2)
     @test minimum(abs.(res.output[3])) > 0
-    totalSize = 32*3 + 22*3*11 + 14*8*3*11
+    totalSize = 32*3 + 22*3*nFilters[2] + 14*nFilters[3]*3*nFilters[2]
     smooshed = ScatteringTransform.flatten(res);
     @test size(smooshed) == (totalSize, 2)
     sst1 = stFlux(size(init), 2, poolBy=3//2, outputPool=(2,),flatten=true)
     res1 = sst1(init)
-    @test res1 isa Array{Float64, 2}
-    @test size(res1) == (32*3 + 22*3*11 + 14*8*33, 2)
+    @test res1 isa Array{Float32, 2}
+    @test size(res1) == (32*3 + 22*3*nFilters[2] + 14*nFilters[3]*nFilters[2]*3, 2)
     @test res1[1:32*3,1] ≈ reshape(res[0][:,:,1], (32*3,))
 end
 
@@ -88,7 +89,6 @@ end
     stEx = stFlux((131,131,1,1), 2, poolBy=3)
     stEx.outputSizes
     c = stEx.mainChain
-    size(c[3](c[2](c[1](randn(131,131,1,1)))))
     scat = stEx(ifGpu(randn(131,131,1,1)))
     @test size(stEx.mainChain[1].fftPlan) == (391, 391, 1, 1)
     @test size(stEx.mainChain[4].fftPlan) == (96, 106, 48, 1)
@@ -103,23 +103,24 @@ end
     @test ([size(s) for s in scat.output]...,) == stEx.outputSizes
 end
 
+nFilters = [1,10,9]
 @testset "1D integer pooling" begin
     stEx = stFlux((131,1,1), 2, poolBy=3)
 
-    scat = stEx(ifGpu(randn(131,1,1)));
+    scat = stEx(ifGpu(randn(131,1,1)))
     @test size(stEx.mainChain[1].fftPlan[1]) == (2*131,1,1)
     @test size(stEx.mainChain[1].fftPlan[2]) == (2*131,1,1)
-    @test size(stEx.mainChain[4].fftPlan[1]) ==(2*44, 14,1)
-    @test size(stEx.mainChain[4].fftPlan[2]) ==(2*44, 14,1)
-    @test size(stEx.mainChain[7].fftPlan[1]) == (2*15,8,14,1)
-    @test size(stEx.mainChain[7].fftPlan[2]) == (2*15,8,14,1)
-    @test stEx.mainChain[1].bc == Sym()
-    @test stEx.mainChain[4].bc == Sym()
-    @test stEx.mainChain[7].bc == Sym()
+    @test size(stEx.mainChain[4].fftPlan[1]) ==(2*44, nFilters[2],1)
+    @test size(stEx.mainChain[4].fftPlan[2]) ==(2*44, nFilters[2],1)
+    @test size(stEx.mainChain[7].fftPlan[1]) == (2*15,nFilters[3],nFilters[2],1)
+    @test size(stEx.mainChain[7].fftPlan[2]) == (2*15,nFilters[3],nFilters[2],1)
+    @test stEx.mainChain[1].bc == FourierFilterFlux.Sym()
+    @test stEx.mainChain[4].bc == FourierFilterFlux.Sym()
+    @test stEx.mainChain[7].bc == FourierFilterFlux.Sym()
     @test stEx.outputPool == ((2,), (2,), (2,))
     @test ndims(stEx)==1
 
-    resultSize = ((66, 1, 1), (22, 14, 1), (8, 8, 14, 1))
+    resultSize = ((66, 1, 1), (22, nFilters[2], 1), (8, nFilters[3], nFilters[2], 1))
     @test stEx.outputSizes == resultSize
     @test ([size(s) for s in scat.output]...,) == resultSize
     @test stEx.outputSizes == ([size(s) for s in scat.output]...,)
@@ -216,7 +217,7 @@ end
     p = pathLocs(2, (4:9, 5))
     newVal = randn(23,6,1)
     ex[p] = newVal
-    @test ex[p] ≈ newVal #TODO broken
+    @test ex[p] ≈ newVal
 
     p = pathLocs(2, (4:9, 5), 1, (3:5,))
     newVal = (randn(34,3,1), randn(23,6,1))
@@ -244,9 +245,7 @@ end
     p = pathLocs(2, (4:9, 5))
     y, back = pullback(x->x[p], ex)
     res = back(y)
-    res[1][p]
-    ex[p]
-    @test res[1][p] == ex[p] # TODO this is broken because an assignment above is broken
+    @test res[1][p] == ex[p]
     anti_p = pathLocs(2, ([1:3..., 10,11], [1:4... 6:13...]))
     @test res[1][anti_p] ==zeros(23,5,1,12,1)
     @test maximum(maximum.(res[1][0:1])) == 0
