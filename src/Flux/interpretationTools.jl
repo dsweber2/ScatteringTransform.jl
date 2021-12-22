@@ -95,10 +95,15 @@ If you have no colorbar, set `xVals = (.0015, .997), yVals = (.002, .992)`
 In the case that arbitrary space has been introduced, if you have a title, use `xVals = (.037, .852), yVals = (.056, .939)`, or if you have no title, use `xVals = (.0105, .882), yVals = (.056, .939)`
 """
 function plotSecondLayer(stw::ScatteredOut, st; kwargs...)
-    plotSecondLayer(stw[2], st; kwargs...)
+    secondLayerRes = stw[2]
+    if ndims(secondLayerRes) > 3
+        return plotSecondLayer(secondLayerRes[:, :, :, 1], st; kwargs...)
+    else
+        return plotSecondLayer(secondLayerRes, st; kwargs...)
+    end
 end
 
-function plotSecondLayer(stw, st; title = "Second Layer results", xVals = -1, yVals = -1, logPower = true, toHeat = nothing, c = cgrad(:viridis, [0, 0.9]), threshold = 0, freqsigdigits = 3, linePalette = :greys, minLog = NaN, subClims = (Inf, -Inf), δt = 1000, firstFreqSpacing = nothing, secondFreqSpacing = nothing, transp = false, labelRot = 30, frameTypes = :box, kwargs...)
+function plotSecondLayer(stw, st; title = "Second Layer results", xVals = -1, yVals = -1, logPower = true, toHeat = nothing, c = cgrad(:viridis, [0, 0.9]), threshold = 0, freqsigdigits = 3, linePalette = :greys, minLog = NaN, subClims = (Inf, -Inf), δt = 1000, firstFreqSpacing = nothing, secondFreqSpacing = nothing, transp = true, labelRot = 30, xlabel = nothing, ylabel = nothing, frameTypes = :box, miniFillAlpha = 0.5, kwargs...)
     n, m = size(stw)[2:3]
     freqs = getMeanFreq(st, δt)
     freqs = map(x -> round.(x, sigdigits = freqsigdigits), freqs)[1:2]
@@ -126,7 +131,7 @@ function plotSecondLayer(stw, st; title = "Second Layer results", xVals = -1, yV
         toHeat = toHeat'
         xInd = 2
         yInd = 1
-        stw = permutedims(stw, (1, 3, 2))
+        stw = permutedims(stw, (1, 3, 2, (4:ndims(stw))...))
     else
         xTicksFreq = (firstFreqSpacing, freqs[1][firstFreqSpacing])
         yTicksFreq = (secondFreqSpacing, freqs[2][secondFreqSpacing])
@@ -156,12 +161,20 @@ function plotSecondLayer(stw, st; title = "Second Layer results", xVals = -1, yV
     bottom = min(minimum(toHeat), subClims[1])
     top = max(subClims[2], maximum(toHeat))
     totalRange = top - bottom
+    # substitute given x and y labels if needed
+    if isnothing(xlabel)
+        xlabel = "Layer $(xInd) frequency (Hz)"
+    end
+    if isnothing(ylabel)
+        ylabel = "Layer $(yInd) frequency (Hz)"
+    end
+
     if title == ""
         plt = heatmap(toHeat; yticks = yTicksFreq, xticks = xTicksFreq, tick_direction = :out, rotation = labelRot,
-            xlabel = "Layer $(xInd) frequency", ylabel = "Layer $(yInd) frequency", c = c, clims = (bottom, top), kwargs...)
+            xlabel = xlabel, ylabel = ylabel, c = c, clims = (bottom, top), kwargs...)
     else
         plt = heatmap(toHeat; yticks = yTicksFreq, xticks = xTicksFreq, tick_direction = :out, rotation = labelRot,
-            title = title, xlabel = "Layer $(xInd) frequency", ylabel = "Layer $(yInd) frequency", c = c, clims = (bottom, top), kwargs...)
+            title = title, xlabel = xlabel, ylabel = ylabel, c = c, clims = (bottom, top), kwargs...)
     end
     nPlot = 2
     for i in 1:n, j in 1:m
@@ -170,7 +183,7 @@ function plotSecondLayer(stw, st; title = "Second Layer results", xVals = -1, yV
                 bg_inside = c[(toHeat[i, j]-bottom)/totalRange],
                 ticks = nothing, palette = linePalette, frame = frameTypes,
                 inset = (1, bbox(xrange[j], yrange[i], Δx / (m + 10),
-                    Δy / (n + 10), :bottom, :left)))
+                    Δy / (n + 10), :bottom, :left)), fill = 0, fillalpha = miniFillAlpha)
             nPlot += 1
         end
     end
