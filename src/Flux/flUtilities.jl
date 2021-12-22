@@ -37,9 +37,9 @@ just a simple util to get the wavelets from each layer
 function getWavelets(sc::stFlux; spaceDomain = false)
     freqDomain = map(x -> x.weight, filter(x -> (typeof(x) <: ConvFFT), sc.mainChain.layers)) # filter to only have ConvFFTs, and then return the wavelets of those
     if spaceDomain
-        return freqDomain
+        return map(originalDomain, filter(x -> (typeof(x) <: ConvFFT), sc.mainChain.layers))
     else
-        return freqDomain
+        return map(x -> x.weight, filter(x -> (typeof(x) <: ConvFFT), sc.mainChain.layers))
     end
 end
 
