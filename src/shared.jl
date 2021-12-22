@@ -8,7 +8,7 @@ struct stFlux{Dimension,Depth,ChainType,D,E,F} <: scatteringTransform{Dimension,
 end
 
 import Base.ndims
-ndims(s::scatteringTransform{D}) where D = D
+ndims(s::scatteringTransform{D}) where {D} = D
 nPathDims(ii) = 1 + max(min(ii - 2, 1), 0) # the number of path dimensions at layer ii (zeroth
 # is ii=1)
 depth(s::scatteringTransform{Dim,Depth}) where {Dim,Depth} = Depth
@@ -16,10 +16,10 @@ function Base.show(io::IO, st::stFlux{Dim,Dep}) where {Dim,Dep}
     layers = st.mainChain.layers
     σ = st.settings[:σ]
     Nd = ndims(st)
-    nFilters = [size(layers[i].weight, 3) - 1 for i = 1:3:(3 * Dim)]
+    nFilters = [size(layers[i].weight, 3) - 1 for i = 1:3:(3*Dim)]
     batchSize = getBatchSize(layers[1])
     print(io, "stFlux{$(Dep), Nd=$(Nd), filters=$(nFilters), σ = " *
-          "$(σ), batchSize = $(batchSize), normalize = $(st.normalize)}")
+              "$(σ), batchSize = $(batchSize), normalize = $(st.normalize)}")
 end
 
 # the type T is a type of frame transform that forms the backbone of the transform

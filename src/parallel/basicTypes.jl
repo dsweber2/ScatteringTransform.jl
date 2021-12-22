@@ -4,8 +4,8 @@
     layers = stParallel(m, Xlength; CWTType=morl, subsampling = 2,
                     outputSize=[1,1], varargs...)
  """
-function stParallel(m, Xlength; CWTType=morl, subsampling=2,
-                    outputSize=[1,1], varargs...)
+function stParallel(m, Xlength; CWTType = morl, subsampling = 2,
+    outputSize = [1, 1], varargs...)
     CWTType = makeTuple(m + 1, CWTType)
     subsampling = makeTuple(m + 1, subsampling)
     pairedArgs = processArgs(m + 1, varargs)

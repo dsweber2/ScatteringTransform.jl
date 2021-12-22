@@ -34,19 +34,19 @@ end
     @debug "created stParallel"
     n, q, dataSizes, outputSizes, resultingSize =
         ScatteringTransform.parallel.calculateSizes(layers, (-1, -1),
-                                                    dataS)
+            dataS)
     ScatteringTransform.parallel.createFFTPlans
     createFFTPlans
     # there's only one plan when it's complex
     @debug "creating FFTPlans"
-    plans = createFFTPlans(layers, dataSizes, iscomplex=true)
+    plans = createFFTPlans(layers, dataSizes, iscomplex = true)
     @test size(plans) == (nworkers(), depth + 1)
 
     # test that the sizes fit for mirroring the data
     mirSize = [(2dS[1], dS[3:end]...) for dS in dataSizes]
     @debug "starting the remote calls"
-    @test minimum(remotecall_fetch(testFFTPlans, i, plans[i,j], mirSize[j], true, (0, 0)) for i = 1:size(plans, 1) for j = 1:size(plans, 2))
+    @test minimum(remotecall_fetch(testFFTPlans, i, plans[i, j], mirSize[j], true, (0, 0)) for i = 1:size(plans, 1) for j = 1:size(plans, 2))
 
-    plans = createFFTPlans(layers, dataSizes, iscomplex=false)
-    @test minimum(remotecall_fetch(testFFTPlans, i, plans[i,j], mirSize[j], false, (0, 0)) for i = 1:size(plans, 1) for j = 1:size(plans, 2))
+    plans = createFFTPlans(layers, dataSizes, iscomplex = false)
+    @test minimum(remotecall_fetch(testFFTPlans, i, plans[i, j], mirSize[j], false, (0, 0)) for i = 1:size(plans, 1) for j = 1:size(plans, 2))
 end

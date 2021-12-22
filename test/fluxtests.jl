@@ -226,7 +226,7 @@ end
     # this is still broken; some sort of broadcast shenanigans
     p = pathLocs(0,40:46)
     ex[p] .= 1
-    @test minimum(ex[p] .≈ 1) #TODO broken
+    @test minimum(ex[p] .≈ 1) #TODO broken 
 
     # single entries behave a bit strangely
     p = pathLocs(0, 3)

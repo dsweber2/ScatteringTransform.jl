@@ -32,37 +32,37 @@ function Base.show(io::IO, m::RationPool)
 end
 
 function RationPool(resSize::Tuple{Vararg{<:Union{<:Integer,Rational{<:Integer}},N}},
-                    k=2; nExtraDims=2, poolType=MeanPool) where N
+    k = 2; nExtraDims = 2, poolType = MeanPool) where {N}
     effResSize = (resSize..., ntuple(ii -> 1 // 1, nExtraDims - 2)...)
     subBy = map(ki -> ((ki == 1) ? 1 : k), effResSize) # any non-trivial dim
     # should subsample at a rate of k
-    m = poolType(subBy, pad=0, stride=1)
+    m = poolType(subBy, pad = 0, stride = 1)
     # SamePad() means that sz = inputsize / stride
     RationPool{typeof(m),typeof(resSize)}(m, resSize)
 end
 
-RationPool(resSize::Union{<:Integer,Rational{<:Integer}}, k=3;
-           nExtraDims=2) =
-               RationPool((resSize,), k; nExtraDims=nExtraDims)
+RationPool(resSize::Union{<:Integer,Rational{<:Integer}}, k = 3;
+    nExtraDims = 2) =
+    RationPool((resSize,), k; nExtraDims = nExtraDims)
 
-import Base:getindex
+import Base: getindex
 Base.getindex(X::RationPool, i::Union{AbstractArray,<:Integer}) = X.resSize[i]
-import Base:ndims
+import Base: ndims
 ndims(r::MaxPool{N,M}) where {N,M} = N
 ndims(r::MeanPool{N,M}) where {N,M} = N
 nPoolDims(r::RationPool{A,<:Tuple{Vararg{<:Any,N}}}) where {A,N} = N
-import Flux:outdims
+import Flux: outdims
 outdims(r::RationPool) = 3
-using Zygote:hook
-function (r::RationPool)(x::AbstractArray{<:Any,N}) where N
+using Zygote: hook
+function (r::RationPool)(x::AbstractArray{<:Any,N}) where {N}
     Nd = nPoolDims(r)
     Nneed = ndims(r.m) + 2
     extraDims = ntuple(ii -> 1, Nneed - N)
-    partial = reshape(x, (size(x)[1:Nd]..., extraDims..., size(x)[Nd + 1:end]...))
+    partial = reshape(x, (size(x)[1:Nd]..., extraDims..., size(x)[Nd+1:end]...))
     partial = r.m(partial)
     address = map(stopAtExactly_WithRate_FromSize_, size(partial)[1:nPoolDims(r)], r.resSize, size(x)[1:nPoolDims(r)])
     ax = axes(partial)
-    endAxes = ax[Nd + Nneed - N + 1:end] # grab the stuff after extraDims
+    endAxes = ax[Nd+Nneed-N+1:end] # grab the stuff after extraDims
     return partial[address..., extraDims..., endAxes...]
 end
 
@@ -86,10 +86,10 @@ function poolSingle(kk, siz)
 end
 
 function stopAtExactly_WithRate_(i, subBy)
-    tmp = round.(Int, range(1, stop=i, length=round(Int, i / subBy)))
+    tmp = round.(Int, range(1, stop = i, length = round(Int, i / subBy)))
     return tmp
 end
 function stopAtExactly_WithRate_FromSize_(i, subBy, orig)
-    tmp = round.(Int, range(1, stop=i, length=round(Int, orig / subBy)))
+    tmp = round.(Int, range(1, stop = i, length = round(Int, orig / subBy)))
     return tmp
 end

@@ -7,7 +7,7 @@ using HDF5, JLD
 using Plots
 # todo remove nScales controls
 # the overall container defines a few types we need here
-import ScatteringTransform:stParallel, Scattered, ScatteredFull, ScatteredOut, depth, eltypes
+import ScatteringTransform: stParallel, Scattered, ScatteredFull, ScatteredOut, depth, eltypes
 
 include("subsampling.jl")
 export sizes, bsplineType, bilinearType

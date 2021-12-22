@@ -10,12 +10,12 @@ struct ScatteredFull{T,N} <: Scattered{T,N}
     m::Int64 # number of layers, counting the zeroth layer
     k::Int64 # the meta-dimension of the signals (should be either 1 or 2)
     data::Array{AbstractArray{T,N},1} # original last dimension is time, new
-                                         # path/frequency
+    # path/frequency
     output::Array{AbstractArray{T,N},1} # The final averaged results; this is the
-                                # output from the entire system
-    function ScatteredFull{T,N}(m, k, data, output) where {T <: Number,N}
+    # output from the entire system
+    function ScatteredFull{T,N}(m, k, data, output) where {T<:Number,N}
         @assert N > k # The size of the arrays must be at least 1 larger than the
-                    # input dimension
+        # input dimension
         m = Int64(m)
         k = Int64(k)
         # check data
@@ -43,9 +43,9 @@ struct ScatteredOut{T,N} <: Scattered{T,N}
     k::Int# the meta-dimension of the signals (should be either 1 or 2)
     output
 end
-function ScatteredOut(output, k=1)
+function ScatteredOut(output, k = 1)
     ScatteredOut{eltype(output),length(output)}(length(output) - 1, k,
-                                                           output)
+        output)
 end
 
 arrayType(::ScatteredOut{T,N}) where {T,N} = T
@@ -60,34 +60,34 @@ noutputs(::ScatteredOut{T,N}) where {T,N} = N
 function ScatteredOut(m, k, fixDim, n, q, T)
     @assert m + 1 == size(n, 1)
     @assert m + 1 == length(q)
-    @assert   k == size(n, 2)
+    @assert k == size(n, 2)
     fixDim = Int.(fixDim)
     n = Int.(n)
     q = Int.(q)
     N = k + length(fixDim) + 1
-    output = [zeros(T,  n[i,:]..., prod(q[1:(i - 1)] .- 1), fixDim...) for i = 1:m + 1]
+    output = [zeros(T, n[i, :]..., prod(q[1:(i-1)] .- 1), fixDim...) for i = 1:m+1]
     return ScatteredOut{T,N}(m, k, data, output)
 end
 
 function ScatteredFull(m, k, fixDim::Array{<:Real,1}, n::Array{<:Real,2},
-                   q::Array{<:Real,1}, T)
+    q::Array{<:Real,1}, T)
     @assert m + 1 == size(n, 1)
     @assert m + 1 == length(q)
-    @assert   k == size(n, 2)
+    @assert k == size(n, 2)
     fixDim = Int.(fixDim)
     n = Int.(n)
     q = Int.(q)
     N = k + length(fixDim) + 1
-    data = [zeros(T, n[i,:]..., prod(q[1:i] .- 1), fixDim...) for i = 1:m + 1]
-    output = [zeros(T,  n[i,:]..., prod(q[1:(i - 1)] .- 1), fixDim...) for i = 1:m + 1]
+    data = [zeros(T, n[i, :]..., prod(q[1:i] .- 1), fixDim...) for i = 1:m+1]
+    output = [zeros(T, n[i, :]..., prod(q[1:(i-1)] .- 1), fixDim...) for i = 1:m+1]
     return ScatteredFull{T,N}(m, k, data, output)
 end
 
 
 import Base.==, Base.+, Base.-, Base.broadcast, Base.length, Base.size, Base.iterate, Base.broadcastable
 
-==(a::ScatteredOut,b::ScatteredOut) = all(a.output .== b.output)
-==(a::ScatteredFull,b::ScatteredFull) = all(a.data .== b.data) && all(a.output .== b.output)
+==(a::ScatteredOut, b::ScatteredOut) = all(a.output .== b.output)
+==(a::ScatteredFull, b::ScatteredFull) = all(a.data .== b.data) && all(a.output .== b.output)
 function +(a::ScatteredOut, b::ScatteredOut)
     @assert a.m == b.m
     @assert a.k == b.k
@@ -113,7 +113,7 @@ broadcast(f, a::ScatteredOut, varargs...) =
     ScatteredOut(a.m, a.k, map(x -> broadcast(f, x, varargs...), a.output))
 broadcast(f, a::ScatteredFull, varargs...) =
     ScatteredFull(a.m, a.k, map(x -> broadcast(f, x, varargs...), a.data),
-                  map(x -> broadcast(f, x, varargs...), a.output))
+        map(x -> broadcast(f, x, varargs...), a.output))
 broadcastable(a::Scattered) = a.output
 iterate(a::Scattered) = iterate(a.output)
 iterate(a::Scattered, b) = iterate(a.output, b)
@@ -123,30 +123,30 @@ size(sct::ScatteredOut) = map(x -> size(x), sct.output)
 size(sct::ScatteredFull) = map(x -> size(x), sct.data)
 import Base.similar
 similar(sct::ScatteredOut) = ScatteredOut(sct.m, sct.k,
-                                       map(x -> similar(x), sct.output))
+    map(x -> similar(x), sct.output))
 similar(sct::ScatteredFull) = ScatteredFull(sct.m, sct.k,
-                                        map(x -> similar(x), sct.data),
-                                        map(x -> similar(x), sct.output))
+    map(x -> similar(x), sct.data),
+    map(x -> similar(x), sct.output))
 import Statistics.mean
 function mean(a::ScatteredOut)
-    ScatteredOut(a.m, a.k, map(x -> mean(x, dims=ndims(x)), a.output))
+    ScatteredOut(a.m, a.k, map(x -> mean(x, dims = ndims(x)), a.output))
 end
 import Base.cat
 
-function cat(sc::ScatteredOut, sc1::ScatteredOut, sc2::Vararg{<:ScatteredOut,N}) where N
+function cat(sc::ScatteredOut, sc1::ScatteredOut, sc2::Vararg{<:ScatteredOut,N}) where {N}
     @assert !any([sc.m != sc1.m, (sc.m .!= map(s -> s.m, sc2))])# check they're
     @assert !any([sc.k != sc1.k, (sc.k .!= map(s -> s.k, sc2))])# all equal
     outputs = map(x -> x.output, (sc, sc1, sc2...))
-    output = map(x -> cat(x..., dims=ndims(x[1])), zip(outputs...))
+    output = map(x -> cat(x..., dims = ndims(x[1])), zip(outputs...))
     return ScatteredOut(sc.m, sc.k, tuple(output...))
 end
-function cat(sc::ScatteredFull, sc1::ScatteredFull, sc2::Vararg{<:ScatteredFull,N}) where N
+function cat(sc::ScatteredFull, sc1::ScatteredFull, sc2::Vararg{<:ScatteredFull,N}) where {N}
     @assert !any([sc.m != sc1.m, (sc.m .!= map(s -> s.m, sc2))])# check they're
     @assert !any([sc.k != sc1.k, (sc.k .!= map(s -> s.k, sc2))])# all equal
     outputs = map(x -> x.output, (sc, sc1, sc2...))
-    output = map(x -> cat(x..., dims=ndims(x[1])), zip(outputs...))
+    output = map(x -> cat(x..., dims = ndims(x[1])), zip(outputs...))
     datas = map(x -> x.data, (sc, sc1, sc2...))
-    data = map(x -> cat(x..., dims=ndims(x[1])), zip(datas...))
+    data = map(x -> cat(x..., dims = ndims(x[1])), zip(datas...))
     return ScatteredFull(sc.m, sc.k, tuple(data...), tuple(output...))
 end
 
@@ -182,25 +182,25 @@ function pathLocs(ii, s::Scattered)
 end
 
 # access methods
-import Base:getindex
-Base.getindex(X::Scattered, i::Union{Tuple,<:AbstractArray}) = X.output[i .+ 1]
-Base.getindex(X::Scattered, i::Integer) = X.output[i + 1]
+import Base: getindex
+Base.getindex(X::Scattered, i::Union{Tuple,<:AbstractArray}) = X.output[i.+1]
+Base.getindex(X::Scattered, i::Integer) = X.output[i+1]
 function Base.getindex(X::ScatteredOut{T,N}, c::Colon,
-                       i::Union{<:AbstractArray,<:Integer}) where {T,N}
-    ScatteredOut{T,N}(X.m, X.k, map(x -> x[axes(x)[1:end - 1]..., i...], X.output))
+    i::Union{<:AbstractArray,<:Integer}) where {T,N}
+    ScatteredOut{T,N}(X.m, X.k, map(x -> x[axes(x)[1:end-1]..., i...], X.output))
 end
 function Base.getindex(X::ScatteredFull{T,N}, c::Colon,
-                       i::Union{<:AbstractArray,<:Integer}) where {T,N}
-    ScatteredFull{T,N}(X.m, X.k, map(x -> x[axes(x)[1:end - 1]..., i], X.data),
-                  map(x -> x[axes(x)[1:end - 1]..., i], X.output))
+    i::Union{<:AbstractArray,<:Integer}) where {T,N}
+    ScatteredFull{T,N}(X.m, X.k, map(x -> x[axes(x)[1:end-1]..., i], X.data),
+        map(x -> x[axes(x)[1:end-1]..., i], X.output))
 end
 
-function Base.getindex(X::Scattered, p::pathLocs{m}) where m
+function Base.getindex(X::Scattered, p::pathLocs{m}) where {m}
     ijk = p.indices
     λ(ii, access) = X[ii][access...]
     λ(ii, access::Nothing) = nothing
     λ(ii, access::AbstractArray) = X[ii][access]
-    res = filter(x -> x != nothing, map(λ, (0:length(ijk) - 1), ijk))
+    res = filter(x -> x != nothing, map(λ, (0:length(ijk)-1), ijk))
     if length(res) == 1
         return res[1]
     else
@@ -232,7 +232,7 @@ function Base.setindex!(X::Scattered, v::Tuple, p::pathLocs{m}) where m
             inputInd += 1
         elseif typeof(ind) <: Union{BitArray,Array{Bool}}
             netSize = count(ind)
-            res[mm][ind] = v[inputInd:inputInd + netSize - 1]
+            res[mm][ind] = v[inputInd:inputInd+netSize-1]
             inputInd += netSize
         elseif ind != nothing
             res[mm][ind...] .= v[inputInd]
@@ -250,11 +250,11 @@ function Base.setindex!(X::Scattered, v, p::pathLocs{m}) where m
             inputInd += 1
         elseif typeof(ind) <: Union{BitArray,Array{Bool}}
             netSize = count(ind)
-            res[mm][ind] = v[inputInd:inputInd + netSize - 1]
+            res[mm][ind] = v[inputInd:inputInd+netSize-1]
             inputInd += netSize
         elseif ind != nothing && size(v) != size(res[mm][ind...])
             netSize = prod(size(res[mm][ind...]))
-            res[mm][ind...] = reshape(v[inputInd:inputInd + netSize - 1], size(res[mm][ind...]))
+            res[mm][ind...] = reshape(v[inputInd:inputInd+netSize-1], size(res[mm][ind...]))
             inputInd += 1
         elseif ind != nothing
             res[mm][ind...] = v
@@ -269,7 +269,7 @@ union(a, b::Colon) = Colon()
 union(a::Colon, b) = Colon()
 union(a::Colon, b::Colon) = Colon()
 # if we want to join several pathLocs
-function cat(ps::Vararg{pathLocs,N}) where N
+function cat(ps::Vararg{pathLocs,N}) where {N}
     ł(a::Nothing, b::Nothing) = nothing
     ł(a::Nothing, b) = b
     ł(a, b::Nothing) = a
@@ -284,7 +284,7 @@ end
 given a Scattered, return the pathLocs where the Scattered is nonzero. `wholePath` is true if it returns the whole path, and not just the specific location in the signal. For example, if only `sc(pathLocs(1,(30,2)))` is nonzero, if `wholePath` is true, then `pathLocs(1,(2,))` will be returned while if it is false, `pathLocs(1,(30,2))` will be returned instead.
 if `allTogetherInOne` is false, then each location is returned separately, otherwise they are joined into a single `pathLocs`.
 """
-function nonZeroPaths(sc; wholePath=true, allTogetherInOne=false)
+function nonZeroPaths(sc; wholePath = true, allTogetherInOne = false)
     if wholePath
         return wholeNonzeroPaths(sc, allTogetherInOne)
     else
@@ -304,24 +304,24 @@ function partNonzeroPaths(sc, allTogetherInOne)
     nonZeroLocs = abs.(sc[0]) .> 0
     typeof(nonZeroLocs)
     if any(nonZeroLocs)
-        paths = (paths..., pathLocs(0, nonZeroLocs, d=Nd))
+        paths = (paths..., pathLocs(0, nonZeroLocs, d = Nd))
     end
     # first layer
-    nonZero1 = map(i -> abs.(sc[pathLocs(1, i, d=Nd)]) .> 0, 1:sz[2][end - 1])
+    nonZero1 = map(i -> abs.(sc[pathLocs(1, i, d = Nd)]) .> 0, 1:sz[2][end-1])
     nonZero1 = map(x -> reshape(x, (size(x)[1:Nd]..., 1, size(x)[end])), nonZero1)
-    nonZero1 = cat(nonZero1..., dims=Nd + 1)
+    nonZero1 = cat(nonZero1..., dims = Nd + 1)
     if any(nonZero1)
-        paths = (paths..., pathLocs(1, nonZero1, d=Nd))
+        paths = (paths..., pathLocs(1, nonZero1, d = Nd))
     end
     # second layer
     nonZero2 = abs.(sc[pathLocs(2, :)]) .> 0
     if any(nonZero2)
-        paths = (paths..., pathLocs(2, nonZero2, d=Nd))
+        paths = (paths..., pathLocs(2, nonZero2, d = Nd))
     end
     return cat(paths...)
 end
 
-function wholeNonzeroPaths(sc, allTogetherInOne=false)
+function wholeNonzeroPaths(sc, allTogetherInOne = false)
     sz = size(sc)
     paths = Tuple{Vararg{pathLocs,0}}()
     # zeroth layer
@@ -329,11 +329,11 @@ function wholeNonzeroPaths(sc, allTogetherInOne=false)
         paths = (paths..., pathLocs(0, :))
     end
     # first layer
-    nonZero1 = filter(i -> maximum(abs.(sc[pathLocs(1, i)])) > 0, 1:sz[2][end - 1])
+    nonZero1 = filter(i -> maximum(abs.(sc[pathLocs(1, i)])) > 0, 1:sz[2][end-1])
     paths = (paths..., map(x -> pathLocs(1, x), nonZero1)...)
 
     # second layer
-    nonZero2 = [pathLocs(2, (i, j)) for i = 1:sz[3][end - 2], j = 1:sz[3][end - 1] if maximum(abs.(sc[pathLocs(2, (i, j))])) > 0]
+    nonZero2 = [pathLocs(2, (i, j)) for i = 1:sz[3][end-2], j = 1:sz[3][end-1] if maximum(abs.(sc[pathLocs(2, (i, j))])) > 0]
     paths = (paths..., nonZero2...)
     if allTogetherInOne
         return cat(paths...)
