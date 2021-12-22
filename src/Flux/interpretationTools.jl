@@ -230,14 +230,19 @@ function jointPlot(thingToPlot, thingName, cSymbol, St; sharedColorScaling = :ex
         cSecond = cgrad(cSymbol, [0, zeroAt])
     end
 
-    p2 = plotSecondLayer(thingToPlot[2][:, :, :, targetExample], St; title = "Second Layer", toHeat = toHeat, logPower = logPower, c = c, clims = climssecond, subClims = climssecond, cbar = false, xVals = (0.000, 0.993), yVals = (0.0, 0.994), transp = true, kwargs...)
+    # define the spatial locations as they correspond to the input
+    spaceLocs = range(1, size(St)[1], length = length(zeroLay))
+
+    p2 = plotSecondLayer(thingToPlot[2][:, :, :, targetExample], St; title = "Second Layer", toHeat = toHeat, logPower = logPower, c = c, clims = climssecond, subClims = climssecond, cbar = false, xVals = (0.000, 0.993), yVals = (0.0, 0.994), transp = true, xlabel = "", kwargs...)
     freqs = getMeanFreq(St, δt)
     freqs = map(x -> round.(x, sigdigits = freqigdigits), freqs)
     p1 = heatmap(firstLay, c = c, title = "First Layer", clims = climsfirst, cbar = false, yticks = ((1:size(firstLay, 1)), ""), xticks = ((1:size(firstLay, 2)), ""), bottom_margin = -10Plots.px)
-    p0 = heatmap(zeroLay, c = c, xlabel = "location\nZeroth Layer", clims = climszero, cbar = false, yticks = nothing, top_margin = -10Plots.px, bottom_margin = 10Plots.px)
+    p0 = heatmap(spaceLocs, 1:1, zeroLay, c = c, xlabel = "time (ms)\nZeroth Layer", clims = climszero, cbar = false, yticks = nothing, top_margin = -10Plots.px, bottom_margin = 10Plots.px)
     colorbarOnly = scatter([0, 0], [0, 1], zcolor = [0, 3], clims = climssecond, xlims = (1, 1.1), xshowaxis = false, yshowaxis = false, label = "", c = c, grid = false, framestyle = :none)
     if extraPlot == nothing
-        extraPlot = plot(legend = false, grid = false, foreground_color_subplot = :white, top_margin = -10Plots.px)
+        # extraPlot = scatter([0,0], [0,1], legend=false, grid=false, x="Layer 2 frequency", foreground_color_subplot=:white, top_margin=-10Plots.px, showaxis=false, yticks=nothing)
+        extraPlot = plot(xlabel = "Layer 2 frequency (Hz)", grid = false, xticks = (1:5, ""), showaxis = false, yticks = nothing, bottom_margin = -10Plots.px, top_margin = -20Plots.px)
+        # extraPlot = heatmap(zeroLay, c=c, xlabel="location\nZeroth Layer", clims=climszero, cbar=false, yticks=nothing, top_margin=-10Plots.px, bottom_margin=10Plots.px)
     end
     titlePlot = plot(title = thingName, grid = false, showaxis = false, xticks = nothing, yticks = nothing, bottom_margin = -10Plots.px)
     lay = Plots.@layout [o{0.00001h}; [[a b; c{0.1h} d{0.1h}] b{0.04w}]]
