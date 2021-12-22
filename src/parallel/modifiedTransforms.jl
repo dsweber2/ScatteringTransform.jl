@@ -19,7 +19,7 @@ function cwt(Y::AbstractArray{T,N}, c::CWT{<:Any,<:Any,<:Union{Morlet,Paul}},
     plrfft, plfft = fetch(fftPlan)
     @debug "size(rfft) = $(size(plrfft)), size(fft) = $(size(plfft))"
     @debug "size of signal = $(size(Y))"
-    return cwt(Y, c, daughters, plrfft, plfft)
+    return cwt(Y, c, daughters, (plrfft, plfft))
 end
 
 function cwt(Y::AbstractArray{T,N}, c::CWT{<:Any,<:Any,<:Union{Dog}},
@@ -30,14 +30,14 @@ end
 
 
 function numScales(c::CWT, n)
-    nOctaves, totalWavelets, sRange, sWidth = getNWavelets(n, c)
+    nOctaves, totalWavelets, sRange, sWidth = ContinuousWavelets.getNWavelets(n, c)
     return totalWavelets
 end
 
 function computeWavelets(n1, c; T=Float64, nScales=-1)
     @debug "n1 = $(n1), T = $(T), nScales = $(nScales)"
     @debug "" c
-    daughters, ω = Wavelets.computeWavelets(n1, c, T=T)
+    daughters, ω = ContinuousWavelets.computeWavelets(n1, c, T = T)
     @debug "" nScales
     if nScales > 0
         @debug "computeWavelets: $(nScales) size of daughters is $(size(daughters)), reducing to "
