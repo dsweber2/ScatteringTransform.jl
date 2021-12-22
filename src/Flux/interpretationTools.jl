@@ -35,7 +35,7 @@ function plotFirstLayer1D(j, origLoc, original, cline = :darkrainbow)
         ylabel = "wavelet location", title = "First layer gradient j=$j")
     ∇̂h = heatmap(log.(abs.(rfft(origLoc[1][:, 1:end, j], 1)) .^ 2)', xlabel = "frequency",
         ylabel = "wavelet location", title = "Log Power Frequency domain j=$j")
-    l = @layout [a; b{0.1h}; [b c]]
+    l = Plots.@layout [a; b{0.1h}; [b c]]
     plot(space, org, ∇h, ∇̂h, layout = l)
 end
 
@@ -76,10 +76,10 @@ function plotSecondLayer1D(loc, origLoc, wave1, wave2, original = false, subsamS
     end
 
     if original != false
-        l = @layout [[a; b{0.1h}; [c d]] e]
+        l = Plots.@layout [[a; b{0.1h}; [c d]] e]
         return plot(∇heat, org, l1wave, l2wave, ∇plt, layout = l)
     else
-        l = @layout [[a; [b c]] d]
+        l = Plots.@layout [[a; [b c]] d]
         return plot(∇heat, l1wave, l2wave, ∇plt, layout = l)
     end
 end
@@ -227,7 +227,7 @@ function jointPlot(thingToPlot, thingName, cSymbol, St; sharedColorScaling = :ex
         extraPlot = plot(legend = false, grid = false, foreground_color_subplot = :white, top_margin = -10Plots.px)
     end
     titlePlot = plot(title = thingName, grid = false, showaxis = false, xticks = nothing, yticks = nothing, bottom_margin = -10Plots.px)
-    lay = @layout [o{0.00001h}; [[a b; c{0.1h} d{0.1h}] b{0.04w}]]
+    lay = Plots.@layout [o{0.00001h}; [[a b; c{0.1h} d{0.1h}] b{0.04w}]]
     plot(titlePlot, p2, p1, extraPlot, p0, colorbarOnly, layout = lay)
 end
 
