@@ -57,13 +57,24 @@ using Zygote: hook
 function (r::RationPool)(x::AbstractArray{<:Any,N}) where {N}
     Nd = nPoolDims(r)
     Nneed = ndims(r.m) + 2
-    extraDims = ntuple(ii -> 1, Nneed - N)
-    partial = reshape(x, (size(x)[1:Nd]..., extraDims..., size(x)[Nd+1:end]...))
+    if N <= Nneed
+        # x needs to be slightly padded
+        extraDims = ntuple(ii -> 1, Nneed - N)
+        partial = reshape(x, (size(x)[1:Nd]..., extraDims..., size(x)[Nd+1:end]...))
+    else
+        # x is too big and needs to be temporarily reshaped
+        extraDims = ntuple(ii -> 1, Nneed - 2)
+        partial = reshape(x, (size(x)[1:Nd]..., extraDims..., prod(size(x)[Nd+1:end])))
+    end
     partial = r.m(partial)
     address = map(stopAtExactly_WithRate_FromSize_, size(partial)[1:nPoolDims(r)], r.resSize, size(x)[1:nPoolDims(r)])
     ax = axes(partial)
-    endAxes = ax[Nd+Nneed-N+1:end] # grab the stuff after extraDims
-    return partial[address..., extraDims..., endAxes...]
+    if N <= Nneed
+        endAxes = ax[Nd+Nneed-N+1:end] # grab the stuff after extraDims
+        return partial[address..., extraDims..., endAxes...]
+    else
+        return reshape(partial[address..., extraDims..., ax[Nd+Nneed-1:end]...], (length.(address)..., size(x)[Nd+1:end]...))
+    end
 end
 
 
