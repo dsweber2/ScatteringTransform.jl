@@ -57,16 +57,11 @@ end
 
 
 """
-    output = flatten(scatRes)
-given a scattered, it produces a single vector containing the entire transform in order, i.e. the same format as output by thinSt.
+    flatten(scatRes) -> output
+given `scatRes`, a scattered output or full, it produces a single vector containing the entire transform in order, i.e. the same format as output by thinSt.
 """
 function flatten(scatRes::S) where {S<:Scattered}
-    res = scatRes.output
-    netSizes = [prod(size(r)[1:nPathDims(ii)+scatRes.k]) for (ii, r) in enumerate(res)]
-    batchSize = size(res[1])[end]
-    singleExampleSize = sum(netSizes)
-    output = cat((reshape(x, (netSizes[i], batchSize)) for (i, x) in enumerate(res))..., dims = 1)
-    return output
+    return scatRes[:]
 end
 flatten(scatRes) = scatRes
 

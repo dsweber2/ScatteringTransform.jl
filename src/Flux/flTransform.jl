@@ -102,12 +102,9 @@ function (St::stFlux{Dimension,Depth})(x::T) where {Dimension,Depth,T<:AbstractA
     else
         res = applyScattering(mc, x, ndims(St), St, 0)
     end
-    if get(St.settings, :flatten, false)
-        k = ndims(St)
-        netSizes = [prod(size(r)[1:nPathDims(ii)+k]) for (ii, r) in enumerate(res)]
+    if get(St.settings, :flatten, false) # it may not be defined, in which case we don't do it
         batchSize = size(res[1])[end]
-        singleExampleSize = sum(netSizes)
-        return cat((reshape(x, (netSizes[i], batchSize)) for (i, x) in enumerate(res))..., dims = 1)
+        return cat((reshape(x, (:, batchSize)) for x in res)..., dims = 1)
     else
         return ScatteredOut(res, ndims(mc[1]))
     end

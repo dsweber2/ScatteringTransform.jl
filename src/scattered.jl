@@ -188,6 +188,16 @@ end
 # access methods
 import Base: getindex
 Base.getindex(X::Scattered, i::Union{Tuple,<:AbstractArray}) = X.output[i.+1]
+function Base.getindex(X::Scattered, ::Colon)
+    if ndims(X.output[1]) > ndims(X)
+        nEx = size(X.output[1])[end]
+        return cat([reshape(lay, (:, nEx)) for lay in X.output]..., dims = 1)
+    else
+        return cat(lay[:] for lay in X.output)
+    end
+
+end
+
 Base.getindex(X::Scattered, i::Integer) = X.output[i+1]
 function Base.getindex(X::ScatteredOut{T,N}, c::Colon,
     i::Union{<:AbstractArray,<:Integer}) where {T,N}
