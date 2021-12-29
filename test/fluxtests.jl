@@ -77,7 +77,7 @@ end
     @test size(smooshed) ==(totalSize, 2)
 end
 
-nFilters = [1,9,9]
+nFilters = [1,9,9, 9]
 @testset "1D basics" begin
     init = 10 .+ randn(64, 3, 2);
     sst = stFlux(size(init), 2, poolBy=3//2, outputPool=(2,))
@@ -98,23 +98,24 @@ nFilters = [1,9,9]
     @test size(res1) == (32*3 + 22*3*nFilters[2] + 14*nFilters[3]*nFilters[2]*3, 2)
     @test res1[1:32*3,1] ≈ reshape(res[0][:,:,1], (32*3,))
 
-
-    sst = stFlux(size(init), 2, poolBy=3//2, outputPool=(2,))
+    sst = stFlux(size(init), 3, poolBy=3//2, outputPool=(2,))
     res = sst(init)
-    @test length(res.output)== 2+1
+    @test length(res.output)== 3+1
     @test size(res.output[1]) == (32, 3, 2)
     @test minimum(abs.(res.output[1])) > 0
     @test size(res.output[2]) == (22, 3*nFilters[2], 2)
     @test minimum(abs.(res.output[2])) > 0
     @test size(res.output[3]) == (14, nFilters[3], 3*nFilters[2], 2)
     @test minimum(abs.(res.output[3])) > 0
-    totalSize = 32*3 + 22*3*nFilters[2] + 14*nFilters[3]*3*nFilters[2]
+    @test size(res.output[4]) == (10, nFilters[4], nFilters[3], 3*nFilters[2], 2)
+    @test minimum(abs.(res.output[4])) > 0
+    totalSize = 32*3 + 22*3*nFilters[2] + 14*nFilters[3]*3*nFilters[2] + 10*3*prod(nFilters)
     smooshed = ScatteringTransform.flatten(res);
     @test size(smooshed) == (totalSize, 2)
-    sst1 = stFlux(size(init), 2, poolBy=3//2, outputPool=(2,),flatten=true)
+    sst1 = stFlux(size(init), 3, poolBy=3//2, outputPool=(2,),flatten=true)
     res1 = sst1(init)
     @test res1 isa Array{Float32, 2}
-    @test size(res1) == (32*3 + 22*3*nFilters[2] + 14*nFilters[3]*nFilters[2]*3, 2)
+    @test size(res1) == (32*3 + 22*3*nFilters[2] + 14*nFilters[3]*nFilters[2]*3 + 10*3*prod(nFilters), 2)
     @test res1[1:32*3,1] ≈ reshape(res[0][:,:,1], (32*3,))
 end
 

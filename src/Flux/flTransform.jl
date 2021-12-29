@@ -180,7 +180,7 @@ function applyScattering(c::Tuple, x, Nd, st, M)
         tmpRes = res[map(x -> Colon(), 1:Nd)..., end, map(x -> Colon(), 1:ndims(res)-Nd-1)...]
         # return a subsampled version of the output at this layer
         poolSizes = (st.outputPool[M+1]..., ntuple(i -> 1, ndims(tmpRes) - Nd - 2)...)
-        r = RationPool(st.outputPool[M+1], nExtraDims = ndims(tmpRes) - Nd)
+        r = RationPool(st.outputPool[M+1], nExtraDims = nPathDims(M + 1) + 1)
         if st.normalize
             tmpRes = normalize(r(real.(tmpRes)), Nd)
             apld = applyScattering(tail(c), res, Nd, st, M + 1)

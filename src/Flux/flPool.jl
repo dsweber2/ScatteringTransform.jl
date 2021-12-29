@@ -33,7 +33,7 @@ end
 
 function RationPool(resSize::Tuple{Vararg{<:Union{<:Integer,Rational{<:Integer}},N}},
     k = 2; nExtraDims = 2, poolType = MeanPool) where {N}
-    effResSize = (resSize..., ntuple(ii -> 1 // 1, nExtraDims - 2)...)
+    effResSize = (resSize..., ntuple(ii -> 1 // 1, min(nExtraDims - 2, 5))...)
     subBy = map(ki -> ((ki == 1) ? 1 : k), effResSize) # any non-trivial dim
     # should subsample at a rate of k
     m = poolType(subBy, pad = 0, stride = 1)
@@ -63,7 +63,7 @@ function (r::RationPool)(x::AbstractArray{<:Any,N}) where {N}
         partial = reshape(x, (size(x)[1:Nd]..., extraDims..., size(x)[Nd+1:end]...))
     else
         # x is too big and needs to be temporarily reshaped
-        extraDims = ntuple(ii -> 1, Nneed - 2)
+        extraDims = ntuple(ii -> 1, 2)
         partial = reshape(x, (size(x)[1:Nd]..., extraDims..., prod(size(x)[Nd+1:end])))
     end
     partial = r.m(partial)
@@ -73,7 +73,7 @@ function (r::RationPool)(x::AbstractArray{<:Any,N}) where {N}
         endAxes = ax[Nd+Nneed-N+1:end] # grab the stuff after extraDims
         return partial[address..., extraDims..., endAxes...]
     else
-        return reshape(partial[address..., extraDims..., ax[Nd+Nneed-1:end]...], (length.(address)..., size(x)[Nd+1:end]...))
+        return reshape(partial[address..., extraDims..., ax[Nd+3:end]...], (length.(address)..., size(x)[Nd+1:end]...))
     end
 end
 
