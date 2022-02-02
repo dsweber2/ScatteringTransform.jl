@@ -385,25 +385,25 @@ Sx = ScatteredOut((randn(16,1,1), randn(11,32,1), randn(7, 27, 32, 1)))
     @test Δ(y)[1] == sampleData
 
     # gpu tests
-    if CUDA.functional()
-        using FourierFilterFlux:cu
-        init = 10 .+ randn(64, 3, 2);
-        initC = cu(init);
-        sst = stFlux(size(init), 2, poolBy=3//2, outputPool=(2,))
-        sstC = cu(sst)
-        resC = sstC(initC)
-        res = sst(init)
-        @test resC[1] isa CuArray
-        @test cpu(resC[1]) ≈ res[1]
-        gradient(x -> sstC(x)[1][1],initC)
-        gradient(x -> sst(x)[1][1],init)
-        mc = sstC.mainChain
-        typeof(mc[1])
-        gradient(x->abs(mc[1](x)[1]), initC)
-        gradient()
-        sst(cpu(init))
-        w = ConvFFT((100,), nConvDims=1)
-        ScatteringTransform.FourierFilterFlux.cu(w).fftPlan
-    end
+    # if CUDA.functional()
+    #     using FourierFilterFlux:cu
+    #     init = 10 .+ randn(64, 3, 2);
+    #     initC = cu(init);
+    #     sst = stFlux(size(init), 2, poolBy=3//2, outputPool=(2,))
+    #     sstC = cu(sst)
+    #     resC = sstC(initC)
+    #     res = sst(init)
+    #     @test resC[1] isa CuArray
+    #     @test cpu(resC[1]) ≈ res[1]
+    #     gradient(x -> sstC(x)[1][1],initC)
+    #     gradient(x -> sst(x)[1][1],init)
+    #     mc = sstC.mainChain
+    #     typeof(mc[1])
+    #     gradient(x->abs(mc[1](x)[1]), initC)
+    #     gradient()
+    #     sst(cpu(init))
+    #     w = ConvFFT((100,), nConvDims=1)
+    #     ScatteringTransform.FourierFilterFlux.cu(w).fftPlan
+    # end
 end
 end

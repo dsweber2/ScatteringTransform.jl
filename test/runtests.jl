@@ -10,6 +10,7 @@ addprocs(min((Sys.CPU_THREADS) - 2 - nprocs(), 2))
 using Test
 using Flux, FourierFilterFlux, CUDA, AbstractFFTs, LinearAlgebra, Statistics
 using Zygote
+CUDA.allowscalar(true)
 
 include("planTests.jl")
 include("cwtTests.jl")
