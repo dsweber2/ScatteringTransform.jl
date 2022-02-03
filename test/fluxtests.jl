@@ -406,4 +406,3 @@ Sx = ScatteredOut((randn(16,1,1), randn(11,32,1), randn(7, 27, 32, 1)))
     #     ScatteringTransform.FourierFilterFlux.cu(w).fftPlan
     # end
 end
-end
