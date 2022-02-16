@@ -28,7 +28,6 @@ include("pathLocs.jl")
 export pathLocs
 include("scattered.jl")
 export Scattered, ScatteredFull, ScatteredOut, pathLocs, nonZeroPaths
-include("parallel/basicTypes.jl")
 include("Flux/flPool.jl")
 export RationPool, nPoolDims, outdims, poolSize
 include("Flux/flTransform.jl")
@@ -44,63 +43,7 @@ scatteringTransform(inputSize, m; kwargs...) =
 
 include("Flux/flUtilities.jl")
 export getWavelets, flatten, roll, importantCoords, batchOff, getParameters, getMeanFreq
-include("parallel/parallelCore.jl") # there's enough weird stuff going on in
-# here that I'm isolating it in a module
-using .parallel
-function (stPara::stParallel)(x; nonlinearity = abs, thin = false,
-    outputSubsample = (-1, -1), subsam = true,
-    totalScales = [-1 for i = 1:depth(stPara)+1],
-    percentage = 0.9, fftPlans = -1)
-    st(x, stPara, nonlinearity; thin = thin, outputSubsample = outputSubsample,
-        subsam = subsam, totalScales = totalScales, percentage = percentage,
-        fftPlans = fftPlans)
-end
 
-function ScatteredFull(layers::scatteringTransform{S,1}, X::Array{T,N};
-    totalScales = [-1 for i = 1:depth(layers)+1],
-    outputSubsample = (-1, -1)) where {T<:Real,N,S}
-    if N == 1
-        X = reshape(X, (size(X)..., 1))
-    end
-
-    n, q, dataSizes, outputSizes, resultingSize =
-        parallel.calculateSizes(layers, outputSubsample, size(X),
-            totalScales = totalScales)
-    numInLayer = getQ(layers, n, totalScales; product = false)
-    addedLayers = [numInLayer[min(i, 2):i] for i = 1:depth(layers)+1]
-    if 1 == N
-        zerr = [zeros(T, n[i], addedLayers[i]...) for i = 1:depth(layers)+1]
-        output = [zeros(T, resultingSize[i], addedLayers[i]...) for i = 1:depth(layers)+1]
-    else
-        zerr = [zeros(T, n[i], q[i], size(X)[2:end]...) for i = 1:depth(layers)+1]
-        output = [zeros(T, resultingSize[i], addedLayers[i]..., size(X)[2:end]...)
-                  for i = 1:depth(layers)+1]
-        @info "" [size(x) for x in output]
-    end
-    zerr[1][:, 1, axes(X)[2:end]...] = copy(X)
-    return ScatteredFull{T,N + 1}(depth(layers), 1, zerr, output)
-end
-
-function ScatteredOut(layers::ST, X::Array{T,N};
-    totalScales = [-1 for i = 1:depth(layers)+1],
-    outputSubsample = (-1, -1)) where {ST<:scatteringTransform,T<:Real,N,S}
-    if N == 1
-        X = reshape(X, (size(X)..., 1))
-    end
-
-    n, q, dataSizes, outputSizes, resultingSize =
-        parallel.calculateSizes(layers, outputSubsample, size(X), totalScales = totalScales)
-    addedLayers = parallel.getListOfScaleDims(layers, n, totalScales)
-    @info addedLayers
-    if 1 == N
-        output = [zeros(T, resultingSize[i], addedLayers[i]...) for i = 1:depth(layers)+1]
-    else
-        output = [zeros(T, resultingSize[i], addedLayers[i]..., size(X)[2:end]...)
-                  for i = 1:depth(layers)+1]
-    end
-    @info [size(x) for x in output]
-    return ScatteredOut{T,N + 1}(depth(layers), 1, output)
-end
 
 roll(toRoll, stP::stParallel, originalInput; varargs...) = parallel.roll(stP, toRoll, originalInput; varargs...)
 export roll, wrap, sizes, calculateThinStSizes, createFFTPlans,

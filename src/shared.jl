@@ -114,25 +114,3 @@ function makeTuple(m, v::Tuple)
 end
 makeTuple(m, v::AbstractArray) = makeTuple(m, (v...,))
 makeTuple(m, v) = ntuple(i -> v, m)
-
-
-
-
-
-
-
-
-
-# shouldn't be necessary
-# function cwtDefaults(varargs)
-#     keyLimes = keys(varargs)
-#     DefaultList = ((:averagingLength,4),
-#                    (:averagingType,ContinuousWavelets.Father()),
-#                    (:boundary,DEFAULT_BOUNDARY),
-#                    (:frameBound,1),
-#                    (:normalization,Inf),
-#                    (:decreasing, 4.0))
-#     for (key,val) in DefaultList
-
-#     end
-# end
