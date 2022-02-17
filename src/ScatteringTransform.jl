@@ -28,9 +28,9 @@ include("pathLocs.jl")
 export pathLocs
 include("scattered.jl")
 export Scattered, ScatteredFull, ScatteredOut, pathLocs, nonZeroPaths
-include("Flux/flPool.jl")
+include("pool.jl")
 export RationPool, nPoolDims, outdims, poolSize
-include("Flux/flTransform.jl")
+include("transform.jl")
 export normalize
 export cu
 
@@ -41,7 +41,7 @@ end
 scatteringTransform(inputSize, m; kwargs...) =
     scatteringTransform(inputSize, m, stFlux; kwargs...)
 
-include("Flux/flUtilities.jl")
+include("utilities.jl")
 export getWavelets, flatten, roll, importantCoords, batchOff, getParameters, getMeanFreq
 
 
@@ -53,7 +53,7 @@ export st
 export pathToThinIndex, MatrixAggregator, plotCoordinate, reshapeFlattened,
     numberSkipped, maxPooling, numScales, incrementKeeper, numInLayer
 export loadSyntheticMatFile, transformFolder, flatten
-include("Flux/adjoints.jl")
-include("Flux/interpretationTools.jl")
+include("adjoints.jl")
+include("interpretationTools.jl")
 export ∇st, plotFirstLayer1D, gifFirstLayer, plotSecondLayer, addNextPath, jointPlot
 end # end Module
