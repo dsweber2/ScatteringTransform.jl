@@ -38,7 +38,7 @@ Wavelets = "29a6e085-ba6d-5f35-a997-948ac2efa89a"
 Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 
 [compat]
-FourierFilterFlux = "0.1"
+FourierFilterFlux = "0.2"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
