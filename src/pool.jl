@@ -31,8 +31,7 @@ function Base.show(io::IO, m::RationPool)
     print(io, "RationPool(windowSize=$(m.m.k), poolingRate=$(m.resSize))")
 end
 
-function RationPool(resSize::Tuple{Vararg{<:Union{<:Integer,Rational{<:Integer}},N}},
-    k = 2; nExtraDims = 2, poolType = MeanPool) where {N}
+function RationPool(resSize::Tuple{Vararg{<:Union{<:Integer,Rational{<:Integer}},N}}, k = 2; nExtraDims = 2, poolType = MeanPool) where {N}
     effResSize = (resSize..., ntuple(ii -> 1 // 1, min(nExtraDims - 2, 5))...)
     subBy = map(ki -> ((ki == 1) ? 1 : k), effResSize) # any non-trivial dim
     # should subsample at a rate of k
