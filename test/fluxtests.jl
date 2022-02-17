@@ -20,7 +20,6 @@
         @testset "bizzare pooling sizes 1D i=$i, s=$s, nExtraDims=$nExtraDims, xExtraDims=$xExtraDims, k=$k N=$N" for i = 25:3:40, s in subsampRates, xExtraDims in 2:nExtraDims, k in windowSize, (N, nExtraDims) in NdimsExtraDims
             selectXDims = ntuple(x -> 2, xExtraDims)
             x = ifGpu(randn(ntuple(x -> i, N)..., rand(2:10, xExtraDims)...))
-            size(x)
             r = RationPool(ntuple(x -> s, N), k, nExtraDims = nExtraDims)
             @test length(r.m.k) == length(r.resSize) + nExtraDims - 2
             Nneed = ndims(r.m) + 2
@@ -100,25 +99,6 @@
         @test res1[1:32*3, 1] ≈ reshape(res[0][:, :, 1], (32 * 3,))
     end
 
-    # integer pooling rate
-    @testset "2D integer pooling" begin
-        stEx = stFlux((131, 131, 1, 1), 2, poolBy = 3)
-        stEx.outputSizes
-        c = stEx.mainChain
-        scat = stEx(ifGpu(randn(131, 131, 1, 1)))
-        @test size(stEx.mainChain[1].fftPlan) == (391, 391, 1, 1)
-        @test size(stEx.mainChain[4].fftPlan) == (96, 106, 48, 1)
-        @test size(stEx.mainChain[7].fftPlan) == (43, 43, 48, 48, 1)
-        @test stEx.mainChain[1].bc.padBy == (130, 130)
-        @test stEx.mainChain[4].bc.padBy == (26, 31)
-        @test stEx.mainChain[7].bc.padBy == (14, 14)
-        @test stEx.outputPool == ntuple(i -> (2, 2), 3)
-        @test ndims(stEx) == 2
-        resultSize = ((66, 66, 1, 1), (22, 22, 48, 1), (8, 8, 48, 48, 1))
-        @test stEx.outputSizes == resultSize
-        @test ([size(s) for s in scat.output]...,) == stEx.outputSizes
-    end
-
     nFilters = [1, 10, 9]
     @testset "1D integer pooling" begin
         stEx = stFlux((131, 1, 1), 2, poolBy = 3)
@@ -143,20 +123,6 @@
     end
 
     # rolling and flattening does nothing
-    @testset "roll and flatten 2D" begin
-        init = ifGpu(randn(32, 32, 1, 2))
-        sst = stFlux(size(init), 2, poolBy = 3 // 2)
-        res = sst(init)
-        smooshed = ScatteringTransform.flatten(res)
-        if ifGpu != identity
-            @test typeof(smooshed) <: CuArray
-        end
-
-        reconst = roll(smooshed, sst)
-        @test all(reconst .≈ res)
-        @test typeof(reconst.output) <: Tuple
-    end
-
     @testset "roll and flatten 1D" begin
         init = ifGpu(randn(64, 1, 2))
         sst = stFlux(size(init), 2, poolBy = 3 // 2)
@@ -367,26 +333,4 @@ Sx = ScatteredOut((randn(16, 1, 1), randn(11, 32, 1), randn(7, 27, 32, 1)))
     sampleData = (randn(10, 1, 3), randn(10, 5, 1, 3), randn(10, 5, 5, 1, 3))
     y, Δ = pullback(x -> ScatteredOut(x), sampleData)
     @test Δ(y)[1] == sampleData
-
-    # gpu tests
-    # if CUDA.functional()
-    #     using FourierFilterFlux:cu
-    #     init = 10 .+ randn(64, 3, 2);
-    #     initC = cu(init);
-    #     sst = stFlux(size(init), 2, poolBy=3//2, outputPool=(2,))
-    #     sstC = cu(sst)
-    #     resC = sstC(initC)
-    #     res = sst(init)
-    #     @test resC[1] isa CuArray
-    #     @test cpu(resC[1]) ≈ res[1]
-    #     gradient(x -> sstC(x)[1][1],initC)
-    #     gradient(x -> sst(x)[1][1],init)
-    #     mc = sstC.mainChain
-    #     typeof(mc[1])
-    #     gradient(x->abs(mc[1](x)[1]), initC)
-    #     gradient()
-    #     sst(cpu(init))
-    #     w = ConvFFT((100,), nConvDims=1)
-    #     ScatteringTransform.FourierFilterFlux.cu(w).fftPlan
-    # end
 end

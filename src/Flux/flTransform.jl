@@ -40,7 +40,7 @@ function stFlux(inputSize::NTuple{N}, m; trainable = false,
         # first transform
         interstitial[3*i-2] = dispatchLayer(listOfSizes[i], Val(Nd); σ = identity,
             argsToEach[i]...)
-        nFilters = size(interstitial[3*i-2].weight)[end]
+        nFilters = length(interstitial[3*i-2].weight)
 
         pooledSize = poolSize(poolBy[i], listOfSizes[i][1:Nd])
         # then throw away the averaging (we'll pick it up in the actual transform)
@@ -85,11 +85,6 @@ end
 function dispatchLayer(listOfSizes, Nd::Val{1}; varargs...)
     waveletLayer(listOfSizes; varargs...)
 end
-
-function dispatchLayer(listOfSizes, Nd::Val{2}; varargs...)
-    shearingLayer(listOfSizes; varargs...)
-end
-
 
 Base.size(a::Tuple{AbstractFFTs.Plan,AbstractFFTs.Plan}) = size(a[1])
 
