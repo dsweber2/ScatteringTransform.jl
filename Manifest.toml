@@ -947,14 +947,6 @@ uuid = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
 deps = ["Distributed", "Mmap", "Random", "Serialization"]
 uuid = "1a1011a3-84de-559e-8e89-a11a2f7dc383"
 
-[[deps.Shearlab]]
-deps = ["DSP", "FFTW", "Wavelets"]
-git-tree-sha1 = "190853b7e0d9de30c49cdde4b32c6db6f4fdf8d8"
-repo-rev = "master"
-repo-url = "https://github.com/dsweber2/Shearlab.jl.git"
-uuid = "bd728e11-17d4-5679-9a00-f24958f87a1c"
-version = "0.3.1"
-
 [[deps.Showoff]]
 deps = ["Dates", "Grisu"]
 git-tree-sha1 = "91eddf657aca81df9ae6ceb20b959ae5653ad1de"
