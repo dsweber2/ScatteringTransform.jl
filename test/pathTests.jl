@@ -2,8 +2,7 @@
     t = 0.001:6π/100:6π
     f = 2 .* max.(0, -(t .- 3 * π)) ./ (t .- 3 * π) .* (sin.(2π * t)) .+ 10 .* max.(0, t .- 3 * π) ./ (t .- 3 * π) .+ max.(0, t .- 3 * π) ./ (t .- 3 * π) .* sin.(4π * t .+ π)
     layers = stFlux((length(f), 1, 1), 2)
-    output = layers(f, layers, abs, thin = false)
-
+    output = layers(f)
     p = pathLocs(1, 1) # an object that we can use as an index into the output
     @test output[p] ≈ output[1][:, 1, 1]
     p = pathLocs(2, (1, 1))

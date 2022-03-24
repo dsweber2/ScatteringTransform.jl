@@ -1,5 +1,4 @@
 # tests for the various forms of stParallel for the ScatteringTransform
-# exit()
 # using Revise
 using ScatteringTransform
 using ContinuousWavelets
