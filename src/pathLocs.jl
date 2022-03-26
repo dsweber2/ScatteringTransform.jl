@@ -14,7 +14,7 @@ struct pathLocs{m}
     indices::Tuple{Vararg{<:Union{Tuple{Vararg{<:accessType,3}},Tuple{Vararg{<:accessType,4}},Tuple{Vararg{<:accessType,5}},Nothing,BitArray},m}}
 end
 # specifying on
-function pathLocs(varargs...; m::Int = 2, d::Int = 1, exs = Colon())
+function pathLocs(varargs...; m::Int=2, d::Int=1, exs=Colon())
     if length(varargs) == 0
         paired = [(i, :) for i = 0:m]
     else
@@ -24,7 +24,7 @@ function pathLocs(varargs...; m::Int = 2, d::Int = 1, exs = Colon())
     present = [x[1] for x in paired]
     notPresent = [ii for ii = 0:m if !(ii in present)] # unspecified layers
     paired = [paired..., [(x, nothing) for x in notPresent]...]
-    paired = sort(paired, by = (x) -> x[1])
+    paired = sort(paired, by=(x) -> x[1])
     indices = map(x -> parseOne(x, d, exs), paired)
     fullList = map(ii -> paired[ii+1], 0:m)
     return pathLocs{m + 1}((indices...,))

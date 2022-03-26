@@ -35,14 +35,14 @@ function RationPool(resSize::Tuple{Vararg{<:Union{<:Integer,Rational{<:Integer}}
     effResSize = (resSize..., ntuple(ii -> 1 // 1, min(nExtraDims - 2, 5))...)
     subBy = map(ki -> ((ki == 1) ? 1 : k), effResSize) # any non-trivial dim
     # should subsample at a rate of k
-    m = poolType(subBy, pad = 0, stride = 1)
+    m = poolType(subBy, pad=0, stride=1)
     # SamePad() means that sz = inputsize / stride
     RationPool{typeof(m),typeof(resSize)}(m, resSize)
 end
 
-RationPool(resSize::Union{<:Integer,Rational{<:Integer}}, k = 3;
-    nExtraDims = 2) =
-    RationPool((resSize,), k; nExtraDims = nExtraDims)
+RationPool(resSize::Union{<:Integer,Rational{<:Integer}}, k=3;
+    nExtraDims=2) =
+    RationPool((resSize,), k; nExtraDims=nExtraDims)
 
 import Base: getindex
 Base.getindex(X::RationPool, i::Union{AbstractArray,<:Integer}) = X.resSize[i]
@@ -96,10 +96,10 @@ function poolSingle(kk, siz)
 end
 
 function stopAtExactly_WithRate_(i, subBy)
-    tmp = round.(Int, range(1, stop = i, length = round(Int, i / subBy)))
+    tmp = round.(Int, range(1, stop=i, length=round(Int, i / subBy)))
     return tmp
 end
 function stopAtExactly_WithRate_FromSize_(i, subBy, orig)
-    tmp = round.(Int, range(1, stop = i, length = round(Int, orig / subBy)))
+    tmp = round.(Int, range(1, stop=i, length=round(Int, orig / subBy)))
     return tmp
 end

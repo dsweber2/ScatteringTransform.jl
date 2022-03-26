@@ -2,7 +2,7 @@
     ∇st(st, at,maxDepth=-1)
 Take a gradient w.r.t. every coordinate, and store in a scattered array. The shape is (space variable, pathIndices..., outputLocation). For example, if the input signal has size 128
 """
-function ∇st(st, at, maxDepth = -1)
+function ∇st(st, at, maxDepth=-1)
     y, back = pullback(st, at)
     ∇ = scattered(map(x -> zeros(size(at)[1:ndims(y)]...,
             x[ndims(y):end-1]...), size(y)))
@@ -25,62 +25,62 @@ end
 """
     plotFirstLayer1D(j,origLoc,cline=:darkrainbow)
 """
-function plotFirstLayer1D(j, origLoc, original, cline = :darkrainbow)
+function plotFirstLayer1D(j, origLoc, original, cline=:darkrainbow)
 
-    space = plot(origLoc[1][:, :, j], line_z = (1:size(origLoc[1], 2))',
-        legend = false, colorbar = true, color = cline,
-        title = "first layer gradient wavelet $j varying location")
-    org = plot([original original], line_z = ([-20; 1:size(origLoc[1], 2)...])', legend = false, colorbar = true, color = cline) # todo: including the colorbar here is a real hack to get them to line up
-    ∇h = heatmap(origLoc[1][:, 1:end, j]', xlabel = "space",
-        ylabel = "wavelet location", title = "First layer gradient j=$j")
-    ∇̂h = heatmap(log.(abs.(rfft(origLoc[1][:, 1:end, j], 1)) .^ 2)', xlabel = "frequency",
-        ylabel = "wavelet location", title = "Log Power Frequency domain j=$j")
+    space = plot(origLoc[1][:, :, j], line_z=(1:size(origLoc[1], 2))',
+        legend=false, colorbar=true, color=cline,
+        title="first layer gradient wavelet $j varying location")
+    org = plot([original original], line_z=([-20; 1:size(origLoc[1], 2)...])', legend=false, colorbar=true, color=cline) # todo: including the colorbar here is a real hack to get them to line up
+    ∇h = heatmap(origLoc[1][:, 1:end, j]', xlabel="space",
+        ylabel="wavelet location", title="First layer gradient j=$j")
+    ∇̂h = heatmap(log.(abs.(rfft(origLoc[1][:, 1:end, j], 1)) .^ 2)', xlabel="frequency",
+        ylabel="wavelet location", title="Log Power Frequency domain j=$j")
     l = Plots.@layout [a; b{0.1h}; [b c]]
-    plot(space, org, ∇h, ∇̂h, layout = l)
+    plot(space, org, ∇h, ∇̂h, layout=l)
 end
 
 """
     gifFirstLayer(origLoc, saveTo="tmp.gif", fps = 2)
 """
-function gifFirstLayer(origLoc, firstSig, saveTo = "gradientFigures/tmp.gif", fps = 2)
+function gifFirstLayer(origLoc, firstSig, saveTo="gradientFigures/tmp.gif", fps=2)
     anim = Animation()
     for j = 1:size(origLoc[1])[end]
         plotFirstLayer1D(j, origLoc, firstSig)
         frame(anim)
     end
-    gif(anim, saveTo, fps = 2)
+    gif(anim, saveTo, fps=2)
 end
 
 
 
 
-meanWave(wave) = sum(real.(range(0, stop = 1, length = size(wave, 1)) .* wave), dims = 1) ./ sum(real.(wave), dims = 1)
+meanWave(wave) = sum(real.(range(0, stop=1, length=size(wave, 1)) .* wave), dims=1) ./ sum(real.(wave), dims=1)
 
-function plotSecondLayer1D(loc, origLoc, wave1, wave2, original = false, subsamSz = (128, 85,), c = :thermal, lastDiagFreq = true)
+function plotSecondLayer1D(loc, origLoc, wave1, wave2, original=false, subsamSz=(128, 85,), c=:thermal, lastDiagFreq=true)
     waveUsed = real.(ifftshift(irfft(wave1[:, loc[2]], subsamSz[1] * 2)))
-    l1wave = plot(waveUsed, legend = false, titlefontsize = 8, title = "layer 1 ($(loc[2]))")
+    l1wave = plot(waveUsed, legend=false, titlefontsize=8, title="layer 1 ($(loc[2]))")
     annotate!(size(waveUsed, 1) * 5 / 6, maximum(waveUsed), Plots.text("freq = $(meanWave(wave1)[loc[2]])"[1:13], 5))
     waveUsed = real.(ifftshift(irfft(wave2[:, loc[1]], subsamSz[2] * 2)))
-    l2wave = plot(waveUsed, legend = false, titlefontsize = 8, title = "layer 2 ($(loc[1]))")
+    l2wave = plot(waveUsed, legend=false, titlefontsize=8, title="layer 2 ($(loc[1]))")
     annotate!(size(waveUsed, 1) * 5 / 6, maximum(waveUsed),
         Plots.text("freq = $(meanWave(wave2)[loc[1]])"[1:13], 5))
     if original != false
-        org = plot([original original], line_z = (1:size(origLoc[1], 2))', legend = false, colorbar = true, color = :darkrainbow) # todo: including the colorbar here is a real hack to get them to line up
+        org = plot([original original], line_z=(1:size(origLoc[1], 2))', legend=false, colorbar=true, color=:darkrainbow) # todo: including the colorbar here is a real hack to get them to line up
     end
-    ∇heat = heatmap(origLoc[2][:, :, loc...]', ylabel = "wavelet location",
-        xlabel = "space", color = c, title = "second layer gradient ")
+    ∇heat = heatmap(origLoc[2][:, :, loc...]', ylabel="wavelet location",
+        xlabel="space", color=c, title="second layer gradient ")
     if lastDiagFreq
-        ∇plt = heatmap(log.(abs.(rfft(origLoc[2][:, :, loc...], 1))), xlabel = "wavelet location", ylabel = "frequency", color = c, title = "varying location, path $(loc[2:-1:1])")
+        ∇plt = heatmap(log.(abs.(rfft(origLoc[2][:, :, loc...], 1))), xlabel="wavelet location", ylabel="frequency", color=c, title="varying location, path $(loc[2:-1:1])")
     else
-        ∇plt = plot(origLoc[2][:, :, loc...], line_z = (28:-1:1)', legend = false, color = :cividis, title = "varying location, path $(loc[2:-1:1])")
+        ∇plt = plot(origLoc[2][:, :, loc...], line_z=(28:-1:1)', legend=false, color=:cividis, title="varying location, path $(loc[2:-1:1])")
     end
 
     if original != false
         l = Plots.@layout [[a; b{0.1h}; [c d]] e]
-        return plot(∇heat, org, l1wave, l2wave, ∇plt, layout = l)
+        return plot(∇heat, org, l1wave, l2wave, ∇plt, layout=l)
     else
         l = Plots.@layout [[a; [b c]] d]
-        return plot(∇heat, l1wave, l2wave, ∇plt, layout = l)
+        return plot(∇heat, l1wave, l2wave, ∇plt, layout=l)
     end
 end
 
@@ -103,11 +103,11 @@ function plotSecondLayer(stw::ScatteredOut, st; kwargs...)
     end
 end
 
-function plotSecondLayer(stw, st; title = "Second Layer results", xVals = -1, yVals = -1, logPower = true, toHeat = nothing, c = cgrad(:viridis, [0, 0.9]), threshold = 0, freqsigdigits = 3, linePalette = :greys, minLog = NaN, subClims = (Inf, -Inf), δt = 1000, firstFreqSpacing = nothing, secondFreqSpacing = nothing, transp = true, labelRot = 30, xlabel = nothing, ylabel = nothing, frameTypes = :box, miniFillAlpha = 0.5, kwargs...)
+function plotSecondLayer(stw, st; title="Second Layer results", xVals=-1, yVals=-1, logPower=true, toHeat=nothing, c=cgrad(:viridis, [0, 0.9]), threshold=0, freqsigdigits=3, linePalette=:greys, minLog=NaN, subClims=(Inf, -Inf), δt=1000, firstFreqSpacing=nothing, secondFreqSpacing=nothing, transp=true, labelRot=30, xlabel=nothing, ylabel=nothing, frameTypes=:box, miniFillAlpha=0.5, kwargs...)
     n, m = size(stw)[2:3]
     freqs = getMeanFreq(st, δt)
-    freqs = map(x -> round.(x, sigdigits = freqsigdigits), freqs)[1:2]
-    gr(size = 2.5 .* (280, 180))
+    freqs = map(x -> round.(x, sigdigits=freqsigdigits), freqs)[1:2]
+    gr(size=2.5 .* (280, 180))
     if !(typeof(c) <: PlotUtils.ContinuousColorGradient)
         c = cgrad(c)
     end
@@ -146,12 +146,12 @@ function plotSecondLayer(stw, st; title = "Second Layer results", xVals = -1, yV
     end
     Δx = xVals[2] - xVals[1]
     xrange = range(xVals[1] + Δx / m - Δx / (m + 3),
-        stop = xVals[2] - 2 * Δx / (m + 3) + Δx / m, length = m)
+        stop=xVals[2] - 2 * Δx / (m + 3) + Δx / m, length=m)
     if yVals == -1
         yVals = (0.0, 0.995)
     end
     Δy = yVals[2] - yVals[1]
-    yrange = range(yVals[1] + Δy / n - Δy / (n + 3), stop = yVals[2] - 2 * Δy / (n + 3) + Δy / n, length = n)
+    yrange = range(yVals[1] + Δy / n - Δy / (n + 3), stop=yVals[2] - 2 * Δy / (n + 3) + Δy / n, length=n)
     if logPower
         toHeat = log10.(toHeat)
         if !isnan(minLog)
@@ -170,27 +170,27 @@ function plotSecondLayer(stw, st; title = "Second Layer results", xVals = -1, yV
     end
 
     if title == ""
-        plt = heatmap(toHeat; yticks = yTicksFreq, xticks = xTicksFreq, tick_direction = :out, rotation = labelRot,
-            xlabel = xlabel, ylabel = ylabel, c = c, clims = (bottom, top), kwargs...)
+        plt = heatmap(toHeat; yticks=yTicksFreq, xticks=xTicksFreq, tick_direction=:out, rotation=labelRot,
+            xlabel=xlabel, ylabel=ylabel, c=c, clims=(bottom, top), kwargs...)
     else
-        plt = heatmap(toHeat; yticks = yTicksFreq, xticks = xTicksFreq, tick_direction = :out, rotation = labelRot,
-            title = title, xlabel = xlabel, ylabel = ylabel, c = c, clims = (bottom, top), kwargs...)
+        plt = heatmap(toHeat; yticks=yTicksFreq, xticks=xTicksFreq, tick_direction=:out, rotation=labelRot,
+            title=title, xlabel=xlabel, ylabel=ylabel, c=c, clims=(bottom, top), kwargs...)
     end
     nPlot = 2
     for i in 1:n, j in 1:m
         if maximum(abs.(stw[:, i, j, :])) > threshold
-            plt = plot!(stw[:, i, j, :], legend = false, subplot = nPlot,
-                bg_inside = c[(toHeat[i, j]-bottom)/totalRange],
-                ticks = nothing, palette = linePalette, frame = frameTypes,
-                inset = (1, bbox(xrange[j], yrange[i], Δx / (m + 10),
-                    Δy / (n + 10), :bottom, :left)), fill = 0, fillalpha = miniFillAlpha)
+            plt = plot!(stw[:, i, j, :], legend=false, subplot=nPlot,
+                bg_inside=c[(toHeat[i, j]-bottom)/totalRange],
+                ticks=nothing, palette=linePalette, frame=frameTypes,
+                inset=(1, bbox(xrange[j], yrange[i], Δx / (m + 10),
+                    Δy / (n + 10), :bottom, :left)), fill=0, fillalpha=miniFillAlpha)
             nPlot += 1
         end
     end
     plt
 end
 
-function jointPlot(thingToPlot, thingName, cSymbol, St; sharedColorScaling = :exp, targetExample = 1, δt = 1000, freqigdigits = 3, sharedColorbar = true, extraPlot = nothing, allPositive = false, logPower = false, kwargs...)
+function jointPlot(thingToPlot, thingName, cSymbol, St; sharedColorScaling=:exp, targetExample=1, δt=1000, freqigdigits=3, sharedColorbar=true, extraPlot=nothing, allPositive=false, logPower=false, kwargs...)
     if sharedColorbar
         clims = (min(minimum.(thingToPlot)...), max(maximum.(thingToPlot)...))
         climszero = clims
@@ -222,31 +222,31 @@ function jointPlot(thingToPlot, thingName, cSymbol, St; sharedColorScaling = :ex
     end
 
     if allPositive
-        c = cgrad(cSymbol, scale = sharedColorScaling)
+        c = cgrad(cSymbol, scale=sharedColorScaling)
         cSecond = cgrad(cSymbol)
     else
         zeroAt = -climssecond[1] / (climssecond[2] - climssecond[1]) # set the mid color switch to zero
-        c = cgrad(cSymbol, [0, zeroAt], scale = sharedColorScaling)
+        c = cgrad(cSymbol, [0, zeroAt], scale=sharedColorScaling)
         cSecond = cgrad(cSymbol, [0, zeroAt])
     end
 
     # define the spatial locations as they correspond to the input
-    spaceLocs = range(1, size(St)[1], length = length(zeroLay))
+    spaceLocs = range(1, size(St)[1], length=length(zeroLay))
 
-    p2 = plotSecondLayer(thingToPlot[2][:, :, :, targetExample], St; title = "Second Layer", toHeat = toHeat, logPower = logPower, c = c, clims = climssecond, subClims = climssecond, cbar = false, xVals = (0.000, 0.993), yVals = (0.0, 0.994), transp = true, xlabel = "", kwargs...)
+    p2 = plotSecondLayer(thingToPlot[2][:, :, :, targetExample], St; title="Second Layer", toHeat=toHeat, logPower=logPower, c=c, clims=climssecond, subClims=climssecond, cbar=false, xVals=(0.000, 0.993), yVals=(0.0, 0.994), transp=true, xlabel="", kwargs...)
     freqs = getMeanFreq(St, δt)
-    freqs = map(x -> round.(x, sigdigits = freqigdigits), freqs)
-    p1 = heatmap(firstLay, c = c, title = "First Layer", clims = climsfirst, cbar = false, yticks = ((1:size(firstLay, 1)), ""), xticks = ((1:size(firstLay, 2)), ""), bottom_margin = -10Plots.px)
-    p0 = heatmap(spaceLocs, 1:1, zeroLay, c = c, xlabel = "time (ms)\nZeroth Layer", clims = climszero, cbar = false, yticks = nothing, top_margin = -10Plots.px, bottom_margin = 10Plots.px)
-    colorbarOnly = scatter([0, 0], [0, 1], zcolor = [0, 3], clims = climssecond, xlims = (1, 1.1), xshowaxis = false, yshowaxis = false, label = "", c = c, grid = false, framestyle = :none)
+    freqs = map(x -> round.(x, sigdigits=freqigdigits), freqs)
+    p1 = heatmap(firstLay, c=c, title="First Layer", clims=climsfirst, cbar=false, yticks=((1:size(firstLay, 1)), ""), xticks=((1:size(firstLay, 2)), ""), bottom_margin=-10Plots.px)
+    p0 = heatmap(spaceLocs, 1:1, zeroLay, c=c, xlabel="time (ms)\nZeroth Layer", clims=climszero, cbar=false, yticks=nothing, top_margin=-10Plots.px, bottom_margin=10Plots.px)
+    colorbarOnly = scatter([0, 0], [0, 1], zcolor=[0, 3], clims=climssecond, xlims=(1, 1.1), xshowaxis=false, yshowaxis=false, label="", c=c, grid=false, framestyle=:none)
     if extraPlot == nothing
         # extraPlot = scatter([0,0], [0,1], legend=false, grid=false, x="Layer 2 frequency", foreground_color_subplot=:white, top_margin=-10Plots.px, showaxis=false, yticks=nothing)
-        extraPlot = plot(xlabel = "Layer 2 frequency (Hz)", grid = false, xticks = (1:5, ""), showaxis = false, yticks = nothing, bottom_margin = -10Plots.px, top_margin = -20Plots.px)
+        extraPlot = plot(xlabel="Layer 2 frequency (Hz)", grid=false, xticks=(1:5, ""), showaxis=false, yticks=nothing, bottom_margin=-10Plots.px, top_margin=-20Plots.px)
         # extraPlot = heatmap(zeroLay, c=c, xlabel="location\nZeroth Layer", clims=climszero, cbar=false, yticks=nothing, top_margin=-10Plots.px, bottom_margin=10Plots.px)
     end
-    titlePlot = plot(title = thingName, grid = false, showaxis = false, xticks = nothing, yticks = nothing, bottom_margin = -10Plots.px)
+    titlePlot = plot(title=thingName, grid=false, showaxis=false, xticks=nothing, yticks=nothing, bottom_margin=-10Plots.px)
     lay = Plots.@layout [o{0.00001h}; [[a b; c{0.1h} d{0.1h}] b{0.04w}]]
-    plot(titlePlot, p2, p1, extraPlot, p0, colorbarOnly, layout = lay)
+    plot(titlePlot, p2, p1, extraPlot, p0, colorbarOnly, layout=lay)
 end
 
 """
@@ -260,7 +260,7 @@ it makes a new pathLoc only containing the first non-empty path.
 presently it only works for pathLocs whose indices are Boolean Arrays
 """
 function addNextPath(addTo::pathLocs{m}, addFrom) where {m}
-    shouldWeDo = foldl(checkShouldAdd, zip(addTo.indices, addFrom.indices), init = Tuple{}())
+    shouldWeDo = foldl(checkShouldAdd, zip(addTo.indices, addFrom.indices), init=Tuple{}())
     inds = map(makeNext, addTo.indices, addFrom.indices, shouldWeDo)
     return pathLocs{m}(inds)
 end
@@ -287,7 +287,7 @@ function makeNext(current, fillWith, shouldDo)
     end
 end
 
-addNextPath(addFrom::pathLocs{m}) where {m} = pathLocs{m}(foldl(makeSingle, addFrom.indices, init = Tuple{}()))
+addNextPath(addFrom::pathLocs{m}) where {m} = pathLocs{m}(foldl(makeSingle, addFrom.indices, init=Tuple{}()))
 
 makeSingle(prev, x::Nothing) = (prev..., nothing)
 makeSingle(x::Nothing) = (nothing,)

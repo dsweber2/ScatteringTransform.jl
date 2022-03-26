@@ -30,7 +30,7 @@ struct ScatteredFull{T,N} <: Scattered{T,N}
         new(m, k, data, output)
     end
 end
-function ScatteredFull(data, output, k = 1)
+function ScatteredFull(data, output, k=1)
     @assert eltype(data) == eltype(output)
     ScatteredOut{eltype(output),length(output)}(length(output) - 1, k,
         data, output)
@@ -46,7 +46,7 @@ struct ScatteredOut{T,N} <: Scattered{T,N}
     k::Int# the meta-dimension of the signals (should be either 1 or 2)
     output
 end
-function ScatteredOut(output, k = 1)
+function ScatteredOut(output, k=1)
     ScatteredOut{eltype(output),length(output)}(length(output) - 1, k,
         output)
 end
@@ -133,7 +133,7 @@ similar(sct::ScatteredFull) = ScatteredFull(map(x -> similar(x), sct.data), map(
 
 import Statistics.mean
 function mean(a::ScatteredOut)
-    ScatteredOut(a.m, a.k, map(x -> mean(x, dims = ndims(x)), a.output))
+    ScatteredOut(a.m, a.k, map(x -> mean(x, dims=ndims(x)), a.output))
 end
 import Base.cat
 
@@ -141,16 +141,16 @@ function cat(sc::ScatteredOut, sc1::ScatteredOut, sc2::Vararg{<:ScatteredOut,N})
     @assert !any([sc.m != sc1.m, (sc.m .!= map(s -> s.m, sc2))])# check they're
     @assert !any([sc.k != sc1.k, (sc.k .!= map(s -> s.k, sc2))])# all equal
     outputs = map(x -> x.output, (sc, sc1, sc2...))
-    output = map(x -> cat(x..., dims = ndims(x[1])), zip(outputs...))
+    output = map(x -> cat(x..., dims=ndims(x[1])), zip(outputs...))
     return ScatteredOut(sc.m, sc.k, tuple(output...))
 end
 function cat(sc::ScatteredFull, sc1::ScatteredFull, sc2::Vararg{<:ScatteredFull,N}) where {N}
     @assert !any([sc.m != sc1.m, (sc.m .!= map(s -> s.m, sc2))])# check they're
     @assert !any([sc.k != sc1.k, (sc.k .!= map(s -> s.k, sc2))])# all equal
     outputs = map(x -> x.output, (sc, sc1, sc2...))
-    output = map(x -> cat(x..., dims = ndims(x[1])), zip(outputs...))
+    output = map(x -> cat(x..., dims=ndims(x[1])), zip(outputs...))
     datas = map(x -> x.data, (sc, sc1, sc2...))
-    data = map(x -> cat(x..., dims = ndims(x[1])), zip(datas...))
+    data = map(x -> cat(x..., dims=ndims(x[1])), zip(datas...))
     return ScatteredFull(sc.m, sc.k, tuple(data...), tuple(output...))
 end
 
@@ -191,7 +191,7 @@ Base.getindex(X::Scattered, i::Union{Tuple,<:AbstractArray}) = X.output[i.+1]
 function Base.getindex(X::Scattered, ::Colon)
     if ndims(X.output[1]) > ndims(X)
         nEx = size(X.output[1])[end]
-        return cat([reshape(lay, (:, nEx)) for lay in X.output]..., dims = 1)
+        return cat([reshape(lay, (:, nEx)) for lay in X.output]..., dims=1)
     else
         return cat(lay[:] for lay in X.output)
     end
@@ -298,7 +298,7 @@ end
 given a Scattered, return the pathLocs where the Scattered is nonzero. `wholePath` is true if it returns the whole path, and not just the specific location in the signal. For example, if only `sc(pathLocs(1,(30,2)))` is nonzero, if `wholePath` is true, then `pathLocs(1,(2,))` will be returned while if it is false, `pathLocs(1,(30,2))` will be returned instead.
 if `allTogetherInOne` is false, then each location is returned separately, otherwise they are joined into a single `pathLocs`.
 """
-function nonZeroPaths(sc; wholePath = true, allTogetherInOne = false)
+function nonZeroPaths(sc; wholePath=true, allTogetherInOne=false)
     if wholePath
         return wholeNonzeroPaths(sc, allTogetherInOne)
     else
@@ -318,24 +318,24 @@ function partNonzeroPaths(sc, allTogetherInOne)
     nonZeroLocs = abs.(sc[0]) .> 0
     typeof(nonZeroLocs)
     if any(nonZeroLocs)
-        paths = (paths..., pathLocs(0, nonZeroLocs, d = Nd))
+        paths = (paths..., pathLocs(0, nonZeroLocs, d=Nd))
     end
     # first layer
-    nonZero1 = map(i -> abs.(sc[pathLocs(1, i, d = Nd)]) .> 0, 1:sz[2][end-1])
+    nonZero1 = map(i -> abs.(sc[pathLocs(1, i, d=Nd)]) .> 0, 1:sz[2][end-1])
     nonZero1 = map(x -> reshape(x, (size(x)[1:Nd]..., 1, size(x)[end])), nonZero1)
-    nonZero1 = cat(nonZero1..., dims = Nd + 1)
+    nonZero1 = cat(nonZero1..., dims=Nd + 1)
     if any(nonZero1)
-        paths = (paths..., pathLocs(1, nonZero1, d = Nd))
+        paths = (paths..., pathLocs(1, nonZero1, d=Nd))
     end
     # second layer
     nonZero2 = abs.(sc[pathLocs(2, :)]) .> 0
     if any(nonZero2)
-        paths = (paths..., pathLocs(2, nonZero2, d = Nd))
+        paths = (paths..., pathLocs(2, nonZero2, d=Nd))
     end
     return cat(paths...)
 end
 
-function wholeNonzeroPaths(sc, allTogetherInOne = false)
+function wholeNonzeroPaths(sc, allTogetherInOne=false)
     sz = size(sc)
     paths = Tuple{Vararg{pathLocs,0}}()
     # zeroth layer

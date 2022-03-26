@@ -15,9 +15,9 @@ the first layer has 16 paths, give it norm 16, etc. This is primarily for
 cases where the classification algorithm needs roughly the same order of
 magnitude variance.
 """
-function stFlux(inputSize::NTuple{N}, m; trainable = false,
-    normalize = true, outputPool = 2,
-    poolBy = 3 // 2, σ = abs, flatten = false, kwargs...) where {N}
+function stFlux(inputSize::NTuple{N}, m; trainable=false,
+    normalize=true, outputPool=2,
+    poolBy=3 // 2, σ=abs, flatten=false, kwargs...) where {N}
     # N determines the number of spatial dimensions
     Nd = N - 2
     if length(outputPool) == 1 # replicate for each dimension and layer
@@ -29,7 +29,7 @@ function stFlux(inputSize::NTuple{N}, m; trainable = false,
     end
     if typeof(poolBy) <: Union{<:Rational,<:Integer}
         poolBy = map(ii -> RationPool((ntuple(i -> poolBy, N - 2)...,),
-                nExtraDims = nPathDims(ii + 1) + 1), 1:m+1)
+                nExtraDims=nPathDims(ii + 1) + 1), 1:m+1)
     end
     poolBy = makeTuple(m, poolBy)
     argsToEach = processArgs(m + 1, kwargs)
@@ -38,7 +38,7 @@ function stFlux(inputSize::NTuple{N}, m; trainable = false,
     interstitial = Array{Any,1}(undef, 3 * (m + 1) - 2)
     for i = 1:m
         # first transform
-        interstitial[3*i-2] = dispatchLayer(listOfSizes[i], Val(Nd); σ = identity,
+        interstitial[3*i-2] = dispatchLayer(listOfSizes[i], Val(Nd); σ=identity,
             argsToEach[i]...)
         nFilters = length(interstitial[3*i-2].weight)
 
@@ -69,7 +69,7 @@ function stFlux(inputSize::NTuple{N}, m; trainable = false,
 
     # final averaging layer
     interstitial[3*m+1] = dispatchLayer(listOfSizes[end], Val(Nd);
-        averagingLayer = true, σ = identity,
+        averagingLayer=true, σ=identity,
         argsToEach[end]...)
     chacha = Chain(interstitial...)
     outputSizes = ([(map(poolSize, outputPool[ii], x[1:Nd])..., x[(Nd+1):end]...) for (ii, x)
@@ -99,7 +99,7 @@ function (St::stFlux{Dimension,Depth})(x::T) where {Dimension,Depth,T<:AbstractA
     end
     if get(St.settings, :flatten, false) # it may not be defined, in which case we don't do it
         batchSize = size(res[1])[end]
-        return cat((reshape(x, (:, batchSize)) for x in res)..., dims = 1)
+        return cat((reshape(x, (:, batchSize)) for x in res)..., dims=1)
     else
         return ScatteredOut(res, ndims(mc[1]))
     end
@@ -126,7 +126,7 @@ function extractAddPadding(x, adr, chunkSize, N)
     if length(adr) < chunkSize
         actualSize = chunkSize - length(adr)
         return cat(justUsing, zeros(eltype(justUsing), size(x)[1:end-1]...,
-                actualSize), dims = ndims(justUsing)), length(adr)
+                actualSize), dims=ndims(justUsing)), length(adr)
     else
         return justUsing, chunkSize
     end
@@ -172,7 +172,7 @@ function applyScattering(c::Tuple, x, Nd, st, M)
         tmpRes = res[map(x -> Colon(), 1:Nd)..., end, map(x -> Colon(), 1:ndims(res)-Nd-1)...]
         # return a subsampled version of the output at this layer
         poolSizes = (st.outputPool[M+1]..., ntuple(i -> 1, ndims(tmpRes) - Nd - 2)...)
-        r = RationPool(st.outputPool[M+1], nExtraDims = nPathDims(M + 1) + 1)
+        r = RationPool(st.outputPool[M+1], nExtraDims=nPathDims(M + 1) + 1)
         if st.normalize
             tmpRes = normalize(r(real.(tmpRes)), Nd)
             apld = applyScattering(tail(c), res, Nd, st, M + 1)

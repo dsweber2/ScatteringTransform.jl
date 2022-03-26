@@ -34,7 +34,7 @@ wave1, wave2, wave3, ... = getWavelets(sc::stFlux)
 
 just a simple util to get the wavelets from each layer
 """
-function getWavelets(sc::stFlux; spaceDomain = false)
+function getWavelets(sc::stFlux; spaceDomain=false)
     freqDomain = map(x -> x.weight, filter(x -> (typeof(x) <: ConvFFT), sc.mainChain.layers)) # filter to only have ConvFFTs, and then return the wavelets of those
     if spaceDomain
         return map(originalDomain, filter(x -> (typeof(x) <: ConvFFT), sc.mainChain.layers))
@@ -48,7 +48,7 @@ import ContinuousWavelets: getMeanFreq
     getMeanFreq(sc::stFlux{1}, δt=1000)
 Get a list of the mean frequencies for the filter bank in each layer. Note that δt gives the sampling rate for the input only, and that it decreases at each subsequent layer.
 """
-function getMeanFreq(sc::stFlux{1}, δt = 1000)
+function getMeanFreq(sc::stFlux{1}, δt=1000)
     waves = getWavelets(sc)
     shrinkage = [size(waves[i+1], 1) / size(waves[i], 1) for i = 1:length(waves)-1]
     δts = δt * [1, shrinkage...]
@@ -131,7 +131,7 @@ end
 given a scattered output, make a list that gives the largest value on each path
 """
 function importantCoords(scatRes)
-    return [dropdims(maximum(abs.(x), dims = (1, 2)), dims = (1, 2)) for x in scatRes]
+    return [dropdims(maximum(abs.(x), dims=(1, 2)), dims=(1, 2)) for x in scatRes]
 end
 
 
@@ -153,7 +153,7 @@ function batchOff(stack, x, batchSize)
             nRounds * batchSize
             -
             size(x, 4))),
-        dims = 4))[:, 1:(size(x, 4)-(nRounds-1)*batchSize)]
+        dims=4))[:, 1:(size(x, 4)-(nRounds-1)*batchSize)]
     return result
 end
 

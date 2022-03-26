@@ -1,4 +1,4 @@
-Zygote.@adjoint function ScatteredOut(output, k = 1)
+Zygote.@adjoint function ScatteredOut(output, k=1)
     function ∇scattered(δ)
         return (δ.output, nothing)
     end

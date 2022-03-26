@@ -20,7 +20,7 @@
         @testset "bizzare pooling sizes 1D i=$i, s=$s, nExtraDims=$nExtraDims, xExtraDims=$xExtraDims, k=$k N=$N" for i = 25:3:40, s in subsampRates, xExtraDims in 2:nExtraDims, k in windowSize, (N, nExtraDims) in NdimsExtraDims
             selectXDims = ntuple(x -> 2, xExtraDims)
             x = ifGpu(randn(ntuple(x -> i, N)..., rand(2:10, xExtraDims)...))
-            r = RationPool(ntuple(x -> s, N), k, nExtraDims = nExtraDims)
+            r = RationPool(ntuple(x -> s, N), k, nExtraDims=nExtraDims)
             @test length(r.m.k) == length(r.resSize) + nExtraDims - 2
             Nneed = ndims(r.m) + 2
             Sx = r(x)
@@ -60,7 +60,7 @@
     nFilters = [1, 9, 9, 9]
     @testset "1D basics" begin
         init = 10 .+ randn(64, 3, 2)
-        sst = stFlux(size(init), 2, poolBy = 3 // 2, outputPool = (2,))
+        sst = stFlux(size(init), 2, poolBy=3 // 2, outputPool=(2,))
         res = sst(init)
         @test length(res.output) == 2 + 1
         @test size(res.output[1]) == (32, 3, 2)
@@ -72,13 +72,13 @@
         totalSize = 32 * 3 + 22 * 3 * nFilters[2] + 14 * nFilters[3] * 3 * nFilters[2]
         smooshed = ScatteringTransform.flatten(res)
         @test size(smooshed) == (totalSize, 2)
-        sst1 = stFlux(size(init), 2, poolBy = 3 // 2, outputPool = (2,), flatten = true)
+        sst1 = stFlux(size(init), 2, poolBy=3 // 2, outputPool=(2,), flatten=true)
         res1 = sst1(init)
         @test res1 isa Array{Float32,2}
         @test size(res1) == (32 * 3 + 22 * 3 * nFilters[2] + 14 * nFilters[3] * nFilters[2] * 3, 2)
         @test res1[1:32*3, 1] ≈ reshape(res[0][:, :, 1], (32 * 3,))
 
-        sst = stFlux(size(init), 3, poolBy = 3 // 2, outputPool = (2,))
+        sst = stFlux(size(init), 3, poolBy=3 // 2, outputPool=(2,))
         res = sst(init)
         @test length(res.output) == 3 + 1
         @test size(res.output[1]) == (32, 3, 2)
@@ -92,7 +92,7 @@
         totalSize = 32 * 3 + 22 * 3 * nFilters[2] + 14 * nFilters[3] * 3 * nFilters[2] + 10 * 3 * prod(nFilters)
         smooshed = ScatteringTransform.flatten(res)
         @test size(smooshed) == (totalSize, 2)
-        sst1 = stFlux(size(init), 3, poolBy = 3 // 2, outputPool = (2,), flatten = true)
+        sst1 = stFlux(size(init), 3, poolBy=3 // 2, outputPool=(2,), flatten=true)
         res1 = sst1(init)
         @test res1 isa Array{Float32,2}
         @test size(res1) == (32 * 3 + 22 * 3 * nFilters[2] + 14 * nFilters[3] * nFilters[2] * 3 + 10 * 3 * prod(nFilters), 2)
@@ -101,7 +101,7 @@
 
     nFilters = [1, 10, 9]
     @testset "1D integer pooling" begin
-        stEx = stFlux((131, 1, 1), 2, poolBy = 3)
+        stEx = stFlux((131, 1, 1), 2, poolBy=3)
 
         scat = stEx(ifGpu(randn(131, 1, 1)))
         @test size(stEx.mainChain[1].fftPlan[1]) == (2 * 131, 1, 1)
@@ -125,7 +125,7 @@
     # rolling and flattening does nothing
     @testset "roll and flatten 1D" begin
         init = ifGpu(randn(64, 1, 2))
-        sst = stFlux(size(init), 2, poolBy = 3 // 2)
+        sst = stFlux(size(init), 2, poolBy=3 // 2)
         res = sst(init)
         smooshed = ScatteringTransform.flatten(res)
         if ifGpu != identity
@@ -140,14 +140,14 @@
     x = randn(10, 4, 3, 5, 7)
     Nd = 2
     xp = ScatteringTransform.normalize(x, 2)
-    for w in eachslice(xp, dims = ndims(x))
+    for w in eachslice(xp, dims=ndims(x))
         @test norm(w, 2) ≈ 3 * 5
     end
 
     # normalization in 1D
     x = randn(10, 3, 5, 7)
     xp = ScatteringTransform.normalize(x, 1)
-    for w in eachslice(xp, dims = ndims(x))
+    for w in eachslice(xp, dims=ndims(x))
         @test norm(w, 2) ≈ 3 * 5
     end
 end
@@ -257,8 +257,8 @@ end
     for (ii, p) in enumerate(pathsByHand)
         ex[p] = (-1)^ii * ii * ones(size(ex[p]))
     end
-    paths = nonZeroPaths(ex, wholePath = false, allTogetherInOne = true)
-    @test ex[paths][1] == ex[pathLocs(0, 40:46, exs = 1)]
+    paths = nonZeroPaths(ex, wholePath=false, allTogetherInOne=true)
+    @test ex[paths][1] == ex[pathLocs(0, 40:46, exs=1)]
     @test ex[paths][2] == [fill(-3.0, 3)...; fill(2.0, 3)...; fill(-3.0, 3)...] #not
     #easy to describe the location
     @test findall(paths.indices[2]) == [CartesianIndex(29, 6, 1), CartesianIndex(30, 6, 1), CartesianIndex(31, 6, 1), CartesianIndex(24, 4, 2), CartesianIndex(25, 4, 2), CartesianIndex(26, 4, 2), CartesianIndex(29, 6, 2), CartesianIndex(30, 6, 2), CartesianIndex(31, 6, 2)]
@@ -270,14 +270,14 @@ end
     newValues = randn(35)
     mostlyNull[paths] #todo this should be a tuple not an array
     mostlyNull[paths] = newValues
-    @test cat(mostlyNull[paths]..., dims = 1) ≈ newValues
+    @test cat(mostlyNull[paths]..., dims=1) ≈ newValues
     # testing adding one location at a time
     nullEx = ScatteredOut((zeros(50, 1, 1), zeros(34, 13, 1), zeros(23, 11, 13, 1)))
     nullEx[0][3, 1, 1] = 50
     nullEx[2][3:20, 1, 1, 1] .= 25
     nullEx[2][5, 2:5, 1, 1] .= 26
     nullEx[2][5, 9, 12:13, 1] .= 2
-    addFrom = nonZeroPaths(nullEx, allTogetherInOne = true, wholePath = false)
+    addFrom = nonZeroPaths(nullEx, allTogetherInOne=true, wholePath=false)
     addTo = addNextPath(addFrom)
     @test findfirst(addTo.indices[1] != addFrom.indices[1]) == nothing
     @test addTo.indices[2] == nothing
