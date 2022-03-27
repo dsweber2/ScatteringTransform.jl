@@ -11,7 +11,7 @@ make a pathLocs that accesses every location in the output
 make a pathLocs that accesses every location in layer `ii` of the output.
 """
 struct pathLocs{m}
-    indices::Tuple{Vararg{<:Union{Tuple{Vararg{<:accessType,3}},Tuple{Vararg{<:accessType,4}},Tuple{Vararg{<:accessType,5}},Nothing,BitArray},m}}
+    indices
 end
 # specifying on
 function pathLocs(varargs...; m::Int=2, d::Int=1, exs=Colon())

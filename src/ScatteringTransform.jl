@@ -26,7 +26,7 @@ export scatteringTransform, stFlux, stParallel, eltypes, depth
 include("pathLocs.jl")
 export pathLocs
 include("scattered.jl")
-export Scattered, ScatteredFull, ScatteredOut, nonZeroPaths
+export Scattered, ScatteredFull, ScatteredOut, nonZeroPaths, cat
 include("pool.jl")
 export RationPool, nPoolDims, outdims, poolSize
 include("transform.jl")

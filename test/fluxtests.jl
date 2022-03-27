@@ -246,10 +246,11 @@ end
     @test res[2] == nothing
 
     # catting paths (may result in extra indices grabbed)
-    pathsByHand = (pathLocs(0, 40:46, exs = 1), pathLocs(1, (24:26, 4), exs = 2),
-        pathLocs(1, (29:31, 6), exs = 1:2),
-        pathLocs(2, (11:14, 10, 1), exs = 1),
-        pathLocs(2, (11:15, 3, 5:7), exs = 1))
+    pathsByHand = (pathLocs(0, 40:46, exs=1),
+        pathLocs(1, (24:26, 4), exs=2),
+        pathLocs(1, (29:31, 6), exs=1:2),
+        pathLocs(2, (11:14, 10, 1), exs=1),
+        pathLocs(2, (11:15, 3, 5:7), exs=1))
     joint = cat(pathsByHand...)
 
     # nonZeroPaths

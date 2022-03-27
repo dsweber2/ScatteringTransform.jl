@@ -31,7 +31,7 @@ function Base.show(io::IO, m::RationPool)
     print(io, "RationPool(windowSize=$(m.m.k), poolingRate=$(m.resSize))")
 end
 
-function RationPool(resSize::Tuple{Vararg{<:Union{<:Integer,Rational{<:Integer}},N}}, k = 2; nExtraDims = 2, poolType = MeanPool) where {N}
+function RationPool(resSize::NTuple{N,Union{<:Integer,Rational{<:Integer}}}, k=2; nExtraDims=2, poolType=MeanPool) where {N}
     effResSize = (resSize..., ntuple(ii -> 1 // 1, min(nExtraDims - 2, 5))...)
     subBy = map(ki -> ((ki == 1) ? 1 : k), effResSize) # any non-trivial dim
     # should subsample at a rate of k
@@ -49,7 +49,7 @@ Base.getindex(X::RationPool, i::Union{AbstractArray,<:Integer}) = X.resSize[i]
 import Base: ndims
 ndims(r::MaxPool{N,M}) where {N,M} = N
 ndims(r::MeanPool{N,M}) where {N,M} = N
-nPoolDims(r::RationPool{A,<:Tuple{Vararg{<:Any,N}}}) where {A,N} = N
+nPoolDims(r::RationPool{A,<:NTuple{N,<:Any}}) where {A,N} = N
 import Flux: outdims
 outdims(r::RationPool) = 3
 using Zygote: hook
