@@ -283,12 +283,12 @@ union(a, b::Colon) = Colon()
 union(a::Colon, b) = Colon()
 union(a::Colon, b::Colon) = Colon()
 # if we want to join several pathLocs
-function cat(ps::Vararg{pathLocs,N}) where {N}
-    ł(a::Nothing, b::Nothing) = nothing
-    ł(a::Nothing, b) = b
-    ł(a, b::Nothing) = a
-    ł(a, b) = union.(a, b)
-    reduce((p1, p2) -> pathLocs(map(ł, p1.indices, p2.indices)), ps)
+function cat(ps::pathLocs...)
+    pairwise(a::Nothing, b::Nothing) = nothing
+    pairwise(a::Nothing, b) = b
+    pairwise(a, b::Nothing) = a
+    pairwise(a, b) = union.(a, b)
+    reduce((p1, p2) -> pathLocs(map(pairwise, p1.indices, p2.indices)...), ps)
 end
 
 

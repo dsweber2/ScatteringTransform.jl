@@ -16,10 +16,15 @@ end
 # specifying on
 function pathLocs(varargs...; m::Int=2, d::Int=1, exs=Colon())
     if length(varargs) == 0
+        # default constructor that includes everything
         paired = [(i, :) for i = 0:m]
-    else
+    elseif length(varargs) % 2 == 0 && (varargs[1] isa Integer)
+        # specifically enumerated, so alternates between a number and a reference shape
         # pair each layer with the tuple
         paired = [(varargs[i], varargs[i+1]) for i = 1:2:length(varargs)]
+    elseif length(varargs) == m + 1
+        # every layer specified
+        paired = [(i, varargs[i+1]) for i = 0:m]
     end
     present = [x[1] for x in paired]
     notPresent = [ii for ii = 0:m if !(ii in present)] # unspecified layers
@@ -64,7 +69,7 @@ function parseOne(x, d, exs)
     elseif lay >= 2
         if select == Colon()
             return (map(x -> Colon(), 1:d)..., Colon(), Colon(), exs)
-        elseif length(select) == d + 3
+        elseif length(select) >= d + 3
             return select
         elseif typeof(select) <: AbstractArray && ndims(select) == d + 3
             return select
