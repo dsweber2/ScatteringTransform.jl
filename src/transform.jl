@@ -92,6 +92,11 @@ Base.size(a::Tuple{AbstractFFTs.Plan,AbstractFFTs.Plan}) = size(a[1])
 # actually apply the transform
 function (St::stFlux{Dimension,Depth})(x::T) where {Dimension,Depth,T<:AbstractArray}
     mc = St.mainChain.layers
+    if ndims(x) < length(size(mc[1]))
+        # the input is missing dimensions, so reshape
+        targetSize = size(mc[1])
+        x = reshape(x, (size(x)..., targetSize[length(targetSize)-ndims(x):end]...))
+    end
     if size(x)[end] != getBatchSize(mc[1])
         res = breakAndAdapt(St, x)
     else
