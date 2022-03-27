@@ -69,7 +69,7 @@ function parseOne(x, d, exs)
     elseif lay >= 2
         if select == Colon()
             return (map(x -> Colon(), 1:d)..., Colon(), Colon(), exs)
-        elseif length(select) >= d + 3
+        elseif (select isa Tuple) && length(select) >= d + 3
             return select
         elseif typeof(select) <: AbstractArray && ndims(select) == d + 3
             return select
