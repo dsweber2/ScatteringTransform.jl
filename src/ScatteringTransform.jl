@@ -2,10 +2,9 @@ module ScatteringTransform
 
 using ChainRules
 using CUDA
-using Flux: mse, update!
 using FFTW
 using Wavelets, ContinuousWavelets
-using Zygote, Flux, Shearlab, LinearAlgebra, AbstractFFTs
+using Zygote, Flux, LinearAlgebra, AbstractFFTs
 using Flux
 using FourierFilterFlux
 using Adapt
@@ -13,7 +12,7 @@ using RecipesBase
 using Base: tail
 using ChainRulesCore
 using Plots # who cares about weight really?
-using Statistics, LineSearches, Optim
+using Statistics
 using Dates
 
 import Adapt: adapt
