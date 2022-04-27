@@ -18,4 +18,4 @@ ShatteringExamples/coeffPlots
 ShatteringExamples/*pdf
 debugging.jl
 *tmp*
-test/reconstructSquareAbs.pdf
+Manifest.toml
