@@ -2,7 +2,6 @@ module ScatteringTransform
 
 using ChainRules
 using CUDA
-using FFTW
 using Wavelets, ContinuousWavelets
 using Zygote, Flux, LinearAlgebra, AbstractFFTs
 using Flux
@@ -43,6 +42,4 @@ include("utilities.jl")
 export getWavelets, flatten, roll, importantCoords, batchOff, getParameters, getMeanFreq
 export roll, wrap, flatten
 include("adjoints.jl")
-include("interpretationTools.jl")
-export ∇st, plotFirstLayer1D, gifFirstLayer, plotSecondLayer, addNextPath, jointPlot
 end # end Module
