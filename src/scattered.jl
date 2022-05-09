@@ -1,9 +1,10 @@
+"""
+    Scattered{T,N}
+The abstract parent type for `ScatteredOut` and `ScatteredFull`. `T` gives the element type for the matrices, while `N` gives one plus the depth of the scattering transform (so for two layers it is three).
+"""
 abstract type Scattered{T,N} end
-
-
 # TODO: tests for the data collators and the subsampling
-# TODO: Write a version of this that accomodates things that are too big to
-# hold in memory
+# TODO: Write a version of this that accomodates things that are too big to hold in memory
 # TODO: write a version of this that uses sparse matrices
 # TODO: adapt for complex input and/or complex wavelets
 struct ScatteredFull{T,N} <: Scattered{T,N}
@@ -30,11 +31,13 @@ struct ScatteredFull{T,N} <: Scattered{T,N}
         new(m, k, data, output)
     end
 end
+
 function ScatteredFull(data, output, k=1)
     @assert eltype(data) == eltype(output)
     ScatteredOut{eltype(output),length(output)}(length(output) - 1, k,
         data, output)
 end
+
 """
 A simple wrapper for the results of the scattering transform. Its one field
 `result` contains a tuple of the results from each layer, in the order zero,
@@ -46,6 +49,7 @@ struct ScatteredOut{T,N} <: Scattered{T,N}
     k::Int# the meta-dimension of the signals (should be either 1 or 2)
     output
 end
+
 function ScatteredOut(output, k=1)
     ScatteredOut{eltype(output),length(output)}(length(output) - 1, k,
         output)
@@ -295,8 +299,8 @@ end
 
 """
     paths = nonZeroPaths(sc; wholePath=true, allTogetherInOne=false)
-given a Scattered, return the pathLocs where the Scattered is nonzero. `wholePath` is true if it returns the whole path, and not just the specific location in the signal. For example, if only `sc(pathLocs(1,(30,2)))` is nonzero, if `wholePath` is true, then `pathLocs(1,(2,))` will be returned while if it is false, `pathLocs(1,(30,2))` will be returned instead.
-if `allTogetherInOne` is false, then each location is returned separately, otherwise they are joined into a single `pathLocs`.
+given a `Scattered`, return the `pathLocs` where the `Scattered` is nonzero. `wholePath=true` if it returns the whole path, and not just the specific location in the signal. For example, if only `sc(pathLocs(1,(30,2)))` is nonzero, if `wholePath` is `true`, then `pathLocs(1,(2,))` will be returned while if `wholePath` is `false`, `pathLocs(1,(30,2))` will be returned instead.
+if `allTogetherInOne` is `false`, then each location is returned separately, otherwise they are joined into a single `pathLocs`.
 """
 function nonZeroPaths(sc; wholePath=true, allTogetherInOne=false)
     if wholePath

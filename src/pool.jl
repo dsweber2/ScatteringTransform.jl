@@ -15,12 +15,7 @@ import NNlib.maxpool
 """
     r = RationPool(resSize, k=2; nExtraDims=1, poolType = MeanPool)
 
-slight extension of the Flux pooling methods to subsample at a rational rate
-`resSize`. `k` is the window size over which to apply the pooling, and poolType
-is the type of pooling, either MaxPool or MeanPool. nExtraDims counts the
-number of dimensions uninvolved in the convolution; normally this is 2, the
-last dimension for nExamples, and the penultimate for channels. You can expect
-pooling to work on sizes up to 5 total dimensions.
+slight extension of the Flux pooling methods to subsample at a rational rate `resSize`. `k` is the window size over which to apply the pooling, and `poolType` is the type of pooling, either MaxPool or MeanPool. `nExtraDims` counts the number of dimensions uninvolved in the convolution; normally this is 2, the last dimension for `nExamples`, and the penultimate for channels. You can expect pooling to work on sizes up to 5 total dimensions.
 """
 struct RationPool{A,B}
     m::A # should inheret from MaxPool
@@ -79,8 +74,9 @@ end
 
 
 """
-    poolSize(k, sizes)
-if we're pooling at rates `k` in each dimension (e.g. `(3//2, 3//2)`), how many entries should we expect in the next layer
+    poolSize(k::RationPool, sizes)
+    poolSize(kks, sizs)
+if we're pooling at rates `k` in each dimension (e.g. `(3//2, 3//2)` or `RationPool((3//2,3//2))`), how many entries should we expect in the next layer
 """
 function poolSize(r::RationPool, sizes)
     resSize = [x for x in r.resSize]

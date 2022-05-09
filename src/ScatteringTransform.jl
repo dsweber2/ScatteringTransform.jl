@@ -21,7 +21,7 @@ import Wavelets: eltypes
 
 
 include("shared.jl")
-export scatteringTransform, stFlux, stParallel, eltypes, depth
+export scatteringTransform, stFlux, depth
 include("pathLocs.jl")
 export pathLocs
 include("scattered.jl")

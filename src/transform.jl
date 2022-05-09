@@ -7,13 +7,8 @@
                         poolBy= 3//2, σ=abs, scales=(4,4,4),
                         shearLevels=scales) where {N}
 
-Create a scattering transform of depth m (which returns a m+1 depth list of
-arrays) that subsamples at a rate of poolBy each layer, using scales[i] and
-`shearLevels[i]` at each layer. Normalize means give each layer the same average
-weight per path, e.g. since the zeroth layer has one path, give it norm 1, if
-the first layer has 16 paths, give it norm 16, etc. This is primarily for
-cases where the classification algorithm needs roughly the same order of
-magnitude variance.
+Create a scattering transform of depth `m` (which returns a `m+1` depth list of arrays) that subsamples at a rate of `poolBy` each layer, using `scales[i]` and `shearLevels[i]` at each layer. `normalize` means give each layer the same average weight per path, e.g. since the zeroth layer has one path, give it norm 1, if the first layer has 16 paths, give the sum across all first layer paths norm 16, etc. This is primarily for cases where the classification algorithm needs roughly the same order of
+magnitude variance. `flatten` means return a result that is a matrix of size `(:,nExamples)` where `nExamples` is the last dimension of `inputSize`. `σ` is the nonlinearity used. Any additional keyword args `kwargs...` come from either the FourierFilterFlux [`waveletLayerConstructor`](https://dsweber2.github.io/FourierFilterFlux.jl/dev/constructors/#FourierFilterFlux.waveletLayer), or subsequently from ContinuousWavlets [`wavelet`](https://dsweber2.github.io/ContinuousWavelets.jl/dev/CWTConstruction/) constructor ContinuousWavelets.
 """
 function stFlux(inputSize::NTuple{N}, m; trainable=false,
     normalize=true, outputPool=2,
