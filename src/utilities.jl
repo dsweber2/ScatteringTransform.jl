@@ -209,6 +209,6 @@ function size(st::stFlux)
     else
         sz = l.fftPlan.sz
     end
-    es = originalSize(sz[1:ndims(l.weight)-1], l.bc)
+    es = originalSize(sz[1:ndims(l.weight[1])], l.bc)
     return es
 end

@@ -137,7 +137,7 @@ function breakAndAdapt(St::stFlux{N,D}, x) where {N,D}
     mc = St.mainChain.layers
     chunkSize = size(mc[1].fftPlan)[end]
     nSteps = ceil(Int, (size(x)[end]) / chunkSize) # the first entry is taken care of already
-    containerType = typeof(St.mainChain[1].weight)
+    containerType = typeof(St.mainChain[1].weight[1])
     xAxes = axes(x)
     firstAddr = 1+0:min(size(x)[end], chunkSize)
     firstEx, actualSize = extractAddPadding(x, firstAddr, chunkSize, N) # x[xAxes[1:end-1]..., 1:chunkSize]
