@@ -49,12 +49,18 @@ import ContinuousWavelets: getMeanFreq
 Get a list of the mean frequencies for the filter bank in each layer. Note that δt gives the sampling rate for the input only, and that it decreases at each subsequent layer.
 """
 function getMeanFreq(sc::stFlux{1}, δt=1000)
-    waves = getWavelets(sc)
+    waves = getWavelets(sc)[1:end-1]
     shrinkage = [size(waves[i+1], 1) / size(waves[i], 1) for i = 1:length(waves)-1]
     δts = δt * [1, shrinkage...]
-    map(getMeanFreq, waves, δts)
+    freqs = map(getMeanFreq, waves, δts)
+    return (freqs..., [zero(freqs[1][1])])
 end
 
+function getMeanFreq(Ŵ::Tuple, fsample=2000)
+    eachNorm = [norm(w, 1) for w in Ŵ]
+    freqs = range(0, fsample / 2, length=length(Ŵ[1]))
+    return map(ŵ -> sum(abs.(ŵ) .* freqs), Ŵ) ./ eachNorm
+end
 
 """
     flatten(scatRes) -> output
@@ -140,7 +146,7 @@ end
 if the batch size is off, we don't want to suddenly drop performance. Split it up.
 """
 function batchOff(stack, x, batchSize)
-    nRounds = ceil(Int, size(x, 4) // batchSize)
+    nRounds = ceil(Int, size(x)[end] // batchSize)
     firstRes = stack(x[:, :, :, 1:batchSize])
     result = cu(zeros(size(firstRes)[1:end-1]..., size(x)[end]))
     result[:, 1:batchSize] = firstRes
