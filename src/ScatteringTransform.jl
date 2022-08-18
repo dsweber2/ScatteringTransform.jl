@@ -1,5 +1,6 @@
 module ScatteringTransform
 
+using Core: @__doc__
 using ChainRules
 using CUDA
 using Wavelets, ContinuousWavelets
@@ -29,17 +30,18 @@ export Scattered, ScatteredFull, ScatteredOut, nonZeroPaths, cat
 include("pool.jl")
 export RationPool, nPoolDims, outdims, poolSize
 include("transform.jl")
-export normalize, cu
+export cu
 
-function scatteringTransform(inputSize, m, backend::UnionAll; kwargs...)
+@doc """
+     scatteringTransform(inputSize, m=2, backend::UnionAll=stFlux; kwargs...)
+ The constructor for the abstract type scatteringTransform, with the concrete type specified by `backend`.
+ """
+function scatteringTransform(inputSize, m=2, backend::UnionAll=stFlux; kwargs...)
     backend(inputSize, m; kwargs...)
 end
 
-scatteringTransform(inputSize, m; kwargs...) =
-    scatteringTransform(inputSize, m, stFlux; kwargs...)
-
 include("utilities.jl")
-export getWavelets, flatten, roll, importantCoords, batchOff, getParameters, getMeanFreq
+export getWavelets, flatten, roll, importantCoords, batchOff, getParameters, getMeanFreq, computeLoc
 export roll, wrap, flatten
 include("adjoints.jl")
 end # end Module

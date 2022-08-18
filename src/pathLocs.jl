@@ -4,11 +4,11 @@ accessType = Union{Colon,<:Integer,<:AbstractArray{<:Union{Integer,Bool}},Nothin
         indices
     end
     pathLocs(varargs...; m::Int=2, d::Int=1, exs=Colon())
-some words
+
+The general constructor for path locs. The general pattern is alternating integers and tuples, with the integers corresponding to accessed layers, and the tuples to the paths accessed in that layer.
+
     pathLocs(s::scattered)
-make a pathLocs that accesses every location in the output
-    pathLocs(ii, s::scattered)
-make a pathLocs that accesses every location in layer `ii` of the output.
+make a pathLocs that accesses every location in the output.
 """
 struct pathLocs{m}
     indices

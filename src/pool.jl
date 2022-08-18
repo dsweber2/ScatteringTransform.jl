@@ -12,10 +12,11 @@ end
 # extend maxpool to use rational types, in case pooling by 2x is too steep
 import NNlib.maxpool
 
-"""
-    r = RationPool(resSize, k=2; nExtraDims=1, poolType = MeanPool)
+@doc """
+    RationPool{A,B}
+An extension of Flux's `MaxPool` and `MeanPool` to subsampling by rational amounts as well. Don't construct directly. Has fields `r.m`, which is the pooling operator as implemented in Flux, and `r.resSize`, which gives the subsampling rates, either as `Integer`, `Rational`, or tuples of these.
 
-slight extension of the Flux pooling methods to subsample at a rational rate `resSize`. `k` is the window size over which to apply the pooling, and `poolType` is the type of pooling, either MaxPool or MeanPool. `nExtraDims` counts the number of dimensions uninvolved in the convolution; normally this is 2, the last dimension for `nExamples`, and the penultimate for channels. You can expect pooling to work on sizes up to 5 total dimensions.
+It works by first applying the given pooling operator, but with a step size of 1, and then keeping `p` out of `q` entries, where `p` is the numerator of the rational rate, and `q` is the denominator.
 """
 struct RationPool{A,B}
     m::A # should inheret from MaxPool
@@ -26,6 +27,13 @@ function Base.show(io::IO, m::RationPool)
     print(io, "RationPool(windowSize=$(m.m.k), poolingRate=$(m.resSize))")
 end
 
+@doc """
+    RationPool(resSize, k=2; nExtraDims=1, poolType = MeanPool)
+
+Construct a `RationPool` instance, which is a slight extension of the Flux pooling methods to subsample at a rational rate `resSize`, which can vary by channel. For example, for a 2D input, `resSize` could be `(2,3//2)`, `3//2` (equivalent to `(3//2, 3//2)`), or `(5//3, 5//3)`.
+
+`k` is the window size of the pooling, and `poolType` is the type of pooling, either `MaxPool` or `MeanPool`. `nExtraDims` counts the number of dimensions uninvolved in the convolution; normally this is 2, as in `(..., nChannels, nExamples)`. You can expect pooling to work for sizes up to 5 total dimensions.
+"""
 function RationPool(resSize::NTuple{N,Union{<:Integer,Rational{<:Integer}}}, k=2; nExtraDims=2, poolType=MeanPool) where {N}
     effResSize = (resSize..., ntuple(ii -> 1 // 1, min(nExtraDims - 2, 5))...)
     subBy = map(ki -> ((ki == 1) ? 1 : k), effResSize) # any non-trivial dim
@@ -42,6 +50,12 @@ RationPool(resSize::Union{<:Integer,Rational{<:Integer}}, k=3;
 import Base: getindex
 Base.getindex(X::RationPool, i::Union{AbstractArray,<:Integer}) = X.resSize[i]
 import Base: ndims
+"""
+    ndims(r::MaxPool{N,M})
+    ndims(r::MeanPool{N,M})
+
+return the dimension `N` of the input signal
+"""
 ndims(r::MaxPool{N,M}) where {N,M} = N
 ndims(r::MeanPool{N,M}) where {N,M} = N
 nPoolDims(r::RationPool{A,<:NTuple{N,<:Any}}) where {A,N} = N
@@ -75,8 +89,8 @@ end
 
 """
     poolSize(k::RationPool, sizes)
-    poolSize(kks, sizs)
-if we're pooling at rates `k` in each dimension (e.g. `(3//2, 3//2)` or `RationPool((3//2,3//2))`), how many entries should we expect in the next layer
+    poolSize(k, sizs)
+Return the number should we expect in the output with pooling rates `k` in each dimension (e.g. `(3//2, 3//2)` or `RationPool((3//2,3//2))`).
 """
 function poolSize(r::RationPool, sizes)
     resSize = [x for x in r.resSize]

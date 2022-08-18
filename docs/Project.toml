@@ -1,2 +1,6 @@
 [deps]
+ContinuousWavelets = "96eb917e-2868-4417-9cb6-27e7ff17528f"
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+FourierFilterFlux = "3d7dfd45-6c90-4c9b-b697-194a05757159"
+ScatteringPlots = "196eb918-4f6f-4958-a9e4-adbde22f279d"
+Wavelets = "29a6e085-ba6d-5f35-a997-948ac2efa89a"

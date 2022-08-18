@@ -6,7 +6,6 @@
 src/plotting.jl 
 /docs/build/
 /docs/site/
-*svg
 symmetryTesting.jl
 boundaryConditions.jl
 *~

@@ -1,16 +1,39 @@
 """
-    stFlux(inputSize::NTuple{N}, m; trainable=false,
+    stFlux(inputSize::NTuple{N}, m=2; trainable=false,
                              normalize=true, outputPool=2,
                              poolBy=3 // 2, σ=abs, flatten=false, kwargs...)
-    stFlux(inputSize::NTuple{N}, m; trainable = false,
-                        normalize = true, outputPool = 2,
-                        poolBy= 3//2, σ=abs, scales=(4,4,4),
-                        shearLevels=scales) where {N}
 
-Create a scattering transform of depth `m` (which returns a `m+1` depth list of arrays) that subsamples at a rate of `poolBy` each layer, using `scales[i]` and `shearLevels[i]` at each layer. `normalize` means give each layer the same average weight per path, e.g. since the zeroth layer has one path, give it norm 1, if the first layer has 16 paths, give the sum across all first layer paths norm 16, etc. This is primarily for cases where the classification algorithm needs roughly the same order of
+Create a scattering transform of depth `m` (which returns a `m+1` depth list of arrays stored in a [`ScatteredOut`](@ref)) that subsamples at a rate of `poolBy` each layer, using `scales[i]` and `shearLevels[i]` at each layer. `normalize` means give each layer the same average weight per path, e.g. since the zeroth layer has one path, give it norm 1, if the first layer has 16 paths, give the sum across all first layer paths norm 16, etc. This is primarily for cases where the classification algorithm needs roughly the same order of
 magnitude variance. `flatten` means return a result that is a matrix of size `(:,nExamples)` where `nExamples` is the last dimension of `inputSize`. `σ` is the nonlinearity used. Any additional keyword args `kwargs...` come from either the FourierFilterFlux [`waveletLayerConstructor`](https://dsweber2.github.io/FourierFilterFlux.jl/dev/constructors/#FourierFilterFlux.waveletLayer), or subsequently from ContinuousWavlets [`wavelet`](https://dsweber2.github.io/ContinuousWavelets.jl/dev/CWTConstruction/) constructor ContinuousWavelets.
+
+# Examples
+
+```jldoctest
+julia> using ScatteringTransform
+
+julia> x = [ones(128); zeros(128)];
+
+julia> St = stFlux((256,1,1))
+┌ Warning: there are wavelets whose peaks are far enough apart that the trough between them is less than half the height of the highest frequency wavelet
+│   minimalRegionComparedToLastPeak = 2.45709167339886
+└ @ ContinuousWavelets ~/allHail/projects/ContinuousWavelets/src/sanityChecks.jl:28
+┌ Warning: there are wavelets whose peaks are far enough apart that the trough between them is less than half the height of the highest frequency wavelet
+│   minimalRegionComparedToLastPeak = 2.5356674293941244
+└ @ ContinuousWavelets ~/allHail/projects/ContinuousWavelets/src/sanityChecks.jl:28
+┌ Warning: there are wavelets whose peaks are far enough apart that the trough between them is less than half the height of the highest frequency wavelet
+│   minimalRegionComparedToLastPeak = 2.2954419414285616
+└ @ ContinuousWavelets ~/allHail/projects/ContinuousWavelets/src/sanityChecks.jl:28
+stFlux{2, Nd=1, filters=[12], σ = abs, batchSize = 1, normalize = true}
+
+julia> St(x)
+ScatteredOut{Array{Float32},3} 1 dim. OutputSizes:
+    (128, 1, 1)
+    (86, 12, 1)
+    (57, 11, 12, 1)
+
+```
 """
-function stFlux(inputSize::NTuple{N}, m; trainable=false,
+function stFlux(inputSize::NTuple{N}, m=2; trainable=false,
     normalize=true, outputPool=2,
     poolBy=3 // 2, σ=abs, flatten=false, kwargs...) where {N}
     # N determines the number of spatial dimensions
@@ -119,7 +142,8 @@ function maybeAdapt(contType, x)
 end
 
 """
-extract x at adr in the last dimension, and make sure that it has a size of chunkSize
+    extractAddPadding(x, adr, chunkSize, N)
+From `x`, extract the examples `adr` in the last dimension, and make sure that it has a size of `chunkSize`, padding if there are too few examples (this is to make sure the batch size matches).
 """
 function extractAddPadding(x, adr, chunkSize, N)
     justUsing = x[fill(Colon(), N)..., :, adr]
@@ -192,9 +216,8 @@ applyScattering(::Tuple{}, x, Nd, st, M) = tuple() # all of the returns should
 # happen along the way, not at the end
 
 """
-    normedX = normalize(x, Nd)
-normalize x over the dimensions Nd through ndims(x)-1, e.g. for a Nd=2, and x
-that is 4D, then norm(x[:,:,:,j], 2) ≈ size(x,3)
+    normalize(x, Nd) -> normedX
+normalize `x` over the dimensions `Nd` through `ndims(x)-1`. For example, if `Nd=2`, and `x` is 4D, then `norm(normedX[:,:,:,j], 2) ≈ size(normedX,3)`.
 """
 function normalize(x, Nd)
     n = ndims(x)

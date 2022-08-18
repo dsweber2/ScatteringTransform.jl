@@ -129,6 +129,10 @@ broadcastable(a::Scattered) = a.output
 iterate(a::Scattered) = iterate(a.output)
 iterate(a::Scattered, b) = iterate(a.output, b)
 length(sct::Scattered) = length(sct.output) - 1
+"""
+    ndims(sct::Scattered)
+return the input dimension size (also given by `sct.k`)
+"""
 ndims(sct::Scattered) = sct.k
 size(sct::ScatteredOut) = map(x -> size(x), sct.output)
 size(sct::ScatteredFull) = map(x -> size(x), sct.data)
@@ -298,8 +302,8 @@ end
 
 
 """
-    paths = nonZeroPaths(sc; wholePath=true, allTogetherInOne=false)
-given a `Scattered`, return the `pathLocs` where the `Scattered` is nonzero. `wholePath=true` if it returns the whole path, and not just the specific location in the signal. For example, if only `sc(pathLocs(1,(30,2)))` is nonzero, if `wholePath` is `true`, then `pathLocs(1,(2,))` will be returned while if `wholePath` is `false`, `pathLocs(1,(30,2))` will be returned instead.
+    nonZeroPaths(sc; wholePath=true, allTogetherInOne=false)
+Given a `Scattered`, return the `pathLocs` where the `Scattered` is nonzero. `wholePath=true` if it returns the whole path, and not just the specific location in the signal. For example, if only `sc(pathLocs(1,(30,2)))` is nonzero, if `wholePath` is `true`, then `pathLocs(1,(2,))` will be returned while if `wholePath` is `false`, `pathLocs(1,(30,2))` will be returned instead.
 if `allTogetherInOne` is `false`, then each location is returned separately, otherwise they are joined into a single `pathLocs`.
 """
 function nonZeroPaths(sc; wholePath=true, allTogetherInOne=false)

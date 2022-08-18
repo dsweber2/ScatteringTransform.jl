@@ -30,9 +30,9 @@ end
 export adapt
 
 """
-wave1, wave2, wave3, ... = getWavelets(sc::stFlux)
+    getWavelets(sc::stFlux; spaceDomain=false) -> wave1, wave2, wave3, ...
 
-just a simple util to get the wavelets from each layer
+Get the wavelets used in each layer. If `spaceDomain` is `true`, then it will also convert the filters from the stored positive Fourier representation to a space version.
 """
 function getWavelets(sc::stFlux; spaceDomain=false)
     freqDomain = map(x -> x.weight, filter(x -> (typeof(x) <: ConvFFT), sc.mainChain.layers)) # filter to only have ConvFFTs, and then return the wavelets of those
@@ -46,7 +46,22 @@ end
 import ContinuousWavelets: getMeanFreq
 """
     getMeanFreq(sc::stFlux{1}, δt=1000)
-Get a list of the mean frequencies for the filter bank in each layer. Note that δt gives the sampling rate for the input only, and that it decreases at each subsequent layer.
+Get a list of the mean frequencies for the filter bank in each layer. The averaging filter is last, and gives the mean frequency of the positive frequency only. Note that `δt` gives the sampling rate for the input only, and that it decreases at each subsequent layer at the rate implied by the subsampling in `sc`.
+```jldoctest
+julia> using ScatteringTransform
+
+julia> St = scatteringTransform((1024,1,1),2)
+stFlux{2, Nd=1, filters=[15], σ = abs, batchSize = 1, normalize = true}
+
+julia> f1, f2, f3 = getMeanFreq(St);
+
+julia> f1'
+1×16 adjoint(::Vector{Float64}) with eltype Float64:
+ 7.70368  54.4302  78.7967  …  315.712  338.416  18.6697
+julia> f2'
+1×15 adjoint(::Vector{Float64}) with eltype Float64:
+ 10.8253  64.1205  89.7788  …  296.729  317.265  22.1889
+```
 """
 function getMeanFreq(sc::stFlux{1}, δt=1000)
     waves = getWavelets(sc)[1:end-1]
@@ -73,13 +88,8 @@ flatten(scatRes) = scatRes
 
 
 """
-    rolled = roll(toRoll, st::stFlux)
-Given the output of a scattering transform and something with the same number
-of entries but in an array that is NCoeffs×extraDims, roll up the output
-into an array of arrays like the scattered.
-    rolled = roll(toRoll, st::stParallel; percentage=.9, outputSubsample=(-1,-1))
-there is also a version for the parallel transform; since `percentage` and
-`outputSubsample` are separate variables, they must also be input.
+    roll(toRoll, st::stFlux)
+Given a scattering transform `st` and an array `toRoll` that is `NCoeffs×extraDims`, "roll" up `toRoll` into a `ScatteredOut`.
 """
 function roll(toRoll, st::stFlux)
     Nd = ndims(st)
@@ -134,7 +144,8 @@ function computeLoc(loc, toRoll, st::stFlux)
 end
 
 """
-given a scattered output, make a list that gives the largest value on each path
+    importantCoords(scatRes)
+given a `ScatteredOut` `scatRes`, make a list that gives the largest value on each path.
 """
 function importantCoords(scatRes)
     return [dropdims(maximum(abs.(x), dims=(1, 2)), dims=(1, 2)) for x in scatRes]
@@ -143,7 +154,9 @@ end
 
 
 """
-if the batch size is off, we don't want to suddenly drop performance. Split it up.
+    batchOff(stack, x, batchSize)
+
+transform `x` using `stack`, but where `x` and `stack` may have different batch sizes (the final dimension).
 """
 function batchOff(stack, x, batchSize)
     nRounds = ceil(Int, size(x)[end] // batchSize)
@@ -165,7 +178,8 @@ end
 
 
 """
-given a st object and a symbol `s` representing a possible keyword, e.g. :Q, or :β, return the value for this transform. It may be in st.settings, or, if it is a default value, it is looked up.
+    getParameters(st, s)
+given a `scatteringTransform` object and a symbol `s` representing a possible keyword, e.g. `:Q`, or `:β`, return the value for this transform. It may be in `st.settings`, or, if it is a default value, it is looked up.
 """
 function getParameters(st, s)
     get(st.settings, s, default(s))

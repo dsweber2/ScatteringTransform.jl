@@ -1,4 +1,9 @@
+@doc """
+     scatteringTransform{Dimension,Depth}
+ The abstract type and constructor for scattering transforms. The specific types are `stFlux` in this package, and `stParallel` in [ParallelScattering.jl](https://github.com/dsweber2/ParallelScattering.jl/).
+ """
 abstract type scatteringTransform{Dimension,Depth} end
+
 struct stFlux{Dimension,Depth,ChainType,D,E,F} <: scatteringTransform{Dimension,Depth}
     mainChain::ChainType
     normalize::Bool
@@ -8,10 +13,19 @@ struct stFlux{Dimension,Depth,ChainType,D,E,F} <: scatteringTransform{Dimension,
 end
 
 import Base.ndims
+@doc """
+     ndims(s::scatteringTransform{D})
+ given a scattering transform `s`, return the number of layers `Depth`.
+ """
 ndims(s::scatteringTransform{D}) where {D} = D
 nPathDims(ii) = 1 + max(min(ii - 2, 1), 0) # the number of path dimensions at layer ii (zeroth
 # is ii=1)
+@doc """
+     depth(s::scatteringTransform{Dim,Depth})
+ given a scattering transform, return the number of layers `Depth`.
+ """
 depth(s::scatteringTransform{Dim,Depth}) where {Dim,Depth} = Depth
+
 function Base.show(io::IO, st::stFlux{Dim,Dep}) where {Dim,Dep}
     layers = st.mainChain.layers
     σ = st.settings[:σ]
@@ -26,38 +40,40 @@ end
 # the type Dimension<:Integer gives the dimension of the transform
 
 """
-    listVargs = processArgs(m, varargs)
-method to go from arguments given to the scattering transform constructor to
-those for the frame transform, e.g. shearlets or wavelet. `listVargs` is a list
-of length `m` of one argument from each of vargs, with insufficiently long
-entries filled in by repeating the last value. An example:
-```
-julia> varargs
-pairs(::NamedTuple) with 3 entries:
-  :boundary      => PerBoundary()
-  :frameBound    => [1, 1]
-  :normalization => (Inf, Inf)
+    processArgs(m, varargs) -> listVargs
+Go from arguments given to the scattering transform constructor to those for the wavelet or frame transform. `listVargs` is a list of length `m` of one argument from each of vargs, with insufficiently long entries filled in by repeating the last value. For a list of these arguments, see the documentation for [`stFlux`](@ref).
 
-julia> listVargs = processArgs(3,varargs)
-(Base.Iterators.Pairs{Symbol,Any,Tuple{Symbol,Symbol,Symbol},NamedTuple{(:boundary, :frameBound, :normalization),Tuple{PerBoundary,Int64,Float64}}}(:boundary => PerBoundary(),:frameBound => 1,:normalization => Inf), Base.Iterators.Pairs{Symbol,Any,Tuple{Symbol,Symbol,Symbol},NamedTuple{(:boundary, :frameBound, :normalization),Tuple{PerBoundary,Int64,Float64}}}(:boundary => PerBoundary(),:frameBound => 1,:normalization => Inf), Base.Iterators.Pairs{Symbol,Any,Tuple{Symbol,Symbol,Symbol},NamedTuple{(:boundary, :frameBound, :normalization),Tuple{PerBoundary,Int64,Float64}}}(:boundary => PerBoundary(),:frameBound => 1,:normalization => Inf))
+# Examples
+```jldoctest
+julia> using ContinuousWavelets, ScatteringTransform
+
+julia> varargs = ( :boundary      => PerBoundary(), :frameBound    => [1, 1], :normalization => (Inf, Inf))
+(:boundary => PerBoundary(), :frameBound => [1, 1], :normalization => (Inf, Inf))
+
+julia> varargs
+(:boundary => PerBoundary(), :frameBound => [1, 1], :normalization => (Inf, Inf))
+
+julia> listVargs = ScatteringTransform.processArgs(3,varargs)
+(Base.Pairs{Int64, Pair{Symbol}, Base.OneTo{Int64}, Tuple{Pair{Symbol, ContinuousWavelets.PerBoundary}, Pair{Symbol, Vector{Int64}}, Pair{Symbol, Tuple{Float64, Float64}}}}(1 => (:boundary => PerBoundary()), 2 => (:frameBound => [1, 1]), 3 => (:normalization => (Inf, Inf))), Base.Pairs{Int64, Pair{Symbol}, Base.OneTo{Int64}, Tuple{Pair{Symbol, ContinuousWavelets.PerBoundary}, Pair{Symbol, Vector{Int64}}, Pair{Symbol, Tuple{Float64, Float64}}}}(1 => (:boundary => PerBoundary()), 2 => (:frameBound => [1, 1]), 3 => (:normalization => (Inf, Inf))), Base.Pairs{Int64, Pair{Symbol}, Base.OneTo{Int64}, Tuple{Pair{Symbol, ContinuousWavelets.PerBoundary}, Pair{Symbol, Vector{Int64}}, Pair{Symbol, Tuple{Float64, Float64}}}}(1 => (:boundary => PerBoundary()), 2 => (:frameBound => [1, 1]), 3 => (:normalization => (Inf, Inf))))
 
 julia> listVargs[1]
-pairs(::NamedTuple) with 3 entries:
-  :boundary      => PerBoundary()
-  :frameBound    => 1
-  :normalization => Inf
+pairs(::Tuple{Pair{Symbol, ContinuousWavelets.PerBoundary}, Pair{Symbol, Vector{Int64}}, Pair{Symbol, Tuple{Float64, Float64}}}) with 3 entries:
+  1 => :boundary=>PerBoundary()
+  2 => :frameBound=>[1, 1]
+  3 => :normalization=>(Inf, Inf)
 
 julia> listVargs[2]
-pairs(::NamedTuple) with 3 entries:
-  :boundary      => PerBoundary()
-  :frameBound    => 1
-  :normalization => Inf
+pairs(::Tuple{Pair{Symbol, ContinuousWavelets.PerBoundary}, Pair{Symbol, Vector{Int64}}, Pair{Symbol, Tuple{Float64, Float64}}}) with 3 entries:
+  1 => :boundary=>PerBoundary()
+  2 => :frameBound=>[1, 1]
+  3 => :normalization=>(Inf, Inf)
 
 julia> listVargs[3]
-pairs(::NamedTuple) with 3 entries:
-  :boundary      => PerBoundary()
-  :frameBound    => 1
-  :normalization => Inf
+pairs(::Tuple{Pair{Symbol, ContinuousWavelets.PerBoundary}, Pair{Symbol, Vector{Int64}}, Pair{Symbol, Tuple{Float64, Float64}}}) with 3 entries:
+  1 => :boundary=>PerBoundary()
+  2 => :frameBound=>[1, 1]
+  3 => :normalization=>(Inf, Inf)
+
 ```
 """
 function processArgs(m, varargs)
