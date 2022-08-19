@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Path Operations · ScatteringTransform.jl</title><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.045/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.13.24/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../"><img src="../assets/logo.svg" alt="ScatteringTransform.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../">ScatteringTransform.jl</a></span></div><form class="docs-search" action="../search/"><input class="docs-search-query" id="documenter-search-query" name="q" type="text" placeholder="Search docs"/></form><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li><a class="tocitem" href="../math/">Mathematical Description</a></li><li><span class="tocitem">Scattering Transform</span><ul><li><a class="tocitem" href="../struct/">scatteringTransform type</a></li><li><a class="tocitem" href="../out/">ScatteredOut type</a></li><li><a class="tocitem" href="../subsampling/">Subsampling Operators</a></li><li class="is-active"><a class="tocitem" href>Path Operations</a></li><li><a class="tocitem" href="../utils/">Utilities</a></li></ul></li><li><span class="tocitem">Scattering Plots</span><ul><li><a class="tocitem" href="../plots/">Plots</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Scattering Transform</a></li><li class="is-active"><a href>Path Operations</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Path Operations</a></li></ul></nav><div class="docs-right"><a class="docs-edit-link" href="https://github.com/dsweber2/ScatteringTransform.jl/blob/master/docs/src/pathLocs.md" title="Edit on GitHub"><span class="docs-icon fab"></span><span class="docs-label is-hidden-touch">Edit on GitHub</span></a><a class="docs-settings-button fas fa-cog" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-sidebar-button fa fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a></div></header><article class="content" id="documenter-page"><h1 id="Path-Operations"><a class="docs-heading-anchor" href="#Path-Operations">Path Operations</a><a id="Path-Operations-1"></a><a class="docs-heading-anchor-permalink" href="#Path-Operations" title="Permalink"></a></h1><p>To make working with paths somewhat easier, in addition to indexing <code>ScatteringOut</code> by layer and then raw index, there is the <code>pathLocs</code> type:</p><pre><code class="language-julia-repl hljs">julia&gt; using ScatteringTransform, Wavelets
+
+julia&gt; St = scatteringTransform((1024,1,1),2)
+stFlux{2, Nd=1, filters=[15], σ = abs, batchSize = 1, normalize = true}
+
+julia&gt; s = St(testfunction(1024, &quot;Doppler&quot;))
+ScatteredOut{Array{Float32},3} 1 dim. OutputSizes:
+    (512, 1, 1)
+    (342, 15, 1)
+    (228, 14, 15, 1)
+
+julia&gt; p = pathLocs(2, (3,5))
+pathLocs{3}((nothing, nothing, (Colon(), 3, 5, Colon())))
+
+julia&gt; s[p]
+228×1 Matrix{Float32}:
+ 0.042854752
+ 0.05448776
+ ⋮
+ 0.0009788324
+ 0.0010495521
+</code></pre><p><code>p</code> above for example, accesses the second layer path <code>(3,5)</code> (<code>3</code> being the second layer index and <code>5</code> being the first layer index). The first entry specifies the layer, and the second specifies which entries in that layer.</p><pre><code class="language-julia-repl hljs">julia&gt; p1 = pathLocs(2, (:,3))
+pathLocs{3}((nothing, nothing, (Colon(), Colon(), 3, Colon())))
+
+julia&gt; s[p1]
+228×14×1 Array{Float32, 3}:
+[:, :, 1] =
+ 24.3279     0.0340069   …  0.000116684  0.000142872
+ 24.3125     0.0458974      0.000125332  0.00016506
+  ⋮                      ⋱
+  0.0150998  0.00992407     2.98423f-5   8.26744f-5
+  0.0152391  0.0105978      2.61331f-5   7.9295f-5
+</code></pre><p><code>p1</code> grabs every path where the first layer index is <code>3</code>.</p><p>We can also grab multiple layers using a single path:</p><pre><code class="language-julia-repl hljs">julia&gt; p2 = pathLocs(1, (5,), 2, (1,:))
+pathLocs{3}((nothing, (Colon(), 5, Colon()), (Colon(), 1, Colon(), Colon())))
+
+julia&gt; s[p2][1]
+342×1 Matrix{Float32}:
+ 0.0057057445
+ 0.007921134
+ ⋮
+ 0.0002874717
+ 0.0003108125
+
+julia&gt; s[p2][2]
+228×15×1 Array{Float32, 3}:
+[:, :, 1] =
+ 0.0327152  8.44757    …  4.08167      3.19014
+ 0.038269   8.65702       4.06725      3.17879
+ ⋮                     ⋱
+ 0.589429   0.0203722     0.000652602  0.000523428
+ 0.590318   0.02058       0.000660961  0.000529933
+
+julia&gt; p3 = pathLocs(1, s)
+pathLocs{3}([(); (); … ; (); ();;;])</code></pre><article class="docstring"><header><a class="docstring-binding" id="ScatteringTransform.pathLocs" href="#ScatteringTransform.pathLocs"><code>ScatteringTransform.pathLocs</code></a> — <span class="docstring-category">Type</span></header><section><div><pre><code class="language-julia hljs">struct pathLocs{m}
+    indices
+end
+pathLocs(varargs...; m::Int=2, d::Int=1, exs=Colon())</code></pre><p>The general constructor for path locs. The general pattern is alternating integers and tuples, with the integers corresponding to accessed layers, and the tuples to the paths accessed in that layer.</p><pre><code class="nohighlight hljs">pathLocs(s::scattered)</code></pre><p>make a pathLocs that accesses every location in the output.</p></div><a class="docs-sourcelink" target="_blank" href="https://github.com/dsweber2/ScatteringTransform.jl/blob/8b0b58adf7ac64a79ae891659e836bc886c8b725/src/pathLocs.jl#L2-L12">source</a></section></article><article class="docstring"><header><a class="docstring-binding" id="ScatteringTransform.nonZeroPaths" href="#ScatteringTransform.nonZeroPaths"><code>ScatteringTransform.nonZeroPaths</code></a> — <span class="docstring-category">Function</span></header><section><div><pre><code class="language-julia hljs">nonZeroPaths(sc; wholePath=true, allTogetherInOne=false)</code></pre><p>Given a <code>Scattered</code>, return the <code>pathLocs</code> where the <code>Scattered</code> is nonzero. <code>wholePath=true</code> if it returns the whole path, and not just the specific location in the signal. For example, if only <code>sc(pathLocs(1,(30,2)))</code> is nonzero, if <code>wholePath</code> is <code>true</code>, then <code>pathLocs(1,(2,))</code> will be returned while if <code>wholePath</code> is <code>false</code>, <code>pathLocs(1,(30,2))</code> will be returned instead. if <code>allTogetherInOne</code> is <code>false</code>, then each location is returned separately, otherwise they are joined into a single <code>pathLocs</code>.</p></div><a class="docs-sourcelink" target="_blank" href="https://github.com/dsweber2/ScatteringTransform.jl/blob/8b0b58adf7ac64a79ae891659e836bc886c8b725/src/scattered.jl#L304-L308">source</a></section></article><article class="docstring"><header><a class="docstring-binding" id="ScatteringTransform.computeLoc" href="#ScatteringTransform.computeLoc"><code>ScatteringTransform.computeLoc</code></a> — <span class="docstring-category">Function</span></header><section><div><pre><code class="language-julia hljs">p = computeLoc(loc, toRoll, st::stFlux)</code></pre><p>given a location <code>loc</code> in the flattened output <code>toRoll</code>, return a pathLocs describing that location in the rolled version</p></div><a class="docs-sourcelink" target="_blank" href="https://github.com/dsweber2/ScatteringTransform.jl/blob/8b0b58adf7ac64a79ae891659e836bc886c8b725/src/utilities.jl#L126-L130">source</a></section></article></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../subsampling/">« Subsampling Operators</a><a class="docs-footer-nextpage" href="../utils/">Utilities »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.22 on <span class="colophon-date" title="Friday 19 August 2022 02:56">Friday 19 August 2022</span>. Using Julia version 1.7.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
