@@ -237,7 +237,7 @@ function Base.setindex!(X::Scattered, v::Number, p::pathLocs{m}) where {m}
     for (mm, ind) in enumerate(ijk)
         if typeof(ind) <: BitArray
             res[mm][ind] .= v
-        elseif typeof(ind) <: Tuple{Vararg{<:Integer}}
+        elseif typeof(ind) <: Tuple{Vararg{Integer}}
             res[mm][ind...] = v
         elseif ind != nothing
             res[mm][ind...] .= v
@@ -249,7 +249,7 @@ function Base.setindex!(X::Scattered, v::Tuple, p::pathLocs{m}) where {m}
     ijk = p.indices
     inputInd = 1
     for (mm, ind) in enumerate(ijk)
-        if typeof(ind) <: Tuple{Vararg{<:Integer}}
+        if typeof(ind) <: Tuple{Vararg{Integer}}
             res[mm][ind...] = v[inputInd]
             inputInd += 1
         elseif typeof(ind) <: Union{BitArray,Array{Bool}}
@@ -267,7 +267,7 @@ function Base.setindex!(X::Scattered, v, p::pathLocs{m}) where {m}
     ijk = p.indices
     inputInd = 1
     for (mm, ind) in enumerate(ijk)
-        if typeof(ind) <: Tuple{Vararg{<:Integer}}
+        if typeof(ind) <: Tuple{Vararg{Integer}}
             res[mm][ind...] = v[inputInd]
             inputInd += 1
         elseif typeof(ind) <: Union{BitArray,Array{Bool}}

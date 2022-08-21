@@ -87,7 +87,7 @@ end
 
 import Base: size
 function size(p::pathLocs)
-    ł(x::Nothing) = Tuple{Vararg{<:Integer,0}}()
+    ł(x::Nothing) = Tuple{Vararg{Integer,0}}()
     ł(x::AbstractArray) = size(x)
     # all that's left is a tuple of things
     ł(x) = map(a -> length(a), x)
