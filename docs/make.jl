@@ -10,7 +10,6 @@ makedocs(;
     format=Documenter.HTML(),
     pages=[
         "Home" => "index.md",
-        "Mathematical Description" => "math.md",
         "Scattering Transform" => [
             "scatteringTransform type" => "struct.md",
             "ScatteredOut type" => "out.md",

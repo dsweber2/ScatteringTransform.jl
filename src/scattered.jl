@@ -362,3 +362,59 @@ function wholeNonzeroPaths(sc, allTogetherInOne=false)
         return paths
     end
 end
+
+"""
+    addNextPath(addTo,addFrom)
+    addNextPath(addFrom)
+
+adds the next nonzero path in addFrom not present in addTo, ordered by layer, and
+then the standard order for julia (dimension 1, then 2, 3,etc). If only handed `addFrom`
+it makes a new pathLoc only containing the first non-empty path.
+
+presently it only works for pathLocs whose indices are Boolean Arrays
+"""
+function addNextPath(addTo::pathLocs{m}, addFrom) where {m}
+    shouldWeDo = foldl(checkShouldAdd, zip(addTo.indices, addFrom.indices), init = Tuple{}())
+    inds = map(makeNext, addTo.indices, addFrom.indices, shouldWeDo)
+    return pathLocs{m}(inds)
+end
+function checkShouldAdd(didPrevs, current)
+    if !any(didPrevs) && current[1] != nothing
+        addLoc = findfirst(current[1] .!= current[2])
+        if addLoc != nothing
+            return (didPrevs..., true)
+        else
+            return (didPrevs..., false)
+        end
+    else
+        return (didPrevs..., false)
+    end
+end
+function makeNext(current, fillWith, shouldDo)
+    if shouldDo
+        addLoc = findfirst(fillWith .!= current)
+        newVersion = copy(current)
+        newVersion[addLoc] = true
+        return newVersion
+    else
+        return current
+    end
+end
+
+addNextPath(addFrom::pathLocs{m}) where {m} = pathLocs{m}(foldl(makeSingle, addFrom.indices, init = Tuple{}()))
+
+makeSingle(prev, x::Nothing) = (prev..., nothing)
+makeSingle(x::Nothing) = (nothing,)
+function makeSingle(x::BitArray)
+    almostNull = falses(size(x))
+    almostNull[findfirst(x)] = true
+    return (prev..., almostNull)
+end
+function makeSingle(prev, x::BitArray)
+    almostNull = falses(size(x))
+    # only set this layer to true if all the previous are nothing
+    if typeof(prev) <: Tuple{Vararg{Nothing}} # || !any.(any.(prev[prev .!=nothing]))
+        almostNull[findfirst(x)] = true
+    end
+    return (prev..., almostNull)
+end

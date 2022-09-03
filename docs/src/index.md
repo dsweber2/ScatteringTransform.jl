@@ -2,7 +2,6 @@
 
 A julia implementation of the scattering transform, which provides a prestructured alternative to a convolutional neural network.
 In a similar vein to a CNN, it alternates between continuous wavelet transforms, nonlinear function applications, and subsampling.
-For a more involved description, see the [Mathematical Description](@ref).
 This library is end-to-end differentiable and runs on the GPU; there is a companion package, [ParallelScattering.jl](https://github.com/dsweber2/ParallelScattering.jl/) that runs on parallelized CPUs.
 
 This is achieved by creating differentiable wavelet Fourier filters using [FourierFilterFlux](https://dsweber2.github.io/FourierFilterFlux.jl/dev/), which are then interspersed with [Subsampling Operators](@ref) modified from Flux.jl, and pointwise nonlinear functions (in practice, this means absolute value or ReLU).
