@@ -104,6 +104,11 @@ function dispatchLayer(listOfSizes, Nd::Val{1}; varargs...)
     waveletLayer(listOfSizes; varargs...)
 end
 
+function dispatchLayer(listOfSizes, Nd::Val{2}; varargs...)
+    #shearingLayer(listOfSizes; varargs...)
+    MonogenicLayer(listOfSizes; varargs...)
+end
+
 Base.size(a::Tuple{AbstractFFTs.Plan,AbstractFFTs.Plan}) = size(a[1])
 
 
@@ -192,8 +197,9 @@ end
 
 function applyScattering(c::Tuple, x, Nd, st, M)
     res = first(c)(x)
-    if typeof(first(c)) <: ConvFFT
-        tmpRes = res[map(x -> Colon(), 1:Nd)..., end, map(x -> Colon(), 1:ndims(res)-Nd-1)...]
+    if (typeof(first(c)) <: ConvFFT) || (typeof(first(c)) <: MonoConvFFT)
+        tmpRes = res[map(x -> Colon(), 1:Nd)..., end,
+            map(x -> Colon(), 1:ndims(res)-Nd-1)...]
         # return a subsampled version of the output at this layer
         poolSizes = (st.outputPool[M+1]..., ntuple(i -> 1, ndims(tmpRes) - Nd - 2)...)
         r = RationPool(st.outputPool[M+1], nExtraDims=nPathDims(M + 1) + 1)

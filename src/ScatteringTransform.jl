@@ -7,6 +7,7 @@ using Wavelets, ContinuousWavelets
 using Zygote, Flux, LinearAlgebra, AbstractFFTs
 using Flux
 using FourierFilterFlux
+using MonogenicFilterFlux
 using Adapt
 using RecipesBase
 using Base: tail
