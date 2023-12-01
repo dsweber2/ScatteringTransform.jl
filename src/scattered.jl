@@ -145,14 +145,14 @@ function mean(a::ScatteredOut)
 end
 import Base.cat
 
-function cat(sc::ScatteredOut, sc1::ScatteredOut, sc2::ScatteredOut...; dims=-1) where {N}
+function cat(sc::ScatteredOut, sc1::ScatteredOut, sc2::ScatteredOut...; dims=-1)
     @assert !any([sc.m != sc1.m, (sc.m .!= map(s -> s.m, sc2))])# check they're
     @assert !any([sc.k != sc1.k, (sc.k .!= map(s -> s.k, sc2))])# all equal
     outputs = map(x -> x.output, (sc, sc1, sc2...))
     output = map(x -> cat(x..., dims=ndims(x[1])), zip(outputs...))
     return ScatteredOut(sc.m, sc.k, tuple(output...))
 end
-function cat(sc::ScatteredFull, sc1::ScatteredFull, sc2::ScatteredFull...; dims=-1) where {N}
+function cat(sc::ScatteredFull, sc1::ScatteredFull, sc2::ScatteredFull...; dims=-1)
     @assert !any([sc.m != sc1.m, (sc.m .!= map(s -> s.m, sc2))])# check they're
     @assert !any([sc.k != sc1.k, (sc.k .!= map(s -> s.k, sc2))])# all equal
     outputs = map(x -> x.output, (sc, sc1, sc2...))
