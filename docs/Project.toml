@@ -1,6 +1,5 @@
 [deps]
 ContinuousWavelets = "96eb917e-2868-4417-9cb6-27e7ff17528f"
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
-FourierFilterFlux = "3d7dfd45-6c90-4c9b-b697-194a05757159"
 ScatteringTransform = "eadaac29-8b6b-5395-80fd-9ce36bb46293"
 Wavelets = "29a6e085-ba6d-5f35-a997-948ac2efa89a"
