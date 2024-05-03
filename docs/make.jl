@@ -8,7 +8,7 @@ makedocs(
     sitename = "ScatteringTransform.jl",
     format = Documenter.HTML(),
     authors="David Weber, Naoki Saito",
-    clean=true
+    clean=true,
     pages = Any[
          "Home" => "index.md",
          "Scattering Transform" => Any[
