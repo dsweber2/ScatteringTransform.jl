@@ -3,12 +3,12 @@ on:
   workflow_dispatch:
   push:
     paths: # rebuild the docs when the version changes or the docs change
-    - docs/*
-    - Project.toml
+      - docs/*
+      - Project.toml
   pull_request: # run when pull requests are made
     paths:
-    - docs/*
-    - Project.toml
+      - docs/*
+      - Project.toml
 jobs:
   docs:
     name: Documentation
@@ -17,7 +17,7 @@ jobs:
       - uses: actions/checkout@v2
       - uses: julia-actions/setup-julia@latest
         with:
-          version: '1.7'
+          version: "1.10"
       - name: Install dependencies
         run: |
           sudo apt install libxt6 libxrender1 libxext6 libgl1-mesa-glx libqt5widgets5
