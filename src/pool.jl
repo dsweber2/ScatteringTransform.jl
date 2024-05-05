@@ -71,8 +71,8 @@ return the dimension `N` of the input signal
 ndims(r::MaxPool{N,M}) where {N,M} = N
 ndims(r::MeanPool{N,M}) where {N,M} = N
 nPoolDims(r::RationPool{A,<:NTuple{N,<:Any}}) where {A,N} = N
-import Flux: outdims
-outdims(r::RationPool) = 3
+import Flux: outputsize
+outputsize(r::RationPool) = 3
 using Zygote: hook
 function (r::RationPool)(x::AbstractArray{<:Any,N}) where {N}
     Nd = nPoolDims(r)
