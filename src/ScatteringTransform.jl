@@ -45,4 +45,6 @@ include("utilities.jl")
 export getWavelets, flatten, roll, importantCoords, batchOff, getParameters, getMeanFreq, computeLoc
 export roll, wrap, flatten
 include("adjoints.jl")
+include("scatteringplots.jl")
+export jointPlot, plotFirstLayer1D, gifFirstLayer, plotSecondLayer, plotSecondLayer1D
 end # end Module
