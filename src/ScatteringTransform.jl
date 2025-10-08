@@ -29,7 +29,7 @@ export pathLocs
 include("scattered.jl")
 export Scattered, ScatteredFull, ScatteredOut, nonZeroPaths, cat, addNextPath
 include("pool.jl")
-export RationPool, nPoolDims, outdims, poolSize
+export RationPool, nPoolDims, outputsize, poolSize
 include("transform.jl")
 export cu
 
