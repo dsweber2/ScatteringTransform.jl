@@ -39,7 +39,7 @@
             raised = Sx[ntuple(x -> 5, N)..., selectXDims...] ≈ mean(x[neighborhoodRaised..., selectXDims...])
             @test cent || lowered || raised
             # which entries matter for the 5th entry, according to the gradient?
-            ∇ = gradient(x -> r(x)[ntuple(x -> 5, N)..., selectXDims...], x)
+            ∇ = Flux.gradient(x -> r(x)[ntuple(x -> 5, N)..., selectXDims...], x)
             δCent = zeros(size(x))
             δCent[neighborhoodCent..., selectXDims...] .= 1 / k^N
             δLowered = zeros(size(x))
@@ -303,19 +303,19 @@ Sx = ScatteredOut((randn(16, 1, 1), randn(11, 32, 1), randn(7, 27, 32, 1)))
     # testing Zygote.@adjoint function getindex(F::T, i::Integer) where T <: Scattered
     @testset "Integer Access" begin
         # second layer
-        ∇ = gradient(Sx -> Sx[2][2, 3, 5, 1], Sx)[1]
+        ∇ = Flux.gradient(Sx -> Sx[2][2, 3, 5, 1], Sx)[1]
         finalLayer = zeros(7, 27, 32, 1)
         finalLayer[2, 3, 5, 1] = 1
         almostAllZeros = ScatteredOut((zeros(16, 1, 1), zeros(11, 32, 1), finalLayer))
         @test ∇ == almostAllZeros
         # first layer
-        ∇ = gradient(Sx -> Sx[1][5, 8, 1], Sx)[1]
+        ∇ = Flux.gradient(Sx -> Sx[1][5, 8, 1], Sx)[1]
         firstLayer = zeros(11, 32, 1)
         firstLayer[5, 8, 1] = 1
         almostAllZeros = ScatteredOut((zeros(16, 1, 1), firstLayer, zeros(7, 27, 32, 1)))
         @test ∇ == almostAllZeros
         # zeroth layer
-        ∇ = gradient(Sx -> Sx[0][3, 1, 1], Sx)[1]
+        ∇ = Flux.gradient(Sx -> Sx[0][3, 1, 1], Sx)[1]
         zeroLayer = zeros(16, 1, 1)
         zeroLayer[3, 1, 1] = 1
         almostAllZeros = ScatteredOut((zeroLayer, zeros(11, 32, 1), zeros(7, 27, 32, 1)))
@@ -323,10 +323,10 @@ Sx = ScatteredOut((randn(16, 1, 1), randn(11, 32, 1), randn(7, 27, 32, 1)))
     end
     @testset "PathLocs Access" begin
         p = pathLocs(0, (5))
-        ∇ = gradient(Sx -> Sx[p][1], Sx)[1]
+        ∇ = Flux.gradient(Sx -> Sx[p][1], Sx)[1]
         @test ∇[0][5] ≈ 1
         p = pathLocs(0, (:))
-        ∇ = gradient(Sx -> Sx[p][4], Sx)[1]
+        ∇ = Flux.gradient(Sx -> Sx[p][4], Sx)[1]
         @test ∇[0][4] ≈ 1
         y, ∂ = pullback(Sx -> Sx[p], Sx)
         @test ∂(y)[1][p] ≈ y
