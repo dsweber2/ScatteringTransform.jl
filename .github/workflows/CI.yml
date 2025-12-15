@@ -1,50 +1,68 @@
-# Generated using the wonderful PkgTemplates.jl and altered slightly
 name: CI
 on:
-  workflow_dispatch: #get a button to trigger it by hand
   push:
-    paths: # run CI/CD when the tests change, the dependencies change, or the version changes
-      - test/runtests.jl
-      - Project.toml
-  pull_request: # run when pull requests are made
-    paths:
-      - src/*
-      - test/runtests.jl
-      - Manifest.toml
-      - Project.toml
+    branches:
+      - master
+    tags: ['*']
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  # Skip intermediate builds: always.
+  # Cancel intermediate builds: only if it is a pull request build.
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
+
 jobs:
   test:
-    name: Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ matrix.arch }} - ${{ github.event_name }}
+    name: Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ matrix.arch }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         version:
-          - "1.7"
+          - '1.10'
+          - '1' # Automatically uses the latest stable version
         os:
           - ubuntu-latest
-          - macOS-latest
+          - windows-latest
+          - macos-13      # Intel Mac (x64)
+          - macos-latest  # Apple Silicon Mac (ARM64)
         arch:
           - x64
+          - aarch64
+        exclude:
+          # Windows only supports x64 on GitHub Actions
+          - os: windows-latest
+            arch: aarch64
+          # Ubuntu standard runners are x64 only
+          - os: ubuntu-latest
+            arch: aarch64
+          # macos-13 is Intel only
+          - os: macos-13
+            arch: aarch64
+          # macos-latest (Apple Silicon) is ARM only
+          - os: macos-latest
+            arch: x64
+
     steps:
-      - uses: actions/checkout@v2
-      - uses: julia-actions/setup-julia@v1
+      - uses: actions/checkout@v4
+      
+      - uses: julia-actions/setup-julia@v2
         with:
           version: ${{ matrix.version }}
           arch: ${{ matrix.arch }}
-      - uses: actions/cache@v1
-        env:
-          cache-name: cache-artifacts
-        with:
-          path: ~/.julia/artifacts
-          key: ${{ runner.os }}-test-${{ env.cache-name }}-${{ hashFiles('**/Project.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-test-${{ env.cache-name }}-
-            ${{ runner.os }}-test-
-            ${{ runner.os }}-
+          
+      - uses: julia-actions/cache@v2
+      
       - uses: julia-actions/julia-buildpkg@v1
+      
       - uses: julia-actions/julia-runtest@v1
+      
       - uses: julia-actions/julia-processcoverage@v1
-      - uses: codecov/codecov-action@v1
+      
+      - uses: codecov/codecov-action@v5
         with:
-          file: lcov.info
+          files: lcov.info
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
