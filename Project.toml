@@ -1,6 +1,6 @@
 name = "ScatteringTransform"
 uuid = "eadaac29-8b6b-5395-80fd-9ce36bb46293"
-version = "0.7.0"
+version = "0.7.1"
 author = ["David Weber <david.weber2@gmail.com>"]
 
 [deps]
@@ -58,7 +58,7 @@ DocumenterTools = "0.1.21"
 FFTW = "1"
 FileIO = "1"
 Flux = "0.13, 0.14, 0.15, 0.16"
-JLD2 = "0.4"
+JLD2 = "0.4, 0.5, 0.6"
 Plots = "1"
 Reexport = "1"
 Wavelets = "0.9, 0.10"
