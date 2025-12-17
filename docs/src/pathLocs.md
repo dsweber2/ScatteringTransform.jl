@@ -6,7 +6,7 @@ To make working with paths somewhat easier, in addition to indexing `ScatteringO
 julia> using ScatteringTransform, Wavelets
 
 julia> St = scatteringTransform((1024,1,1),2)
-stFlux{2, Nd=1, filters=[15], σ = abs, batchSize = 1, normalize = true}
+stFlux{2, Nd=1, filters=[15, 14], σ = abs, batchSize = 1, normalize = true}
 
 julia> s = St(testfunction(1024, "Doppler"))
 ScatteredOut{Array{Float32},3} 1 dim. OutputSizes:

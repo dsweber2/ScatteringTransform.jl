@@ -9,6 +9,12 @@ makedocs(
     format = Documenter.HTML(),
     authors="David Weber, Naoki Saito",
     clean=true,
+    # This ignores the ContinuousWavelets warnings during doctests
+    doctestfilters = [
+        r"┌ Warning:.*",
+        r"│.*",
+        r"└ @ ContinuousWavelets.*"
+    ],
     pages = Any[
          "Home" => "index.md",
          "Scattering Transform" => Any[
