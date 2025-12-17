@@ -5,11 +5,12 @@ on:
     branches:
       - master
       - main
+    tags: ['*']
   pull_request:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
+  cancel-in-progress: ${{ startswith(github.ref, 'refs/pull/') }}
 
 env:
   JULIA_PKG_SERVER: ""
@@ -17,6 +18,8 @@ env:
   GKSwstype: "100"
   # Fix for macOS: Forces Matplotlib to use non-interactive backend, preventing Segfaults
   MPLBACKEND: "Agg"
+  # Force Julia to use Conda.jl instead of system Python (helps with binary consistency)
+  PYTHON: ""
 
 jobs:
   test:
@@ -31,8 +34,8 @@ jobs:
         os:
           - ubuntu-latest
           - windows-latest
-          - macos-15-intel # Intel x64
-          - macos-latest   # Apple Silicon
+          - macos-13     # Stable Intel x64 Runner (Fixes Segfaults)
+          - macos-latest # Apple Silicon (ARM64)
         arch:
           - x64
           - aarch64
@@ -41,10 +44,10 @@ jobs:
             arch: aarch64
           - os: windows-latest
             arch: aarch64
-          - os: macos-15-intel
-            arch: aarch64
+          - os: macos-13
+            arch: aarch64 # macos-13 is Intel only
           - os: macos-latest
-            arch: x64
+            arch: x64     # macos-latest is ARM only
 
     steps:
       - uses: actions/checkout@v4
@@ -56,28 +59,22 @@ jobs:
 
       - uses: julia-actions/cache@v2
 
-      # --- INSERT THIS NEW BLOCK HERE ---
+      # --- Custom Registry Configuration ---
       - name: Configure Git to use HTTPS
         run: |
           git config --global url."https://github.com/".insteadOf "git@github.com:"
-      # ----------------------------------
 
-      # FIX IS HERE: Correct indentation for multi-line block
       - name: Add Registries
         shell: julia --project={0} {0}
         run: |
           using Pkg
           Pkg.Registry.add(RegistrySpec(name="General"))
           Pkg.Registry.add(RegistrySpec(url="https://github.com/UCD4IDS/TetrapodsRegistry"))
+      # -------------------------------------
 
       - uses: julia-actions/julia-buildpkg@v1
-        env:
-          PYTHON: ""  # <--- ADD THIS LINE (Forces Conda usage)
 
       - uses: julia-actions/julia-runtest@v1
-        env:
-          GKSwstype: "100"
-          PYTHON: ""  # <--- ADD THIS LINE (Forces Conda usage)
 
       - uses: julia-actions/julia-processcoverage@v1
 
@@ -86,4 +83,3 @@ jobs:
           files: lcov.info
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: false
-
