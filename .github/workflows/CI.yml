@@ -49,6 +49,12 @@ jobs:
 
       - uses: julia-actions/cache@v2
 
+      # --- INSERT THIS NEW BLOCK HERE ---
+      - name: Configure Git to use HTTPS
+        run: |
+          git config --global url."https://github.com/".insteadOf "git@github.com:"
+      # ----------------------------------
+
       # FIX IS HERE: Correct indentation for multi-line block
       - name: Add Registries
         shell: julia --project={0} {0}
