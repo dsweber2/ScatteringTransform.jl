@@ -24,21 +24,18 @@ jobs:
         os:
           - ubuntu-latest
           - windows-latest
-          - macos-15-intel # <--- The critical fix (Intel x64)
-          - macos-latest   # <--- Apple Silicon (ARM)
+          - macos-15-intel # Intel x64
+          - macos-latest   # Apple Silicon
         arch:
           - x64
           - aarch64
         exclude:
-          # Linux/Windows are x64 only
           - os: ubuntu-latest
             arch: aarch64
           - os: windows-latest
             arch: aarch64
-          # macos-15-intel is x64 only
           - os: macos-15-intel
             arch: aarch64
-          # macos-latest is ARM only
           - os: macos-latest
             arch: x64
 
@@ -52,14 +49,13 @@ jobs:
 
       - uses: julia-actions/cache@v2
 
-      # --- REGISTRY SETUP (Keep this for internal Tetrapods packages) ---
+      # FIX IS HERE: Correct indentation for multi-line block
       - name: Add Registries
         shell: julia --project={0} {0}
         run: |
-      	  using Pkg
+          using Pkg
           Pkg.Registry.add(RegistrySpec(name="General"))
           Pkg.Registry.add(RegistrySpec(url="https://github.com/UCD4IDS/TetrapodsRegistry"))
-      # ----------------------------------------------------------------
 
       - uses: julia-actions/julia-buildpkg@v1
 
@@ -74,4 +70,4 @@ jobs:
           files: lcov.info
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: false
-	  
+
