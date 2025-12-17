@@ -3,9 +3,11 @@
 To make working with paths somewhat easier, in addition to indexing `ScatteringOut` by layer and then raw index, there is the `pathLocs` type:
 
 ```jldoctest ex
-julia> using ScatteringTransform, Wavelets
+julia> using ScatteringTransform, Wavelets, Logging
 
-julia> St = scatteringTransform((1024,1,1),2)
+julia> St = with_logger(NullLogger()) do
+           scatteringTransform((1024,1,1),2)
+       end
 stFlux{Nd=1, m=2, filters=[15, 14], σ = abs, batchSize = 1, normalize = true}
 
 julia> s = St(testfunction(1024, "Doppler"))
