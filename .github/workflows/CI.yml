@@ -11,6 +11,13 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
 
+env:
+  JULIA_PKG_SERVER: ""
+  # Fix for Windows: Forces GR/Plots to be headless, bypassing Qt6Concurrent.dll crash
+  GKSwstype: "100"
+  # Fix for macOS: Forces Matplotlib to use non-interactive backend, preventing Segfaults
+  MPLBACKEND: "Agg"
+
 jobs:
   test:
     name: Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ matrix.arch }} - ${{ github.event_name }}
