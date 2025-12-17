@@ -64,10 +64,13 @@ jobs:
           Pkg.Registry.add(RegistrySpec(url="https://github.com/UCD4IDS/TetrapodsRegistry"))
 
       - uses: julia-actions/julia-buildpkg@v1
+        env:
+          PYTHON: ""  # <--- ADD THIS LINE (Forces Conda usage)
 
       - uses: julia-actions/julia-runtest@v1
         env:
           GKSwstype: "100"
+          PYTHON: ""  # <--- ADD THIS LINE (Forces Conda usage)
 
       - uses: julia-actions/julia-processcoverage@v1
 
