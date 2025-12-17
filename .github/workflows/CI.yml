@@ -53,10 +53,11 @@ jobs:
       - uses: julia-actions/cache@v2
 
       # --- REGISTRY SETUP (Keep this for internal Tetrapods packages) ---
-      - name: Add TetrapodsRegistry
+      - name: Add Registries
         shell: julia --project={0} {0}
         run: |
-          using Pkg
+      	  using Pkg
+          Pkg.Registry.add(RegistrySpec(name="General"))
           Pkg.Registry.add(RegistrySpec(url="https://github.com/UCD4IDS/TetrapodsRegistry"))
       # ----------------------------------------------------------------
 
