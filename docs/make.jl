@@ -25,7 +25,9 @@ makedocs(
             "Utilities" => "utils.md",
             "Plotting Utilities" => "plots.md",
         ],
-    warnonly = [:cross_references],
+    ], # <--- This bracket closes the 'pages' list!
+    
+    warnonly = [:cross_references], # <--- Now this is a separate argument
 )
 
 deploydocs(;
