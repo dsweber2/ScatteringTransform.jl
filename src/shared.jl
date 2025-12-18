@@ -41,7 +41,7 @@ end
 
 """
     processArgs(m, varargs) -> listVargs
-Go from arguments given to the scattering transform constructor to those for the wavelet or frame transform. `listVargs` is a list of length `m` of one argument from each of vargs, with insufficiently long entries filled in by repeating the last value. For a list of these arguments, see the documentation for [`stFlux`](@ref).
+Go from arguments given to the scattering transform constructor to those for the wavelet or frame transform. `listVargs` is a list of length `m` of one argument from each of vargs, with insufficiently long entries filled in by repeating the last value. For a list of these arguments, see the documentation for `stFlux`.
 
 # Examples
 ```jldoctest

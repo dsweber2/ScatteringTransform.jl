@@ -96,7 +96,15 @@ These plots can also be created using
 From the companion package ScatteringPlots.jl, we have the denser representation:
 
 ```@example ex
-using ScatteringPlots
+using ScatteringPlots, LinearAlgebra
+
+# --- HOTFIX: Monkey-patch ScatteringPlots ---
+# ScatteringPlots relies on 'norm' but forgot to import it.
+# We manually inject 'LinearAlgebra' into the ScatteringPlots module here.
+# Eventually, once ScatteringPlots is corrected (i.e., adding 'using LinearAlgebra' in src/ScatteringPlots.jl), the following line should be removed.
+Core.eval(ScatteringPlots, :(using LinearAlgebra))
+
+# --------------------------------------------
 # Fix: Explicitly use the function from ScatteringPlots to avoid ambiguity
 ScatteringPlots.plotSecondLayer(sf, St)
 savefig("second.png") #hide

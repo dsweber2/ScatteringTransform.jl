@@ -34,7 +34,6 @@ jobs:
         os:
           - ubuntu-latest
           - windows-latest
-          - macos-15-intel # Intel x64
           - macos-latest   # Apple Silicon (ARM64)
         arch:
           - x64
@@ -44,8 +43,6 @@ jobs:
             arch: aarch64
           - os: windows-latest
             arch: aarch64
-          - os: macos-15-intel
-            arch: aarch64 # Intel only
           - os: macos-latest
             arch: x64     # ARM only
 
@@ -71,24 +68,6 @@ jobs:
           Pkg.Registry.add(RegistrySpec(name="General"))
           Pkg.Registry.add(RegistrySpec(url="https://github.com/UCD4IDS/TetrapodsRegistry"))
       # -------------------------------------
-
-      # --- Fix macOS 15 Intel Segfaults (Pip Strategy) ---
-      - name: Fix Conda Binaries (macOS Intel)
-        if: matrix.os == 'macos-15-intel'
-        run: |
-          # 1. Clear any potential bad font cache
-          rm -rf ~/.matplotlib
-          rm -rf ~/.cache/matplotlib
-          
-          # 2. Use Pip to install Matplotlib (more stable on macOS 15 than Conda binaries)
-          julia -e '
-            using Pkg; Pkg.add("Conda"); using Conda
-            # Enable pip inside the Conda environment
-            Conda.pip_interop(true)
-            # Force reinstall matplotlib using pip
-            Conda.pip("install", ["matplotlib", "--upgrade", "--force-reinstall"])
-          '
-      # ---------------------------------------------------
 
       - uses: julia-actions/julia-buildpkg@v1
 
