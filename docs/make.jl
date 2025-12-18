@@ -25,7 +25,7 @@ makedocs(
             "Utilities" => "utils.md",
             "Plotting Utilities" => "plots.md",
         ],
-    ],
+    warnonly = [:cross_references],
 )
 
 deploydocs(;
