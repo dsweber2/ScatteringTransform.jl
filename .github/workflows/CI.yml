@@ -76,7 +76,7 @@ jobs:
       - name: Fix Conda Binaries (macOS Intel)
         if: matrix.os == 'macos-15-intel'
         run: |
-          julia -e 'using Pkg; Pkg.add("Conda"); using Conda; Conda.update()'
+          julia -e 'using Pkg; Pkg.add("Conda"); using Conda; Conda.add("matplotlib", channel="conda-forge"); Conda.add("freetype", channel="conda-forge")'
       # ------------------------------------
 
       - uses: julia-actions/julia-buildpkg@v1
