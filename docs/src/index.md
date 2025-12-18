@@ -4,7 +4,7 @@ A julia implementation of the scattering transform, which provides a prestructur
 In a similar vein to a CNN, it alternates between continuous wavelet transforms, nonlinear function applications, and subsampling.
 This library is end-to-end differentiable and runs on the GPU; there is a companion package, [ParallelScattering.jl](https://github.com/dsweber2/ParallelScattering.jl/) that runs on parallelized CPUs.
 
-This is achieved by creating differentiable wavelet Fourier filters using [FourierFilterFlux](https://dsweber2.github.io/FourierFilterFlux.jl/dev/), which are then interspersed with [Subsampling Operators](@ref) modified from Flux.jl, and pointwise nonlinear functions (in practice, this means absolute value or ReLU).
+This is achieved by creating differentiable wavelet Fourier filters using [FourierFilterFlux](https://dsweber2.github.io/FourierFilterFlux.jl/dev/), which are then interspersed with Subsampling Operators modified from Flux.jl, and pointwise nonlinear functions (in practice, this means absolute value or ReLU).
 
 For a comparable package in python, see [Kymatio](https://www.kymat.io/).
 
@@ -31,7 +31,7 @@ savefig("rawDoppler.svg"); #hide
 ![](rawDoppler.svg)
 
 First we need to make a `scatteringTransform` instance, which will create and store all of the necessary filters, subsampling operators, nonlinear functions, etc.
-The parameters are described in the [scatteringTransform type](@ref).
+The parameters are described in the `scatteringTransform` type.
 Since the Doppler signal is smooth, but with varying frequency, let's set the wavelet family `cw=Morlet(π)` specifies the mother wavelet to be a Morlet wavelet with mean frequency π, and frequency spacing `β=2`:
 
 ```@example ex
@@ -96,8 +96,16 @@ These plots can also be created using
 From the companion package ScatteringPlots.jl, we have the denser representation:
 
 ```@example ex
-using ScatteringPlots
-plotSecondLayer(sf, St)
+using ScatteringPlots, LinearAlgebra
+
+# --- HOTFIX: Monkey-patch ScatteringPlots ---
+# The package ScatteringPlots uses 'norm' but didn't declare LinearAlgebra as a dependency.
+# We manually define 'norm' inside the ScatteringPlots module pointing to the real one.
+Core.eval(ScatteringPlots, :(norm = $(LinearAlgebra.norm)))
+
+# --------------------------------------------
+# Fix: Explicitly use the function from ScatteringPlots to avoid ambiguity
+ScatteringPlots.plotSecondLayer(sf, St)
 savefig("second.png") #hide
 ```
 

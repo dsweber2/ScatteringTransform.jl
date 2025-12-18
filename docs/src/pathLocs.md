@@ -3,10 +3,12 @@
 To make working with paths somewhat easier, in addition to indexing `ScatteringOut` by layer and then raw index, there is the `pathLocs` type:
 
 ```jldoctest ex
-julia> using ScatteringTransform, Wavelets
+julia> using ScatteringTransform, Wavelets, Logging
 
-julia> St = scatteringTransform((1024,1,1),2)
-stFlux{2, Nd=1, filters=[15], σ = abs, batchSize = 1, normalize = true}
+julia> St = with_logger(NullLogger()) do
+           scatteringTransform((1024,1,1),2)
+       end
+stFlux{Nd=1, m=2, filters=[15, 14], σ = abs, batchSize = 1, normalize = true}
 
 julia> s = St(testfunction(1024, "Doppler"))
 ScatteredOut{Array{Float32},3} 1 dim. OutputSizes:
@@ -19,12 +21,11 @@ pathLocs{3}((nothing, nothing, (Colon(), 3, 5, Colon())))
 
 julia> s[p]
 228×1 Matrix{Float32}:
- 0.042854752
- 0.05448776
+ 0.09841786
+ 0.10313512
  ⋮
- 0.0009788324
- 0.0010495521
-
+ 0.00073056365
+ 0.00075656467
 ```
 
 `p` above for example, accesses the second layer path `(3,5)` (`3` being the second layer index and `5` being the first layer index).
@@ -37,12 +38,11 @@ pathLocs{3}((nothing, nothing, (Colon(), Colon(), 3, Colon())))
 julia> s[p1]
 228×14×1 Array{Float32, 3}:
 [:, :, 1] =
- 24.3279     0.0340069   …  0.000116684  0.000142872
- 24.3125     0.0458974      0.000125332  0.00016506
+ 24.4596     0.121606    …  0.000137235  0.000253008
+ 24.442      0.133231       0.000137483  0.000266736
   ⋮                      ⋱
-  0.0150998  0.00992407     2.98423f-5   8.26744f-5
-  0.0152391  0.0105978      2.61331f-5   7.9295f-5
-
+  0.0143983  0.00752869     3.26755f-5   7.5444f-5
+  0.0145095  0.00778378     3.2883f-5    7.69233f-5
 ```
 
 `p1` grabs every path where the first layer index is `3`.
@@ -55,20 +55,20 @@ pathLocs{3}((nothing, (Colon(), 5, Colon()), (Colon(), 1, Colon(), Colon())))
 
 julia> s[p2][1]
 342×1 Matrix{Float32}:
- 0.0057057445
- 0.007921134
+ 0.10331459
+ 0.10902256
  ⋮
- 0.0002874717
- 0.0003108125
+ 0.00016353851
+ 0.00016699042
 
 julia> s[p2][2]
 228×15×1 Array{Float32, 3}:
 [:, :, 1] =
- 0.0327152  8.44757    …  4.08167      3.19014
- 0.038269   8.65702       4.06725      3.17879
+ 0.0620106  9.75739    …  4.02497      3.14531
+ 0.0652926  9.90173       4.0116       3.1348
  ⋮                     ⋱
- 0.589429   0.0203722     0.000652602  0.000523428
- 0.590318   0.02058       0.000660961  0.000529933
+ 0.589259   0.0193751     0.000606986  0.000488191
+ 0.590126   0.0195244     0.000613764  0.000493479
 
 julia> p3 = pathLocs(1, s)
 pathLocs{3}([(); (); … ; (); ();;;])

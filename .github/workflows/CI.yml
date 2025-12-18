@@ -1,66 +1,80 @@
 name: CI
+
 on:
   push:
     branches:
       - master
+      - main
     tags: ['*']
   pull_request:
-  workflow_dispatch:
 
 concurrency:
-  # Skip intermediate builds: always.
-  # Cancel intermediate builds: only if it is a pull request build.
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
+  cancel-in-progress: ${{ startswith(github.ref, 'refs/pull/') }}
+
+env:
+  JULIA_PKG_SERVER: ""
+  # Fix for Windows: Forces GR/Plots to be headless
+  GKSwstype: "100"
+  # Fix for macOS: Forces Matplotlib to use non-interactive backend
+  MPLBACKEND: "Agg"
+  # Force Julia to use Conda.jl
+  PYTHON: ""
 
 jobs:
   test:
-    name: Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ matrix.arch }}
+    name: Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ matrix.arch }} - ${{ github.event_name }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         version:
-          - '1.10'
-          - '1' # Automatically uses the latest stable version
+          - '1.10' # LTS
+          - '1'    # Latest Stable
         os:
           - ubuntu-latest
           - windows-latest
-          - macos-13      # Intel Mac (x64)
-          - macos-latest  # Apple Silicon Mac (ARM64)
+          - macos-latest   # Apple Silicon (ARM64)
         arch:
           - x64
           - aarch64
         exclude:
-          # Windows only supports x64 on GitHub Actions
-          - os: windows-latest
-            arch: aarch64
-          # Ubuntu standard runners are x64 only
           - os: ubuntu-latest
             arch: aarch64
-          # macos-13 is Intel only
-          - os: macos-13
+          - os: windows-latest
             arch: aarch64
-          # macos-latest (Apple Silicon) is ARM only
           - os: macos-latest
-            arch: x64
+            arch: x64     # ARM only
 
     steps:
       - uses: actions/checkout@v4
-      
+
       - uses: julia-actions/setup-julia@v2
         with:
           version: ${{ matrix.version }}
           arch: ${{ matrix.arch }}
-          
+
       - uses: julia-actions/cache@v2
-      
+
+      # --- Custom Registry Configuration ---
+      - name: Configure Git to use HTTPS
+        run: |
+          git config --global url."https://github.com/".insteadOf "git@github.com:"
+
+      - name: Add Registries
+        shell: julia --project={0} {0}
+        run: |
+          using Pkg
+          Pkg.Registry.add(RegistrySpec(name="General"))
+          Pkg.Registry.add(RegistrySpec(url="https://github.com/UCD4IDS/TetrapodsRegistry"))
+      # -------------------------------------
+
       - uses: julia-actions/julia-buildpkg@v1
-      
+
       - uses: julia-actions/julia-runtest@v1
-      
+
       - uses: julia-actions/julia-processcoverage@v1
-      
+
       - uses: codecov/codecov-action@v5
         with:
           files: lcov.info

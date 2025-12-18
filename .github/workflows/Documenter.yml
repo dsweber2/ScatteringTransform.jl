@@ -1,31 +1,57 @@
 name: Documenter
+
 on:
   push:
     branches:
       - master
+      - main
     tags: ['*']
   pull_request:
-  workflow_dispatch:
-concurrency:
-  # Skip intermediate builds: always.
-  # Cancel intermediate builds: only if it is a pull request build.
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
+
 jobs:
   build:
+    name: Documentation
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      statuses: write
+    # --- CRITICAL FIX: Set PYTHON globally ---
+    # This forces PyCall to use its own Conda environment
+    # instead of /usr/bin/python3 (which lacks matplotlib).
+    env:
+      PYTHON: ""
+    # -----------------------------------------
     steps:
       - uses: actions/checkout@v4
+
       - uses: julia-actions/setup-julia@v2
         with:
-          version: '1.10'
+          version: '1'
+
       - uses: julia-actions/cache@v2
-      
-      # Install dependencies and build the package
+
+      - name: Configure Git to use HTTPS
+        run: |
+          git config --global url."https://github.com/".insteadOf "git@github.com:"
+
+      - name: Add Registries
+        shell: julia --project={0} {0}
+        run: |
+          using Pkg
+          Pkg.Registry.add(RegistrySpec(name="General"))
+          Pkg.Registry.add(RegistrySpec(url="https://github.com/UCD4IDS/TetrapodsRegistry"))
+
+      - name: Install documentation dependencies
+        shell: julia --project=docs {0}
+        run: |
+          using Pkg
+          Pkg.develop(PackageSpec(path=pwd()))
+          Pkg.instantiate()
+
       - uses: julia-actions/julia-buildpkg@v1
-      
-      # Build and deploy the documentation
+
       - uses: julia-actions/julia-docdeploy@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }}
+          GKSwstype: "100"
+          MPLBACKEND: "Agg"
