@@ -2,7 +2,7 @@ ENV["PLOTS_TEST"] = "true"
 ENV["GKSwstype"] = "100"
 ENV["LINES"] = "9"
 ENV["COLUMNS"] = "60"
-using Documenter, ScatteringTransform
+using Documenter, ScatteringTransform, ScatteringPlots
 
 makedocs(
     sitename = "ScatteringTransform.jl",

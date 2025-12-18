@@ -97,7 +97,8 @@ From the companion package ScatteringPlots.jl, we have the denser representation
 
 ```@example ex
 using ScatteringPlots
-plotSecondLayer(sf, St)
+# Fix: Explicitly use the function from ScatteringPlots to avoid ambiguity
+ScatteringPlots.plotSecondLayer(sf, St)
 savefig("second.png") #hide
 ```
 

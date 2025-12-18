@@ -72,12 +72,23 @@ jobs:
           Pkg.Registry.add(RegistrySpec(url="https://github.com/UCD4IDS/TetrapodsRegistry"))
       # -------------------------------------
 
-      # --- Fix macOS 15 Intel Segfaults ---
+      # --- Fix macOS 15 Intel Segfaults (Pip Strategy) ---
       - name: Fix Conda Binaries (macOS Intel)
         if: matrix.os == 'macos-15-intel'
         run: |
-          julia -e 'using Pkg; Pkg.add("Conda"); using Conda; Conda.add("matplotlib", channel="conda-forge"); Conda.add("freetype", channel="conda-forge")'
-      # ------------------------------------
+          # 1. Clear any potential bad font cache
+          rm -rf ~/.matplotlib
+          rm -rf ~/.cache/matplotlib
+          
+          # 2. Use Pip to install Matplotlib (more stable on macOS 15 than Conda binaries)
+          julia -e '
+            using Pkg; Pkg.add("Conda"); using Conda
+            # Enable pip inside the Conda environment
+            Conda.pip_interop(true)
+            # Force reinstall matplotlib using pip
+            Conda.pip("install", ["matplotlib", "--upgrade", "--force-reinstall"])
+          '
+      # ---------------------------------------------------
 
       - uses: julia-actions/julia-buildpkg@v1
 
