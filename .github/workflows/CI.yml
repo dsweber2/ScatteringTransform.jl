@@ -14,11 +14,11 @@ concurrency:
 
 env:
   JULIA_PKG_SERVER: ""
-  # Fix for Windows: Forces GR/Plots to be headless, bypassing Qt6Concurrent.dll crash
+  # Fix for Windows: Forces GR/Plots to be headless
   GKSwstype: "100"
-  # Fix for macOS: Forces Matplotlib to use non-interactive backend, preventing Segfaults
+  # Fix for macOS: Forces Matplotlib to use non-interactive backend
   MPLBACKEND: "Agg"
-  # Force Julia to use Conda.jl instead of system Python (helps with binary consistency)
+  # Force Julia to use Conda.jl
   PYTHON: ""
 
 jobs:
@@ -34,8 +34,8 @@ jobs:
         os:
           - ubuntu-latest
           - windows-latest
-          - macos-13     # Stable Intel x64 Runner (Fixes Segfaults)
-          - macos-latest # Apple Silicon (ARM64)
+          - macos-15-intel # Intel x64
+          - macos-latest   # Apple Silicon (ARM64)
         arch:
           - x64
           - aarch64
@@ -44,10 +44,10 @@ jobs:
             arch: aarch64
           - os: windows-latest
             arch: aarch64
-          - os: macos-13
-            arch: aarch64 # macos-13 is Intel only
+          - os: macos-15-intel
+            arch: aarch64 # Intel only
           - os: macos-latest
-            arch: x64     # macos-latest is ARM only
+            arch: x64     # ARM only
 
     steps:
       - uses: actions/checkout@v4
@@ -71,6 +71,13 @@ jobs:
           Pkg.Registry.add(RegistrySpec(name="General"))
           Pkg.Registry.add(RegistrySpec(url="https://github.com/UCD4IDS/TetrapodsRegistry"))
       # -------------------------------------
+
+      # --- Fix macOS 15 Intel Segfaults ---
+      - name: Fix Conda Binaries (macOS Intel)
+        if: matrix.os == 'macos-15-intel'
+        run: |
+          julia -e 'using Pkg; Pkg.add("Conda"); using Conda; Conda.update()'
+      # ------------------------------------
 
       - uses: julia-actions/julia-buildpkg@v1
 
